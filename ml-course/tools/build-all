@@ -1,0 +1,13 @@
+#!/bin/sh
+# Build every deck/note/exercise; needs the beamer-ntua clone as a sibling (or NTUA_BEAMER_HOME).
+cd "$(dirname "$0")/.." || exit 1
+rc=0
+for t in presentations/*/main.tex notes/*/main.tex exercises/*/main.tex; do
+  [ -f "$t" ] || continue
+  d=$(dirname "$t")
+  # `-pdf` would override a deck's own engine (e.g. lualatex); engine is set in each .latexmkrc
+  if grep -q 'pdf_mode' "$d/.latexmkrc" 2>/dev/null; then flag=; else flag=-pdf; fi
+  (cd "$d" && latexmk $flag -interaction=nonstopmode -halt-on-error main.tex >/dev/null 2>&1) \
+    && echo "ok   $d" || { echo "FAIL $d"; rc=1; }
+done
+exit $rc
