@@ -1,0 +1,17 @@
+# Single registry: one owner per topic; others only cross-reference.
+[topics.sampling-mc-mcmc]    # acceptance-rejection, importance sampling/ESS, MCMC, Metropolis-Hastings
+owner = "presentations/sampling"
+mentioned_in = ["notes/bayesian-inference-mh"]
+todo = "trim Bayes intro frames to a recap + cite the note"
+
+[topics.bayesian-inference]  # Bayes rule, likelihood from forward model, analytic posteriors, MH verification
+owner = "notes/bayesian-inference-mh"
+mentioned_in = ["presentations/sampling"]
+todo = "replace the MH derivation with a pointer to presentations/sampling"
+
+[topics.bayesian-model-selection]
+owner = "notes/model-selection"  # candidate to fold into the Bayes note as a section
+
+[topics.not-yet-written]     # covered only by the archived lecture notes (_archive/stochastic-methods)
+owner = "none"
+topics = ["probability", "stochastic-processes", "KL/spectral/PCE", "SSFEM", "reliability", "sensitivity"]

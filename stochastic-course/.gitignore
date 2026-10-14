@@ -1,0 +1,19 @@
+.build/
+*.aux
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bak
+*.gif
+*.pdf.bak
+__pycache__/
+.claude/
+.codex
+# built decks are published, not tracked; figures used by slides live under assets/
+presentations/*/main.pdf
+notes/*/main.pdf

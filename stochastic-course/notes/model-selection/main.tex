@@ -1,0 +1,56 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[utf8]{inputenc}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+\begin{document}
+	
+	\section*{Simple Model Comparison Example}
+	
+	\subsection*{Data}
+	Five coin tosses resulted in 4 heads and 1 tail.
+	
+	\subsection*{Models}
+	\begin{itemize}
+		\item \(M_1\): The coin’s probability of heads is \(p = 0.5\).
+		\item \(M_2\): The coin’s probability of heads is \(p = 0.8\).
+	\end{itemize}
+	
+	Assume equal prior probabilities:
+	\[
+	P(M_1) = P(M_2) = 0.5.
+	\]
+	
+	\subsection*{Likelihoods}
+	\[
+	P(\text{4 heads,1 tail} \mid M_1)
+	= \binom{5}{4}\,(0.5)^4\,(0.5)^1
+	= 5 \times 0.5^5 = 0.15625.
+	\]
+	\[
+	P(\text{4 heads,1 tail} \mid M_2)
+	= \binom{5}{4}\,(0.8)^4\,(0.2)^1
+	= 5 \times 0.8^4 \times 0.2 = 0.4096.
+	\]
+	
+	\subsection*{Posterior Model Probabilities}
+	\[
+	P(M_1 \mid D)
+	= \frac{0.15625 \times 0.5}
+	{0.15625 \times 0.5 + 0.4096 \times 0.5}
+	\approx 0.276.
+	\]
+	\[
+	P(M_2 \mid D)
+	= \frac{0.4096 \times 0.5}
+	{0.15625 \times 0.5 + 0.4096 \times 0.5}
+	\approx 0.724.
+	\]
+	
+	\subsection*{Interpretation}
+	Given the data and equal prior model probabilities, model \(M_2\) (with \(p = 0.8\)) is about 72.4\% likely, whereas model \(M_1\) (with \(p = 0.5\)) is about 27.6\% likely.  
+	Thus we conclude: *“It is more plausible that the coin has \(p=0.8\) rather than \(p=0.5\) under our assumptions and the observed data.”*
+	
+\end{document}
