@@ -1,5 +1,7 @@
 #!/bin/sh
-# Build every deck/note/exercise; needs the beamer-ntua clone as a sibling (or NTUA_BEAMER_HOME).
+# Build every deck/note/exercise. Template decks need the ntuabeamer class installed
+# (see github:constatza/beamer-ntua, scripts/install-class.sh).
+kpsewhich ntuabeamer.cls >/dev/null || echo "warning: ntuabeamer.cls not installed; template decks will fail" >&2
 cd "$(dirname "$0")/.." || exit 1
 rc=0
 for t in presentations/*/main.tex notes/*/main.tex exercises/*/main.tex; do
