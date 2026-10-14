@@ -1,0 +1,389 @@
+\documentclass[10pt,aspectratio=169]{ntuabeamer}
+
+\graphicspath{{assets/}}
+
+\framesource{distill2021}{Sanchez-Lengeling, Reif, Pearce, Wiltschko. \emph{A Gentle Introduction to Graph Neural Networks}. Distill, 2021.}
+\framesource{kipf2017}{Kipf, Welling. \emph{Semi-Supervised Classification with Graph Convolutional Networks}. ICLR, 2017.}
+\framesource{hamilton2017}{Hamilton, Ying, Leskovec. \emph{Inductive Representation Learning on Large Graphs}. NeurIPS, 2017.}
+\framesource{velickovic2018}{Velickovic et al. \emph{Graph Attention Networks}. ICLR, 2018.}
+
+\title{Graph Neural Networks}
+\subtitle{A concise introduction to graph representation learning and message passing}
+\author{NTUA School of Civil Engineering}
+\date{\today}
+
+\begin{document}
+
+\begin{frame}[plain]
+  \makepresentationtitle
+\end{frame}
+
+\sectiondivider{Notation and Tasks}
+
+% TODO: Add a toy graph diagram with 5--6 nodes, node features, and a highlighted neighborhood.
+\begin{frame}{Notation}
+  \small
+  \begin{itemize}
+    \item Graph: \(G = (V, E)\), with \(N = |V|\) nodes
+    \item Node features: \(\bd{X} \in \mathbb{R}^{N \times F}\), and \(\bd{H}^{(0)} = \bd{X}\)
+    \item Node state vs matrix state: \(\bd{h}_{v}^{(k)}\) is one node, \(\bd{H}^{(k)}\) stacks all nodes
+    \item Adjacency: \(A \in \mathbb{R}^{N \times N}\)
+    \item Self-loops: \(\hat{A} = A + I\) when a layer keeps each node's own state
+    \item Degree: \(\hat{d}_v = \sum_{u=1}^{N} \hat{A}_{vu}\), \(\hat{D} = \operatorname{diag}(\hat{d}_1, \dots, \hat{d}_N)\)
+    \item Neighborhood: \(\hat{\mathcal N}(v) = \{u : \hat{A}_{vu} \neq 0\}\)
+    \item Edge values: \(\hat{A}_{vu} \in \{0, 1\}\) or \(\hat{A}_{vu} \in \mathbb{R}\)
+  \end{itemize}
+\end{frame}
+
+% TODO: Add a three-panel visual showing node-level, edge-level, and graph-level prediction examples.
+\begin{frame}{Tasks}
+  \textcolor{ntuablue}{Node-level}
+  \begin{itemize}
+    \item Citation node classification
+    \item Community or role prediction
+  \end{itemize}
+
+  \textcolor{ntuablue}{Edge-level}
+  \begin{itemize}
+    \item Link prediction
+    \item Relation prediction
+  \end{itemize}
+
+  \textcolor{ntuablue}{Graph-level}
+  \begin{itemize}
+    \item Molecular property prediction
+    \item Whole-graph regression
+  \end{itemize}
+\end{frame}
+
+\sectiondivider{Message Passing}
+
+% TODO: Add a pipeline diagram: encoder -> L message-passing layers -> task-specific decoder.
+\begin{frame}{Common GNN Architecture}
+  \small
+  \begin{itemize}
+    \item Encode raw inputs into hidden states
+    \[
+      \bd{H}^{(0)} = \operatorname{ENC}_{V}(\bd{X}),
+      \qquad
+      \bd{E}^{(0)} = \operatorname{ENC}_{E}\!\left(\bd{E}_{\mathrm{raw}}\right)
+    \]
+    \item Apply \(L\) message-passing layers
+    \[
+      \bd{H}^{(k+1)} = f^{(k)}\!\left(\bd{H}^{(k)}, \hat{A}\right),
+      \qquad k = 0, \dots, L-1
+    \]
+    \item Decode final embeddings for the target level
+    \[
+      \hat{y}_{v} = \operatorname{DEC}_{\mathrm{node}}\!\left(\bd{h}_{v}^{(L)}\right),
+      \qquad
+      \hat{y}_{uv} =
+      \operatorname{DEC}_{\mathrm{edge}}\!\left(\bd{h}_{u}^{(L)}, \bd{h}_{v}^{(L)}\right)
+    \]
+    \[
+      \bd{h}_{G} = \operatorname{READOUT}\!\left(\{\bd{h}_{v}^{(L)} : v \in V\}\right),
+      \qquad
+      \hat{y}_{G} = \operatorname{DEC}_{\mathrm{graph}}\!\left(\bd{h}_{G}\right)
+    \]
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Message-Passing Template}
+  \textcolor{ntuablue}{Node-wise view}
+  \[
+    \bd{h}_{v}^{(k+1)} =
+    \sigma\!\left(
+      \operatorname{AGG}_{v}^{(k)}\!\left(\{\bd{h}_{u}^{(k)} : u \in \hat{\mathcal N}(v)\}\right)
+      \bd{W}^{(k)}
+    \right)
+  \]
+
+  \textcolor{ntuablue}{Or in matrix notation}
+  \[
+    \bd{H}^{(k+1)} =
+    \sigma\!\left(P^{(k)} \bd{H}^{(k)} \bd{W}^{(k)}\right)
+  \]
+
+  \begin{itemize}
+    \item Same message-passing layer, two views
+    \item Node-wise: update one node \(v\)
+    \item Matrix notation: update all nodes together
+    \item \(P^{(k)}\): message-passing or aggregation operator
+    \item \(\bd{W}^{(k)}\): learnable linear map
+    \item GNN variants differ mainly in how they define the aggregation weights
+  \end{itemize}
+\end{frame}
+
+\sectiondivider{Message-Passing Variants}
+
+\begin{frame}{Message-Passing Variants}
+  \begin{itemize}
+    \item All variants update node states by aggregating neighbor information
+    \item They differ in how the aggregation weights are defined
+    \item Node-wise and matrix notation describe the same layer
+  \end{itemize}
+
+  \[
+    \bd{H}^{(k+1)} =
+    \sigma\!\left(P^{(k)} \bd{H}^{(k)} \bd{W}^{(k)}\right)
+  \]
+\end{frame}
+
+% TODO: Add a small neighborhood-averaging sketch with normalized incoming edge weights.
+\begin{frame}{Message-Passing Variants: Weighted Averaging}
+  \begin{itemize}
+    \item Fixed row-normalized weights
+  \end{itemize}
+  \[
+    P = \hat{D}^{-1}\hat{A}
+  \]
+
+  \textcolor{ntuablue}{Node-wise update}
+  \[
+    \bd{h}_{v}^{(k+1)} =
+    \sigma\!\left(
+      \sum_{u \in \hat{\mathcal N}(v)}
+      \frac{\hat{A}_{vu}}{\hat{d}_{v}} \,
+      \bd{h}_{u}^{(k)} \bd{W}^{(k)}
+    \right)
+  \]
+
+  \textcolor{ntuablue}{Or in matrix notation}
+  \[
+    \bd{H}^{(k+1)} =
+    \sigma\!\left(
+      \hat{D}^{-1}\hat{A}\,\bd{H}^{(k)} \bd{W}^{(k)}
+    \right)
+  \]
+
+  \begin{itemize}
+    \item \(\hat{A}_{vu} / \hat{d}_v\): weight assigned to neighbor \(u\)
+    \item Works for binary or weighted edges
+  \end{itemize}
+\end{frame}
+
+% TODO: Add a comparison visual between row-normalized propagation and symmetric normalization.
+\begin{frame}{Message-Passing Variants: GCN\framecite{kipf2017}}
+  \begin{itemize}
+    \item Symmetric normalization
+  \end{itemize}
+  \[
+    P = \hat{D}^{-1/2}\hat{A}\hat{D}^{-1/2}
+  \]
+
+  \textcolor{ntuablue}{Node-wise update}
+  \[
+    \bd{h}_{v}^{(k+1)} =
+    \sigma\!\left(
+      \sum_{u \in \hat{\mathcal N}(v)}
+      \frac{\hat{A}_{vu}}{\sqrt{\hat{d}_{v}\hat{d}_{u}}} \,
+      \bd{h}_{u}^{(k)} \bd{W}^{(k)}
+    \right)
+  \]
+
+  \textcolor{ntuablue}{Or in matrix notation}
+  \[
+    \bd{H}^{(k+1)} =
+    \sigma\!\left(
+      \hat{D}^{-1/2}\hat{A}\hat{D}^{-1/2}\bd{H}^{(k)} \bd{W}^{(k)}
+    \right)
+  \]
+
+  \begin{itemize}
+    \item Degree correction appears on both source and target nodes
+    \item Symmetric normalization is the classic GCN choice\framecite{kipf2017}
+  \end{itemize}
+\end{frame}
+
+% TODO: Add a block diagram showing separate self-representation and neighborhood summary before concatenation.
+\begin{frame}{Message-Passing Variants: GraphSAGE\framecite{hamilton2017}}
+  \small
+  \[
+    d_{v} = \sum_{u=1}^{N} A_{vu}, \qquad
+    D = \operatorname{diag}(d_{1}, \dots, d_{N})
+  \]
+
+  \begin{itemize}
+    \item Explicit self and neighbor concatenation
+  \end{itemize}
+  \[
+    \bd{m}_{v}^{(k)} =
+    \sum_{u \in \mathcal N(v)}
+    \frac{A_{vu}}{d_{v}} \,
+    \bd{h}_{u}^{(k)}
+  \]
+
+  \textcolor{ntuablue}{Or in matrix notation}
+  \[
+    \bd{M}^{(k)} = D^{-1}A\bd{H}^{(k)}
+  \]
+
+  \textcolor{ntuablue}{Node-wise update}
+  \[
+    \bd{h}_{v}^{(k+1)} =
+    \sigma\!\left(
+      \left[
+        \bd{h}_{v}^{(k)} \,;\,
+        \bd{m}_{v}^{(k)}
+      \right]
+      \bd{W}^{(k)}
+    \right)
+  \]
+
+  \textcolor{ntuablue}{Or in matrix notation}
+  \[
+    \bd{H}^{(k+1)} =
+    \sigma\!\left(
+      \left[
+        \bd{H}^{(k)} \;\;
+        \bd{M}^{(k)}
+      \right]
+      \bd{W}^{(k)}
+    \right)
+  \]
+
+  \begin{itemize}
+    \item \(\bd{m}_{v}^{(k)}\): average of neighbor embeddings
+    \item Concatenate self state and neighbor summary before the learned update
+\end{itemize}
+\end{frame}
+
+% TODO: Add an attention-weighted neighborhood plot or a heatmap of edge attention coefficients.
+\begin{frame}{Message-Passing Variants: GAT Weights\framecite{velickovic2018}}
+  \small
+  \begin{itemize}
+    \item Learned attention weights
+  \end{itemize}
+  \[
+    \bd{Z}^{(k)} = \bd{H}^{(k)} \bd{W}^{(k)}, \qquad
+    \bd{z}_{v}^{(k)} = \bd{h}_{v}^{(k)} \bd{W}^{(k)}
+  \]
+
+  \vspace{-0.18cm}
+  \[
+    e_{vu}^{(k)} =
+    \operatorname{LeakyReLU}\!\left(
+      \bd{a}^{\top}
+      \begin{bmatrix}
+        \bd{z}_{v}^{(k)} \\
+        \bd{z}_{u}^{(k)}
+      \end{bmatrix}
+    \right)
+  \]
+
+  \vspace{-0.18cm}
+  \[
+    \alpha_{vu}^{(k)} =
+    \frac{\exp\!\left(e_{vu}^{(k)}\right)}
+    {\sum_{j \in \hat{\mathcal N}(v)} \exp\!\left(e_{vj}^{(k)}\right)}
+  \]
+
+  \begin{itemize}
+    \item \(e_{vu}^{(k)}\): raw score for neighbor \(u\)
+    \item \(\alpha_{vu}^{(k)}\): normalized attention weight around node \(v\)
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Message-Passing Variants: GAT Update\framecite{velickovic2018}}
+  \small
+  \begin{itemize}
+    \item Learned attention weights in the update
+  \end{itemize}
+
+  \textcolor{ntuablue}{Node-wise update}
+  \[
+    \bd{h}_{v}^{(k+1)} =
+    \sigma\!\left(
+      \sum_{u \in \hat{\mathcal N}(v)}
+      \alpha_{vu}^{(k)} \bd{z}_{u}^{(k)}
+    \right)
+  \]
+
+  \textcolor{ntuablue}{Or in matrix notation}
+  \[
+    \bd{H}^{(k+1)} = \sigma\!\left(\Att^{(k)} \bd{Z}^{(k)}\right),
+    \qquad
+    {\left(\Att^{(k)}\right)}_{vu} = \alpha_{vu}^{(k)}
+  \]
+
+  \begin{itemize}
+    \item \(\Att^{(k)}\): matrix of attention coefficients
+    \item Unlike GCN, the weights are learned from the node features
+  \end{itemize}
+\end{frame}
+
+\sectiondivider{Prediction Levels}
+
+% TODO: Add a visual that contrasts node outputs, edge scores, and graph readout in the same graph.
+\begin{frame}{Prediction Levels: Node and Edge}
+  \small
+  \textcolor{ntuablue}{Node-level}
+  \begin{itemize}
+    \item Use the final embedding of one node
+  \end{itemize}
+  \[
+    \hat{y}_{v} = g\!\left(\bd{h}_{v}^{(L)}\right)
+  \]
+
+  \textcolor{ntuablue}{Edge-level}
+  \begin{itemize}
+    \item Combine the two endpoint embeddings
+  \end{itemize}
+  \[
+    \hat{y}_{uv} = g\!\left(\bd{h}_{u}^{(L)}, \bd{h}_{v}^{(L)}\right)
+  \]
+\end{frame}
+
+\begin{frame}{Prediction Levels: Graph-Level}
+  \small
+  \begin{itemize}
+    \item Pool node embeddings into one graph representation
+  \end{itemize}
+  \[
+    \bd{h}_{G} =
+    \operatorname{READOUT}\!\left(\{\bd{h}_{v}^{(L)} : v \in V\}\right)
+  \]
+
+  \begin{itemize}
+    \item Common choices
+  \end{itemize}
+  \[
+    \bd{h}_{G} =
+    \sum_{v \in V} \bd{h}_{v}^{(L)}
+    \qquad \text{or} \qquad
+    \bd{h}_{G} =
+    \frac{1}{N}\sum_{v \in V} \bd{h}_{v}^{(L)}
+  \]
+
+  \begin{itemize}
+    \item Then apply a graph-level decoder: \(\hat{y}_{G} = g(\bd{h}_{G})\)
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Summary}
+  \[
+    \bd{H}^{(k+1)} =
+    \sigma\!\left(P^{(k)} \bd{H}^{(k)} \bd{W}^{(k)}\right)
+  \]
+
+  \begin{itemize}
+    \item Weighted averaging: \(P = \hat{D}^{-1}\hat{A}\)
+    \item GCN: \(P = \hat{D}^{-1/2}\hat{A}\hat{D}^{-1/2}\)
+    \item GraphSAGE: combine self state with an explicit neighbor summary
+    \item GAT: replace fixed weights with learned attention coefficients
+    \item Same message-passing template, different weighting rule
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Reference}
+  \small
+  Sanchez-Lengeling, Reif, Pearce, Wiltschko.
+
+  \vspace{0.15cm}
+  \emph{A Gentle Introduction to Graph Neural Networks}. Distill, 2021.
+
+  \vspace{0.2cm}
+  \href{https://distill.pub/2021/understanding-gnns/}{https://distill.pub/2021/understanding-gnns/}
+\end{frame}
+
+\end{document}
