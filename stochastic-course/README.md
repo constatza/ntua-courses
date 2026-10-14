@@ -1,6 +1,17 @@
 # stochastic-methods
 Decks live in `presentations/<slug>/main.tex` (LaTeX + `assets/` + optional `src/` Python generators run with `uv run`),
-exercises in `exercises/`. Topic ownership: `TOPICS.toml`. Build everything: `tools/build-all`.
-Template decks need the `ntuabeamer` class installed (github:constatza/beamer-ntua, `scripts/install-class.sh`).
-Books, slides, datasets and assignments live outside git in `../_archive`.
-`sampling` still uses its original metropolis theme (needs lualatex) (not yet ported to `ntuabeamer`).
+notes in `notes/`. Topic ownership: `TOPICS.toml`.
+`sampling` still uses its original metropolis theme (needs lualatex).
+Books, lecture notes, assignments and grading material are not in this repo.
+
+## Setup (this repo only)
+Requires TeX Live with `latexmk`, `lualatex` and the Libertinus fonts (sampling deck), and [`uv`](https://docs.astral.sh/uv/) for the Python demos.
+No deck here uses `ntuabeamer` yet, so installing the class is optional; when one does:
+
+```sh
+git clone <this-repo> && cd stochastic-methods
+curl -fsSL https://raw.githubusercontent.com/constatza/beamer-ntua/main/scripts/install-class.sh | sh   # once; writes to TEXMFHOME
+tools/build-all                  # or: cd presentations/<deck> && latexmk main.tex
+```
+
+To pin a template version, set `NTUA_BEAMER_REF=<tag>` for the install script. Each deck builds into its own `.build/`.
