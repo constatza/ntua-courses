@@ -1,0 +1,9 @@
+[submodule "machine-learning"]
+	path = machine-learning
+	url = ./machine-learning
+[submodule "stochastic-methods"]
+	path = stochastic-methods
+	url = ./stochastic-methods
+[submodule "beamer-ntua"]
+	path = beamer-ntua
+	url = github:constatza/beamer-ntua
