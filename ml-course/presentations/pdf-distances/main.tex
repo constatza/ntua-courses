@@ -1,0 +1,346 @@
+\documentclass[aspectratio=169, 10pt]{beamer}
+
+% --- Packages ---
+\usepackage{amsmath, amssymb, amsthm, mathtools}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{xcolor}
+\usepackage{tikz}
+
+% --- Theme Setup ---
+% Using Madrid for a professional, clean look suitable for engineering presentations
+\usetheme{Madrid}
+\usecolortheme{beaver} % Professional Red/Grey scheme
+\usefonttheme{professionalfonts}
+
+% --- Custom Macros for Rigor ---
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\prob}{P}
+\newcommand{\K}{\mathcal{K}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\infimum}{inf}
+
+% --- Title Info ---
+\title[Stochastic Methods]{Measures of Discrepancy for Distributions}
+\institute{School of Civil Engineering \\ NTUA}
+
+
+\graphicspath{{assets/}}
+\begin{document}
+	
+	% --- Title Slide ---
+	\begin{frame}
+		\titlepage
+	\end{frame}
+	
+	% --- TOC ---
+	\begin{frame}{Agenda}
+		\tableofcontents
+	\end{frame}
+	
+	% ==============================================================================
+	% SECTION 1: KERNEL DENSITY ESTIMATION
+	% ==============================================================================
+	\section{Non-Parametric Estimation (KDE)}
+	
+	\begin{frame}{1. Problem Formulation: Estimating the Manifold}
+		\begin{columns}
+			\column{0.5\textwidth}
+			Let $X_1, X_2, \dots, X_n$ be i.i.d. samples drawn from an unknown PDF $f$ on $\R^d$.
+			\vspace{1em}
+			\textbf{Why Non-Parametric?}
+			\begin{itemize}
+				\item Production data is rarely purely Gaussian.
+				\item We must capture multimodality, skewness, and fat tails to detect subtle anomalies.
+			\end{itemize}
+			
+			\vspace{1em}
+			\begin{block}{The Parzen-Rosenblatt Estimator}
+				$$ \hat{f}_h(x) = \frac{1}{nh^d} \sum_{i=1}^n K\left( \frac{x - X_i}{h} \right) $$
+			\end{block}
+			
+			\column{0.5\textwidth}
+			\textbf{Key Components:}
+			\begin{enumerate}
+				\item \textbf{Kernel $K$:} A symmetric weighting function.
+				\item \textbf{Bandwidth $h$:} The smoothing parameter.
+			\end{enumerate}
+			
+			\vspace{1em}
+			\textit{Goal:} Reconstruct $f$ without assuming a parametric form (like Normal or Poisson).
+		\end{columns}
+	\end{frame}
+	
+	% --- NEW SLIDE 1: KERNEL CONSTRAINTS ---
+	\begin{frame}{Kernel Properties \& Constraints}
+		Not any function can serve as a Kernel. To ensure $\hat{f}_h(x)$ is a valid probability density and the estimator is consistent, $K(u)$ must satisfy specific constraints [Hansen, 2009]:
+		
+		\begin{block}{Mathematical Constraints}
+			\begin{enumerate}
+				\item \textbf{Normalization:} $\int_{-\infty}^{\infty} K(u) du = 1$ (Ensures $\hat{f}$ integrates to 1).
+				\item \textbf{Symmetry:} $\int_{-\infty}^{\infty} u K(u) du = 0$ (Ensures unbiasedness for uniform $f$).
+				\item \textbf{Non-Negativity:} $K(u) \ge 0$ (Ensures $\hat{f}(x) \ge 0$).
+				\item \textbf{Finite Variance:} $\mu_2(K) = \int u^2 K(u) du < \infty$.
+			\end{enumerate}
+		\end{block}
+		
+		\vspace{0.5em}
+		\textbf{Kernel Order:}
+		Most standard kernels (Gaussian, Epanechnikov) are \textbf{Second Order} ($\mu_2(K) > 0$). Higher-order kernels (where $\mu_2=0, \mu_3=0 \dots$) reduce bias but can produce negative density estimates, violating valid probability axioms.
+	\end{frame}
+	
+	\begin{frame}{Common Kernels for KDE}
+	
+		
+		\vspace{0.5em}
+		
+		\textbf{Standard Kernels (defined on $u$):}
+		\begin{table}[]
+			\centering
+			\renewcommand{\arraystretch}{1.5}
+			\begin{tabular}{l l l}
+				\toprule
+				\textbf{Kernel Name} & \textbf{Function} $K(u)$ & \textbf{Support} \\
+				\midrule
+				Gaussian & $\displaystyle \frac{1}{\sqrt{2\pi}} \exp\left(-\frac{1}{2}u^2\right)$ & $u \in \mathbb{R}$ \\
+				Epanechnikov$^*$ & $\displaystyle \frac{3}{4}(1 - u^2)$ & $|u| \le 1$ \\
+				Uniform & $\displaystyle \frac{1}{2}$ & $|u| \le 1$ \\
+				Triangular & $\displaystyle (1 - |u|)$ & $|u| \le 1$ \\
+				\bottomrule
+			\end{tabular}
+		\end{table}
+		
+		\footnotesize{$^*$The Epanechnikov kernel minimizes the Asymptotic Mean Integrated Squared Error (AMISE).}
+	\end{frame}
+	
+	\begin{frame}{Visualizing the Estimator: Sum of Kernels}
+		\textit{How do discrete points become a continuous probability density function?}
+		
+		\begin{figure}
+			\centering
+			\includegraphics[width=0.75\textwidth]{kde_anatomy.png}
+			\caption{Anatomy of a KDE. Each observation $x_i$ contributes a local kernel $K$ (dashed lines). The final density $\hat{f}$ (solid line) is the normalized sum of these kernels.}
+		\end{figure}
+	\end{frame}
+	
+	\begin{frame}{The Bandwidth Dilemma: Bias vs. Variance}
+		\textit{The choice of $h$ is far more critical than the choice of Kernel $K$.}
+		
+		\begin{figure}
+			\centering
+			\includegraphics[width=0.65\textwidth]{kde_bandwidths.png}
+			\caption{Impact of hyperparameter $h$. Low $h$ overfits (high variance, "spiky"); high $h$ underfits (high bias, "oversmoothed").}
+		\end{figure}
+	\end{frame}
+	
+	% --- AMISE OPTIMIZATION ---
+	\begin{frame}{Bandwidth Optimization (AMISE)}
+		We analytically determine $h$ by minimizing the Asymptotic Mean Integrated Squared Error.
+		
+		\begin{block}{The AMISE Cost Function (1D)}
+			$$ \text{AMISE}(h) = \underbrace{\frac{R(K)}{nh}}_{\text{Variance}} + \underbrace{\frac{1}{4} h^4 \mu_2(K)^2 R(f'')}_{\text{Squared Bias}} $$
+			\footnotesize
+			Where $R(g) = \int g(x)^2 dx$ (Roughness) and $\mu_2(K) = \int x^2 K(x) dx$ (Second Moment).
+		\end{block}
+		
+		\vspace{1em}
+		\textbf{Derivation of Optimal Bandwidth:}
+		Differentiating w.r.t $h$ and setting to 0:
+		$$ \frac{\partial}{\partial h} \text{AMISE}(h) = -\frac{R(K)}{nh^2} + h^3 \mu_2(K)^2 R(f'') = 0 $$
+		
+		Solving for $h$ yields the optimal decay rate [Hansen, 718]:
+		$$ h_{opt} = \left[ \frac{R(K)}{n \mu_2(K)^2 R(f'')} \right]^{1/5} \propto n^{-1/5} $$
+	\end{frame}
+	
+	% --- NEW SLIDE 2: RULES OF THUMB ---
+	\begin{frame}{Practical Bandwidth Selection: Rules of Thumb}
+		The optimal $h_{opt}$ depends on $R(f'')$ (the curvature of the \textit{unknown} density). In practice, we use "Plug-in" estimators or Rules of Thumb.
+		
+		\begin{block}{Silverman's Rule of Thumb (Normal Reference Rule)}
+			If we assume the true density $f$ is Gaussian, we can derive a closed-form solution for $R(f'')$. This yields the standard heuristic:
+			
+			$$ h_{silverman} \approx 1.06 \, \hat{\sigma} \, n^{-1/5} $$
+		\end{block}
+		
+		\textbf{Robust Version:}
+		To protect against outliers inflating $\hat{\sigma}$, we use the Interquartile Range (IQR):
+		$$ h_{robust} = 0.9 \min\left( \hat{\sigma}, \frac{\text{IQR}}{1.34} \right) n^{-1/5} $$
+		
+		\textit{Warning: These rules tend to oversmooth multimodal distributions. For complex manifolds, use Cross-Validation (LSCV).}
+	\end{frame}
+	
+	% ==============================================================================
+	% SECTION 2: METRICS ON PROBABILITY SPACES
+	% ==============================================================================
+	\section{Distributional Distances}
+	
+	\begin{frame}{2. From Estimation to Comparison}
+		Once we have estimated densities (or samples) for two distributions $P, Q$\\
+		 how do we quantify metrics of distance?
+	\end{frame}
+	
+	% --- KL Divergence ---
+	\begin{frame}{Kullback-Leibler (KL) Divergence}
+		\begin{block}{Definition (Relative Entropy)}
+			$$ D_{KL}(P \| Q) = \int_{\R^d} p(x) \log \left( \frac{p(x)}{q(x)} \right) dx = \E_{x \sim P} \left[\log \frac{p(x)}{q(x)}\right] $$
+		\end{block}
+		
+		\vspace{1em}
+		\textbf{Intuition \& Purpose:}
+		\begin{itemize}
+			\item Measures information loss when $Q$ is used to approximate $P$.
+			\item \textbf{Asymmetric! Not proper distance metric!}
+		\end{itemize}
+		
+		\vspace{0.5em}
+		\begin{alertblock}{Production Failure Case}
+			If supports are disjoint ($\exists x: p(x)>0, q(x)=0$), then $D_{KL} \to \infty$. Numeric instability ensues.
+		\end{alertblock}
+	\end{frame}
+	
+	% --- Jensen-Shannon ---
+	\begin{frame}{Jensen-Shannon Divergence (JSD)}
+		To address the asymmetry and infinite values of KL, we introduce JSD.
+		\begin{block}{Definition}
+			Let $M = \frac{1}{2}(P + Q)$ be the mixture distribution.
+			$$ JSD(P \| Q) = \frac{1}{2} D_{KL}(P \| M) + \frac{1}{2} D_{KL}(Q \| M) $$
+		\end{block}
+		
+		\textbf{Properties:}
+		\begin{itemize}
+			\item \textbf{Symmetric:} $JSD(P\|Q) = JSD(Q\|P)$.
+			\item \textbf{Bounded:} $0 \le JSD \le \log 2$.
+		\end{itemize}
+		
+		\vspace{1em}
+		\textbf{The Vanishing Gradient Problem:}\\
+		If $P$ and $Q$ do not overlap, $JSD$ saturates to a constant ($\log 2$).
+	
+	\end{frame}
+	
+	% --- Optimal Transport 1: The Problem ---
+	\begin{frame}{Wasserstein Distance: The Primal Problem}
+		\textbf{Motivation:} We need a metric that accounts for the \textit{geometry} of the space.
+		Even if distributions don't overlap, how much "work" is needed to move mass from $P$ to $Q$?
+		
+		\begin{block}{Primal Formulation (Monge-Kantorovich)}
+			$$ W_p(P, Q) = \left( \inf_{\gamma \in \Pi(P, Q)} \int_{\R^d \times \R^d} d(x, y)^p d\gamma(x, y) \right)^{1/p} $$
+		\end{block}
+		
+		\textbf{Core Concepts:}
+		\begin{itemize}
+			\item $d(x,y)$: The ground cost metric (e.g., Euclidean distance).
+			\item $\gamma(x, y)$: The \textit{Transport Plan} (how much mass moves from $x$ to $y$).
+			\item $\inf$: We search for the most efficient plan.
+		\end{itemize}
+	\end{frame}
+	
+	% --- Optimal Transport 2: Constraints ---
+	\begin{frame}{Wasserstein Distance: The Constraints}
+		The optimization is constrained by the need to preserve the original distributions. The transport plan $\gamma \in \Pi(P, Q)$ must satisfy the \textbf{Marginal Constraints}.
+		
+		\vspace{1em}
+		For valid distributions $P(x)$ and $Q(y)$, any valid coupling $\gamma(x, y)$ must satisfy:
+		
+		\begin{block}{Continuous Constraints}
+			$$ \int_{\mathcal{Y}} \gamma(x, y) \, dy = P(x) \quad \forall x \in \mathcal{X} \quad \text{(Source Marginal)} $$
+			$$ \int_{\mathcal{X}} \gamma(x, y) \, dx = Q(y) \quad \forall y \in \mathcal{Y} \quad \text{(Target Marginal)} $$
+			$$ \gamma(x, y) \ge 0 \quad \text{(Non-negativity)} $$
+		\end{block}
+		
+		\textit{Intuition: We cannot create or destroy mass; we can only move it.}
+	\end{frame}
+	
+	% --- Optimal Transport 3: Discrete ---
+	\begin{frame}{Wasserstein Distance: Discrete Case (LP)}
+		When dealing with empirical samples, the problem becomes a Linear Program.
+		
+		\textbf{Setup:}
+		\begin{itemize}
+			\item Source weights $\mathbf{a} \in \Delta_n$ at locations $x_i$, Target weights $\mathbf{b} \in \Delta_m$ at $y_j$.
+			\item \textbf{Cost Matrix} $C_{ij} = d(x_i, y_j)^p$.
+			\item \textit{Metric Examples:} $d(x,y) = \|x-y\|_1$ (L1), $d(x,y) = \|x-y\|_2$ (L2).
+		\end{itemize}
+		
+		\begin{block}{The Kantorovich Relaxation (LP)}
+			Find Transport Matrix $\Gamma^* \in \R^{n \times m}$:
+			$$ \Gamma^* = \argmin_{\Gamma} \sum_{i,j} C_{ij} \Gamma_{ij} $$
+			
+			\textbf{Subject to Discrete Constraints:}
+			$$ \Gamma \mathbf{1}_m = \mathbf{a}, \quad \Gamma^T \mathbf{1}_n = \mathbf{b}, \quad \Gamma_{ij} \ge 0 $$
+		\end{block}
+	\end{frame}
+	
+	\begin{frame}{Optimal Transport Visualization}			
+		\begin{figure}
+			\centering
+			\includegraphics[width=0.4\linewidth]{optimal-transport.png}
+			\caption{The Transport Plan $\gamma$. We find the path of least resistance to transform $P \to Q$.}
+		\end{figure}
+	\end{frame}
+	
+	% ==============================================================================
+	% SECTION 3: APPLICATIONS
+	% ==============================================================================
+	\section{Applications in ML Engineering}
+	
+	\begin{frame}{Application 1: Robust Drift Detection}
+		\begin{columns}
+			\column{0.4\textwidth}
+			\textbf{Covariate Shift}
+			\begin{itemize}
+				\item $P(X)$ changes, $P(Y|X)$ stays constant.
+				\item KL/JSD fail if new data falls outside training support (outliers).
+			\end{itemize}
+			
+			\vspace{1em}
+			\textbf{Engineering Strategy:}
+			\begin{enumerate}
+				\item Compute $W_1(P_{ref}, P_{curr})$ daily.
+				\item $W_1$ scales linearly with the magnitude of the shift.
+				\item Trigger retrain if $W_1 > \tau$.
+			\end{enumerate}
+			
+			\column{0.6\textwidth}
+			\begin{figure}
+				\centering
+				\includegraphics[width=0.95\textwidth]{data_drift.png}
+				\caption{Visualizing shift via KDE overlay.}
+			\end{figure}
+		\end{columns}
+	\end{frame}
+	
+	\begin{frame}{Application 2: Wasserstein GANs (WGAN)}
+		Standard GANs minimize JSD (mode collapse). WGANs minimize Earth Mover's distance.
+		\begin{block}{Kantorovich-Rubinstein Duality}
+			To make calculation tractable, we solve the dual form:
+			$$ W_1(P_r, P_g) = \sup_{\|f\|_L \le 1} \E_{x \sim P_r}[f(x)] - \E_{x \sim P_g}[f(x)] $$
+		\end{block}
+		
+		\textbf{Implications for System Design:}
+		\begin{itemize}
+			\item The discriminator (critic) $f$ must be \textbf{1-Lipschitz}.
+			\item \textbf{Implementation:} Enforce via Gradient Penalty or Spectral Normalization.
+			\item \textbf{Benefit:} Stable training dynamics and a loss metric that correlates with image quality.
+		\end{itemize}
+	\end{frame}
+	
+	\section{Conclusion}
+	
+	\begin{frame}{Summary \& Best Practices}
+		\begin{itemize}
+			\item \textbf{Estimation:} KDE is superior to histograms for visualizing continuous drift, but watch the bandwidth bias-variance trade-off.
+			\item \textbf{"Distance" Metrics:} 
+			\begin{itemize}
+				\item Use \textbf{KL} for compression/encoding tasks.
+				\item Use \textbf{JSD} for simple overlap checks.
+				\item Use \textbf{Wasserstein} for drift detection and generative tasks where geometry matters and supports may be disjoint.
+			\end{itemize}
+		\end{itemize}
+		
+	\end{frame}
+	
+\end{document}
