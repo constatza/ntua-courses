@@ -1,4 +1,4 @@
-\documentclass{beamer}
+\documentclass{ntuabeamer}
 
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath}
@@ -16,7 +16,7 @@
 % Title Frame
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{frame}[plain]
-	\titlepage
+	\makepresentationtitle
 \end{frame}
 
 
@@ -26,7 +26,7 @@
 \begin{frame}{What is Artificial Intelligence?}
 	\begin{figure}
 		\centering
-		\includegraphics[height=.7\textwidth]{ai-ml-dl.png}
+		\includegraphics[height=.62\textheight]{ai-ml-dl.png}
 	\end{figure}
 \end{frame}
 
@@ -124,7 +124,8 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{frame}{Machine Learning Algorithms (Supervised)}
 	\centering
-	\small
+	\scriptsize
+	\resizebox{\textwidth}{!}{%
 	\begin{tabular}{lll}
 		\toprule
 		\textbf{Category} & \textbf{Algorithm} & \textbf{Tasks} \\
@@ -143,6 +144,7 @@
 		& Transformers & Regression, Classification, Generative \\
 		\bottomrule
 	\end{tabular}
+	}
 \end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -150,7 +152,8 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{frame}{Machine Learning Algorithms (Unsupervised and Semi-supervised)}
 	\centering
-	\small
+	\scriptsize
+	\resizebox{\textwidth}{!}{%
 	\begin{tabular}{lll}
 		\toprule
 		\textbf{Category} & \textbf{Algorithm} & \textbf{Tasks} \\
@@ -166,6 +169,7 @@
 		\textbf{Semi-supervised} & Gaussian Mixture Model & Clustering \\
 		\bottomrule
 	\end{tabular}
+	}
 \end{frame}
 
 
@@ -222,7 +226,7 @@ $$\hat{y} = \mathbf{W}^\top \mathbf{x} + b$$
 \begin{frame}{Linear Regression Visualization}
 \begin{figure}
   \centering
-  \includegraphics[width=0.6\linewidth]{linear-regression.png}
+  \includegraphics[width=0.52\linewidth]{linear-regression.png}
   \caption{Illustration of a linear regression model fitting a dataset.}
 \end{figure}
 \end{frame}
@@ -256,7 +260,7 @@ $$b \leftarrow b - \eta \frac{\partial \mathcal{L}}{\partial b}$$
 \begin{frame}{Gradient Descent Visualization}
 \begin{figure}
   \centering
-  \includegraphics[width=0.6\linewidth]{gd.png}
+  \includegraphics[width=0.48\linewidth]{gd.png}
   \caption{Gradient descent iteratively minimizing the loss function in 2D space.}
 \end{figure}
 \end{frame}
@@ -333,7 +337,7 @@ $$\mathcal{L} = -\frac{1}{n} \sum_{i=1}^{n} \left[ y_i \log \hat{y}_i + (1 - y_i
 \begin{frame}{Neural Network Visualization}
 \begin{figure}
   \centering
-  \includegraphics[width=0.8\linewidth]{simple-nn.png}
+  \includegraphics[width=0.65\linewidth]{simple-nn.png}
   \caption{Structure of a simple neural network with input, hidden, and output layers.}
 \end{figure}
 \end{frame}
