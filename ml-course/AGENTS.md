@@ -4,8 +4,10 @@ Setup and build instructions are in `README.md`; do not duplicate them here. Rem
 
 ## Layout
 - One directory per deck: `presentations/<slug>/main.tex` (always `main.tex`), with `assets/` for hand-made figures, `assets/generated/` for figures produced by `src/`, and `.latexmkrc` that only sets `.build/`.
+- Prefix presentation slugs with their two-digit teaching order (`01-`, `02-`, ...).
 - `exercises/<slug>/` holds the exercise sheet and our own answers, never student work.
 - Python generators live in the deck's `src/`, are run with `uv run`, and compute output paths from `__file__` (no hardcoded directories), with explicit RNG seeds.
+- Every standalone Python script must use PEP 723 inline metadata (`# /// script` with `dependencies = [...]`). Keep dependencies minimal and computations light enough for an ordinary CPU laptop.
 
 ## Topics
 - `TOPICS.toml` names one owning deck per topic. Check it before adding content; cross-reference the owner instead of re-explaining, and update the registry when a topic moves.
@@ -13,5 +15,6 @@ Setup and build instructions are in `README.md`; do not duplicate them here. Rem
 
 ## Rules
 - Verify with `tools/build-all`; every target must report `ok`.
+- Before reading a PDF's content, convert it to Markdown or text with MarkItDown. Render the PDF only after conversion when visual or layout inspection is needed; never read raw PDF bytes or streams.
 - Never commit `.build/`, built PDFs, gifs, or anything from `../_archive` (books, slides, datasets, assignments, grades, student work). Do not copy that material into the repo.
 - Commits: Conventional Commit header, bulleted body, no AI attribution.

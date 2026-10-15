@@ -1,22 +1,33 @@
 # Single registry: one owner per topic; others only cross-reference.
-[topics.supervised-basics]   # taxonomy, tasks, data split, linear/logistic regression, GD, MLP, backprop, CNN, RNN
-owner = "presentations/neural-nets"
-mentioned_in = ["presentations/gnns", "presentations/generative"]
+[topics.supervised-basics]   # tasks, data split, linear/logistic regression, empirical risk
+owner = "presentations/01-ml-introduction"
+
+[topics.neural-network-fundamentals]  # neurons, MLPs, forward propagation
+owner = "presentations/01-ml-introduction"
+mentioned_in = ["presentations/02-neural-architectures", "presentations/03-neural-training"]
+
+[topics.neural-architectures]  # CNNs, RNNs, LSTMs, attention, transformers
+owner = "presentations/02-neural-architectures"
+mentioned_in = ["presentations/04-gnns", "presentations/07-generative"]
+
+[topics.neural-network-training]  # losses, backpropagation, optimization, regularization
+owner = "presentations/03-neural-training"
+mentioned_in = ["presentations/02-neural-architectures", "presentations/07-generative"]
 
 [topics.pca-pod-rom]         # PCA/POD snapshot basis, PCA-Galerkin ROM
-owner = "presentations/pca-rom"
+owner = "presentations/05-pca-rom"
 
 [topics.density-estimation-distances]  # KDE, KL/JSD, Wasserstein, drift detection
-owner = "presentations/pdf-distances"
-mentioned_in = ["presentations/generative"]  # WGAN pointer only
+owner = "presentations/06-pdf-distances"
+mentioned_in = ["presentations/07-generative"]  # WGAN pointer only
 
 [topics.graph-networks]
-owner = "presentations/gnns"
-mentioned_in = ["presentations/neural-nets"]  # signpost frame only
+owner = "presentations/04-gnns"
+mentioned_in = ["presentations/02-neural-architectures"]  # signpost frame only
 
 [topics.diffusion-flow-matching]
-owner = "presentations/generative"
+owner = "presentations/07-generative"
 exercises = ["exercises/toy-diffusion-flow"]
 
 [topics.lstm-mechanical-systems]  # assignment only (see _archive/machine-learning/assignments)
-owner = "presentations/neural-nets"  # RNN theory; no dedicated deck yet
+owner = "presentations/02-neural-architectures"  # LSTM theory; no dedicated exercise deck yet

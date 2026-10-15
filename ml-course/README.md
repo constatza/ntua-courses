@@ -1,5 +1,5 @@
 # machine-learning
-Decks live in `presentations/<slug>/main.tex` (LaTeX + `assets/` + optional `src/` Python generators run with `uv run`),
+Decks live in teaching order under `presentations/<NN>-<slug>/main.tex` (LaTeX + `assets/` + optional `src/` Python generators run with `uv run`),
 exercises in `exercises/`. Topic ownership: `TOPICS.toml`.
 All decks use the `ntuabeamer` class.
 Books, slides, datasets and assignments are not in this repo.
