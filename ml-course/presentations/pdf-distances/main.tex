@@ -1,4 +1,4 @@
-\documentclass[aspectratio=169, 10pt]{beamer}
+\documentclass[10pt,aspectratio=169]{ntuabeamer}
 
 % --- Packages ---
 \usepackage{amsmath, amssymb, amsthm, mathtools}
@@ -8,12 +8,6 @@
 \usepackage{algpseudocode}
 \usepackage{xcolor}
 \usepackage{tikz}
-
-% --- Theme Setup ---
-% Using Madrid for a professional, clean look suitable for engineering presentations
-\usetheme{Madrid}
-\usecolortheme{beaver} % Professional Red/Grey scheme
-\usefonttheme{professionalfonts}
 
 % --- Custom Macros for Rigor ---
 \newcommand{\R}{\mathbb{R}}
@@ -25,7 +19,7 @@
 
 % --- Title Info ---
 \title[Stochastic Methods]{Measures of Discrepancy for Distributions}
-\institute{School of Civil Engineering \\ NTUA}
+\author{NTUA School of Civil Engineering}
 
 
 \graphicspath{{assets/}}
@@ -33,7 +27,7 @@
 	
 	% --- Title Slide ---
 	\begin{frame}
-		\titlepage
+		\makepresentationtitle
 	\end{frame}
 	
 	% --- TOC ---
@@ -45,6 +39,7 @@
 	% SECTION 1: KERNEL DENSITY ESTIMATION
 	% ==============================================================================
 	\section{Non-Parametric Estimation (KDE)}
+	\sectiondivider{Non-Parametric Estimation (KDE)}
 	
 	\begin{frame}{1. Problem Formulation: Estimating the Manifold}
 		\begin{columns}
@@ -121,7 +116,7 @@
 		
 		\begin{figure}
 			\centering
-			\includegraphics[width=0.75\textwidth]{kde_anatomy.png}
+			\includegraphics[width=0.68\textwidth]{kde_anatomy.png}
 			\caption{Anatomy of a KDE. Each observation $x_i$ contributes a local kernel $K$ (dashed lines). The final density $\hat{f}$ (solid line) is the normalized sum of these kernels.}
 		\end{figure}
 	\end{frame}
@@ -138,6 +133,7 @@
 	
 	% --- AMISE OPTIMIZATION ---
 	\begin{frame}{Bandwidth Optimization (AMISE)}
+		\small
 		We analytically determine $h$ by minimizing the Asymptotic Mean Integrated Squared Error.
 		
 		\begin{block}{The AMISE Cost Function (1D)}
@@ -176,6 +172,7 @@
 	% SECTION 2: METRICS ON PROBABILITY SPACES
 	% ==============================================================================
 	\section{Distributional Distances}
+	\sectiondivider{Distributional Distances}
 	
 	\begin{frame}{2. From Estimation to Comparison}
 		Once we have estimated densities (or samples) for two distributions $P, Q$\\
@@ -277,7 +274,7 @@
 	\begin{frame}{Optimal Transport Visualization}			
 		\begin{figure}
 			\centering
-			\includegraphics[width=0.4\linewidth]{optimal-transport.png}
+			\includegraphics[width=0.35\linewidth]{optimal-transport.png}
 			\caption{The Transport Plan $\gamma$. We find the path of least resistance to transform $P \to Q$.}
 		\end{figure}
 	\end{frame}
@@ -286,6 +283,7 @@
 	% SECTION 3: APPLICATIONS
 	% ==============================================================================
 	\section{Applications in ML Engineering}
+	\sectiondivider{Applications in ML Engineering}
 	
 	\begin{frame}{Application 1: Robust Drift Detection}
 		\begin{columns}
@@ -329,6 +327,7 @@
 	\end{frame}
 	
 	\section{Conclusion}
+	\sectiondivider{Conclusion}
 	
 	\begin{frame}{Summary \& Best Practices}
 		\begin{itemize}
