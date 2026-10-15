@@ -89,7 +89,7 @@ def save_receptive_fields() -> None:
     fig, ax = plt.subplots(figsize=(7.4, 4.1), constrained_layout=True)
     ax.fill_between(sizes, 1, receptive_field, color=TEAL, alpha=0.22)
     ax.plot(sizes, receptive_field, marker="o", color=TEAL, lw=2.8)
-    ax.set(xlabel="stacked $3\times3$ convolutional layers", ylabel="receptive-field width", xticks=sizes)
+    ax.set(xlabel=r"stacked $3\times3$ convolutional layers", ylabel="receptive-field width", xticks=sizes)
     ax.grid(True, alpha=0.18)
     fig.savefig(OUTPUT_DIR / "receptive_field_growth.png", dpi=180, transparent=True)
     plt.close(fig)

@@ -66,10 +66,36 @@ class ArchitectureMathTest(unittest.TestCase):
 
 
 class TrainingMathTest(unittest.TestCase):
-    def test_two_layer_gradient_matches_finite_difference(self) -> None:
-        figures = load_module(
+    def setUp(self) -> None:
+        self.figures = load_module(
             "training_figures", "presentations/03-neural-training/src/make_figures.py"
         )
+
+    def test_optimizer_paths_follow_the_displayed_recurrences(self) -> None:
+        start = np.array([-2.0, 1.4])
+        learning_rate = 0.18
+        gradient_descent, momentum = self.figures.optimizer_paths(
+            start=start,
+            steps=2,
+            learning_rate=learning_rate,
+            momentum=0.75,
+        )
+        first_gradient = np.array([-0.48, 4.76])
+        expected_first_step = start - learning_rate * first_gradient
+        second_gradient = np.array(
+            [0.24 * expected_first_step[0], 3.4 * expected_first_step[1]]
+        )
+        np.testing.assert_allclose(gradient_descent[1], expected_first_step)
+        np.testing.assert_allclose(momentum[1], expected_first_step)
+        np.testing.assert_allclose(
+            gradient_descent[2], expected_first_step - learning_rate * second_gradient
+        )
+        np.testing.assert_allclose(
+            momentum[2],
+            expected_first_step - learning_rate * (0.75 * first_gradient + second_gradient),
+        )
+
+    def test_two_layer_gradient_matches_finite_difference(self) -> None:
         x = np.array([0.4, -0.7])
         target = np.array([0.3])
         w1 = np.array([[0.2, -0.3], [0.5, 0.1]])
@@ -77,7 +103,7 @@ class TrainingMathTest(unittest.TestCase):
         w2 = np.array([[0.6, -0.4]])
         b2 = np.array([0.05])
 
-        gradients = figures.two_layer_gradients(x, target, w1, b1, w2, b2)
+        gradients = self.figures.two_layer_gradients(x, target, w1, b1, w2, b2)
         epsilon = 1e-6
         numerical = np.empty_like(w1)
         for row, column in np.ndindex(w1.shape):
@@ -86,8 +112,8 @@ class TrainingMathTest(unittest.TestCase):
             plus[row, column] += epsilon
             minus[row, column] -= epsilon
             numerical[row, column] = (
-                figures.two_layer_loss(x, target, plus, b1, w2, b2)
-                - figures.two_layer_loss(x, target, minus, b1, w2, b2)
+                self.figures.two_layer_loss(x, target, plus, b1, w2, b2)
+                - self.figures.two_layer_loss(x, target, minus, b1, w2, b2)
             ) / (2.0 * epsilon)
 
         np.testing.assert_allclose(gradients["w1"], numerical, rtol=1e-5, atol=1e-7)

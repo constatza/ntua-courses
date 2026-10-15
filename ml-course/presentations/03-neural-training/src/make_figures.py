@@ -22,6 +22,8 @@ GOLD = "#D7A85E"
 CORAL = "#C77C6B"
 PURPLE = "#8B82A8"
 INK = "#263746"
+OPTIMIZER_LEARNING_RATE = 0.18
+MOMENTUM_COEFFICIENT = 0.75
 
 
 def two_layer_loss(
@@ -57,6 +59,29 @@ def two_layer_gradients(
         "w2": np.outer(delta2, hidden),
         "b2": delta2,
     }
+
+
+def quadratic_gradient(point: np.ndarray) -> np.ndarray:
+    """Gradient of J(theta) = 0.12 theta_1^2 + 1.7 theta_2^2."""
+    return np.array([0.24 * point[0], 3.4 * point[1]])
+
+
+def optimizer_paths(
+    start: np.ndarray,
+    steps: int,
+    learning_rate: float,
+    momentum: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    gradient_descent = [start.astype(float)]
+    momentum_path = [start.astype(float)]
+    velocity = np.zeros_like(start, dtype=float)
+    for _ in range(steps):
+        gradient_descent.append(
+            gradient_descent[-1] - learning_rate * quadratic_gradient(gradient_descent[-1])
+        )
+        velocity = momentum * velocity + quadratic_gradient(momentum_path[-1])
+        momentum_path.append(momentum_path[-1] - learning_rate * velocity)
+    return np.array(gradient_descent), np.array(momentum_path)
 
 
 def save_learning_curves() -> None:
@@ -110,10 +135,22 @@ def save_optimizer_paths() -> None:
     loss = 0.12 * xx**2 + 1.7 * yy**2
     fig, ax = plt.subplots(figsize=(7.0, 4.5), constrained_layout=True)
     ax.contour(xx, yy, loss, levels=12, cmap="viridis", alpha=0.58)
-    gd = np.array([[-2.0, 1.4], [-1.76, -0.98], [-1.55, 0.69], [-1.36, -0.48], [-1.2, 0.34], [-1.05, -0.24], [-0.92, 0.17]])
-    momentum = np.array([[-2.0, 1.4], [-1.76, 0.72], [-1.38, 0.05], [-0.96, -0.28], [-0.57, -0.26], [-0.25, -0.08], [-0.06, 0.02]])
+    gd, momentum = optimizer_paths(
+        start=np.array([-2.0, 1.4]),
+        steps=18,
+        learning_rate=OPTIMIZER_LEARNING_RATE,
+        momentum=MOMENTUM_COEFFICIENT,
+    )
     ax.plot(gd[:, 0], gd[:, 1], "o-", color=CORAL, lw=2.0, ms=4.5, label="plain gradient descent")
-    ax.plot(momentum[:, 0], momentum[:, 1], "o-", color=PURPLE, lw=2.0, ms=4.5, label="with momentum")
+    ax.plot(
+        momentum[:, 0],
+        momentum[:, 1],
+        "o-",
+        color=PURPLE,
+        lw=2.0,
+        ms=4.5,
+        label=rf"momentum ($\beta={MOMENTUM_COEFFICIENT}$)",
+    )
     ax.scatter([0], [0], marker="*", s=130, color=TEAL, label="minimum", zorder=5)
     ax.set(xlabel=r"parameter $\theta_1$", ylabel=r"parameter $\theta_2$")
     ax.legend(frameon=False, loc="upper right")

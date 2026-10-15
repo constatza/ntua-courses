@@ -278,7 +278,7 @@
   \end{tabular}
   \par
   \vspace{0.45cm}
-  Always state whether the model may use future inputs. A bidirectional model is invalid for causal online forecasting.
+  Always state what is known at prediction time. A bidirectional encoder may process an entirely observed history window, but it must not encode inputs from the forecast horizon.
 \end{frame}
 
 \begin{frame}{Why Long Dependencies Are Difficult}
@@ -322,16 +322,25 @@
 \begin{frame}{What the LSTM Gates Do}
   \begin{center}
   \begin{tikzpicture}[
-    gate/.style={rounded corners, draw=softink!38, minimum width=2.2cm, minimum height=0.9cm, align=center},
-    arrow/.style={-{Latex[length=2.2mm]}, thick, draw=softink!55}, node distance=0.65cm
+    gate/.style={rounded corners, draw=softink!38, minimum width=1.75cm, minimum height=0.75cm, align=center},
+    state/.style={rounded corners, draw=softink!45, minimum width=4.0cm, minimum height=0.75cm, align=center},
+    arrow/.style={-{Latex[length=2.2mm]}, thick, draw=softink!55}
   ]
-    \node[gate, fill=softcoral!13] (forget) {forget gate $\mathbf f_t$\\retain old memory};
-    \node[gate, fill=softblue!14, right=of forget] (input) {input gate $\mathbf i_t$\\write candidate};
-    \node[gate, fill=softteal!15, right=of input] (cell) {cell state $\mathbf c_t$\\additive memory path};
-    \node[gate, fill=softgold!18, right=of cell] (output) {output gate $\mathbf o_t$\\expose hidden state};
-    \draw[arrow] (forget) -- (input);
+    \node (inputs) at (0,1.45) {$\mathbf u_t=[\mathbf x_t;\mathbf h_{t-1}]$};
+    \node[gate, fill=softcoral!13] (forget) at (-3.3,0) {forget $\mathbf f_t$};
+    \node[gate, fill=softblue!14] (input) at (-1.1,0) {input $\mathbf i_t$};
+    \node[gate, fill=softteal!15] (candidate) at (1.1,0) {candidate $\mathbf g_t$};
+    \node[gate, fill=softgold!18] (output) at (3.3,0) {output $\mathbf o_t$};
+    \foreach \gate in {forget,input,candidate,output}{\draw[arrow] (inputs) -- (\gate);}
+    \node[state, fill=softteal!10] (cell) at (-1.1,-1.35)
+      {$\mathbf c_t=\mathbf f_t\odot\mathbf c_{t-1}+\mathbf i_t\odot\mathbf g_t$};
+    \node[state, fill=softgold!12] (hidden) at (2.65,-1.35)
+      {$\mathbf h_t=\mathbf o_t\odot\tanh(\mathbf c_t)$};
+    \draw[arrow] (forget) -- (cell);
     \draw[arrow] (input) -- (cell);
-    \draw[arrow] (cell) -- (output);
+    \draw[arrow] (candidate) -- (cell);
+    \draw[arrow] (cell) -- (hidden);
+    \draw[arrow] (output) -- (hidden);
   \end{tikzpicture}
   \end{center}
   \begin{itemize}
