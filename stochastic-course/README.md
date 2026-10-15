@@ -1,12 +1,12 @@
 # stochastic-methods
 Decks live in `presentations/<slug>/main.tex` (LaTeX + `assets/` + optional `src/` Python generators run with `uv run`),
 notes in `notes/`. Topic ownership: `TOPICS.toml`.
-`sampling` still uses its original metropolis theme (needs lualatex).
+The `sampling` deck uses the `ntuabeamer` class and needs lualatex.
 Books, lecture notes, assignments and grading material are not in this repo.
 
 ## Setup (this repo only)
 Requires TeX Live with `latexmk`, `lualatex` and the Libertinus fonts (sampling deck), and [`uv`](https://docs.astral.sh/uv/) for the Python demos.
-No deck here uses `ntuabeamer` yet, so installing the class is optional; when one does:
+Install the `ntuabeamer` class before building:
 
 ```sh
 git clone <this-repo> && cd stochastic-methods
