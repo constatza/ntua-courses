@@ -1,12 +1,12 @@
 # machine-learning
 Decks live in `presentations/<slug>/main.tex` (LaTeX + `assets/` + optional `src/` Python generators run with `uv run`),
 exercises in `exercises/`. Topic ownership: `TOPICS.toml`.
-`neural-nets` and `pdf-distances` still use their original beamer themes (not yet ported to `ntuabeamer`).
+All decks use the `ntuabeamer` class.
 Books, slides, datasets and assignments are not in this repo.
 
 ## Setup (this repo only)
 Requires TeX Live with `latexmk`, and [`uv`](https://docs.astral.sh/uv/) for the Python demos.
-`generative`, `gnns` and `pca-rom` use the `ntuabeamer` class; `neural-nets` and `pdf-distances` need only standard beamer.
+Install the `ntuabeamer` class before building:
 
 ```sh
 git clone <this-repo> && cd machine-learning
