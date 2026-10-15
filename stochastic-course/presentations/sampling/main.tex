@@ -1,4 +1,4 @@
-\documentclass[aspectratio=169]{beamer}
+\documentclass[aspectratio=169]{ntuabeamer}
 
 % ----------------- Engine & fonts (XeLaTeX or LuaLaTeX) -----------------
 \usepackage{fontspec}
@@ -13,11 +13,6 @@
 \setmathfont{Libertinus Math}
 \newcommand{\Ind}[1]{\mathbb{1}\!\left[ #1 \right]}
 
-% ----------------- Beamer look -----------------
-\usetheme[progressbar=frametitle,numbering=none]{metropolis}
-\setbeamertemplate{footline}[frame number]
-\setbeamertemplate{navigation symbols}{}
-\setbeamersize{text margin left=10mm, text margin right=10mm}
 % Typographic spacing
 \linespread{1.15}
 \setlength{\parskip}{0.4em}
@@ -35,12 +30,13 @@
 	
 	% Title slide
 	\begin{frame}
-		\titlepage
+		\makepresentationtitle
 	\end{frame}
 	
 	
 	% ---------------------------------------------------------------------------
 	\section{The Sampling Problem}
+	\sectiondivider{The Sampling Problem}
 	\begin{frame}{The Sampling Problem}
 		\textbf{Goal:} Draw samples from a target distribution $\pi(\theta)$.
 		\begin{itemize}
@@ -53,6 +49,7 @@
 	
 	% ---------------------------------------------------------------------------
 	\section{Bayesian Inference}
+	\sectiondivider{Bayesian Inference}
 	\begin{frame}{Bayesian Inference}
 		Given data $D$, prior $p(\theta)$ and likelihood $p(D\mid\theta)$, the posterior is
 		\[
@@ -75,6 +72,7 @@
 	
 	% ---------------------------------------------------------------------------
 	\section{Acceptance--Rejection}
+	\sectiondivider{Acceptance--Rejection}
 	\begin{frame}{Acceptance--Rejection (AR) Sampling}
 		\begin{block}{Definition}
 			Find $M>0$ and proposal $q(\theta)$ such that $\tilde p(\theta) \le M\,q(\theta)$ for all $\theta$.
@@ -148,6 +146,7 @@
 	
 	% ======================= Importance Sampling =======================
 	\section{Importance Sampling}
+	\sectiondivider{Importance Sampling}
 	\begin{frame}{Importance Sampling: Idea}
 		\begin{block}{Definition}
 			For target $p(\theta\mid D) \propto \tilde p(\theta)=p(D\mid\theta)p(\theta)$ and proposal $q$, define weights $w(\theta)=\tilde p(\theta)/q(\theta)$.
@@ -186,6 +185,7 @@
 	\end{frame}
 	
 		\begin{frame}{Importance Sampling Example: Triangular Target}
+			\small
 			\begin{block}{Problem setup}
 				\begin{itemize}
 					\item Target: triangular density on $[0,1]$ with mode $0.8$ (mean $0.6$, variance $0.0467$).
@@ -213,6 +213,7 @@
 	
 	% ---------------------------------------------------------------------------
 	\section{MCMC Basics}
+	\sectiondivider{MCMC Basics}
 	\begin{frame}{Markov Chain Monte Carlo (MCMC)}
 		\textbf{Idea:} Build a Markov chain with stationary distribution $p(\theta\mid D)$.
 		\begin{itemize}
@@ -232,6 +233,7 @@
 	
 	% ---------------------------------------------------------------------------
 	\section{Metropolis--Hastings}
+	\sectiondivider{Metropolis--Hastings}
 	\begin{frame}{Metropolis--Hastings}
 		\begin{block}{Definition}
 			Given current $\theta$, propose a candidate $\theta'\sim q(\theta'\mid\theta)$ and accept it with probability
@@ -262,6 +264,7 @@
 	\end{frame}
 	
 	\begin{frame}{MCMC Example: Triangular Target}
+		\small
 		\begin{block}{Target density on $[0,1]$}
 			\[
 			f(x) = \begin{cases}
@@ -289,6 +292,7 @@
 	\end{frame}
 	
 	\begin{frame}{MCMC Example: Bimodal Target}
+		\footnotesize
 		\begin{block}{Target density}
 			\[
 			\pi(x)=\tfrac{1}{2}\,\mathcal{N}(x\mid -2,0.25^2) + \tfrac{1}{2}\,\mathcal{N}(x\mid 2,0.25^2).
@@ -335,6 +339,7 @@
 	
 	% ---------------------------------------------------------------------------
 	\section{MC vs MCMC}
+	\sectiondivider{MC vs MCMC}
 	\begin{frame}{Monte Carlo (MC) vs MCMC}
 		\begin{itemize}
 			\item \emph{MC:} Direct i.i.d. sampling when available; efficient in low dimension with tractable samplers (e.g., conjugacy, inverse-CDF).
