@@ -9,11 +9,13 @@
 #   - gh authenticated
 #   - tools/build-all passes (every target "ok")
 #   - tag does not already exist locally or on origin
+#   - every deck in presentations/ has a built .build/main.pdf
 #
-# The script builds every deck, collects the final PDFs from each
-# presentations/<slug>/.build/main.pdf, tags the commit, pushes the tag,
-# and creates a GitHub release (prerelease for alpha/rc tags) with the
-# PDFs as release assets. Built PDFs are never committed to git.
+# The script builds every deck, collects the final PDFs, tags the commit,
+# pushes the tag, and creates a GitHub release (prerelease for alpha/rc
+# tags) with the PDFs as release assets. Built PDFs are never committed
+# to git. If the release creation fails after the tag is pushed, the tag
+# is rolled back locally and remotely so no invalid release state remains.
 set -eu
 
 TAG="${1:?usage: $0 <tag>  (e.g. v0.1.0-alpha.1)}"
@@ -23,9 +25,16 @@ STAGE="$(mktemp -d -t ml-release-XXXXXX)"
 NOTES="$STAGE/release-notes.md"
 DECKS="$STAGE/decks.txt"
 ASSETS=""
+TAG_PUSHED=0
 
 cleanup() {
   rm -rf "$STAGE"
+  # Rollback: if we pushed a tag but release creation failed, remove it.
+  if [ "$TAG_PUSHED" = "1" ]; then
+    echo "==> rolling back tag $TAG (release creation failed)"
+    git tag -d "$TAG" >/dev/null 2>&1 || true
+    git push origin --delete "$TAG" >/dev/null 2>&1 || true
+  fi
 }
 trap cleanup EXIT
 
@@ -65,19 +74,31 @@ if ! sh tools/build-all; then
   exit 1
 fi
 
-# --- collect PDFs ----------------------------------------------------------
+# --- expected-deck check: every presentation must have a built PDF --------
+MISSING=""
 for d in presentations/*/; do
+  slug="$(basename "$d")"
   pdf="$d.build/main.pdf"
-  if [ -f "$pdf" ]; then
-    slug="$(basename "$d")"
-    cp "$pdf" "$STAGE/$slug.pdf"
-    ASSETS="$ASSETS $STAGE/$slug.pdf"
-    echo "- $slug" >> "$DECKS"
+  if [ ! -f "$pdf" ]; then
+    MISSING="$MISSING $slug"
   fi
 done
 
+if [ -n "$MISSING" ]; then
+  echo "error: missing built PDFs for:$MISSING" >&2
+  exit 1
+fi
+
+# --- collect PDFs ----------------------------------------------------------
+for d in presentations/*/; do
+  slug="$(basename "$d")"
+  cp "$d.build/main.pdf" "$STAGE/$slug.pdf"
+  ASSETS="$ASSETS $STAGE/$slug.pdf"
+  echo "- $slug" >> "$DECKS"
+done
+
 if [ -z "$ASSETS" ]; then
-  echo "error: no PDFs found in presentations/*/.build/main.pdf" >&2
+  echo "error: no PDFs found" >&2
   exit 1
 fi
 
@@ -108,11 +129,16 @@ SHORT="$(git rev-parse --short HEAD)"
 } > "$NOTES"
 
 # --- tag and push ----------------------------------------------------------
-echo "==> tagging $TAG"
-git tag -a "$TAG" -m "release($REPO): $TAG"
+if [ -z "${CI:-}" ]; then
+  echo "==> tagging $TAG"
+  git tag -a "$TAG" -m "release($REPO): $TAG"
 
-echo "==> pushing tag to origin"
-git push origin "$TAG"
+  echo "==> pushing tag to origin"
+  git push origin "$TAG"
+  TAG_PUSHED=1
+else
+  echo "==> running in CI; tag $TAG already pushed, skipping tag step"
+fi
 
 # --- create GitHub release -------------------------------------------------
 is_prerelease="false"
@@ -129,6 +155,7 @@ gh release create "$TAG" \
   $([ "$is_prerelease" = "true" ] && echo --prerelease) \
   $ASSETS
 
+TAG_PUSHED=0  # release succeeded, no rollback needed
 rm -rf "$STAGE"
 
 echo "==> done: https://github.com/constatza/$REPO/releases/tag/$TAG"
