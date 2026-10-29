@@ -1,22 +1,60 @@
-# Single registry: one owner per topic; others only cross-reference.
-[topics.supervised-basics]   # taxonomy, tasks, data split, linear/logistic regression, GD, MLP, backprop, CNN, RNN
+# Single registry: one owner per topic; other decks only cross-reference it.
+[topics.supervised-learning]
+owner = "presentations/supervised-learning"
+mentioned_in = ["presentations/neural-nets", "presentations/regularization"]
+
+[topics.first-order-optimization]
+owner = "presentations/optimization"
+mentioned_in = ["presentations/neural-nets", "presentations/pinns-neural-operators"]
+
+[topics.dense-neural-networks]
 owner = "presentations/neural-nets"
-mentioned_in = ["presentations/gnns", "presentations/generative"]
+mentioned_in = ["presentations/cnns", "presentations/rnns", "presentations/gnns"]
 
-[topics.pca-pod-rom]         # PCA/POD snapshot basis, PCA-Galerkin ROM
-owner = "presentations/pca-rom"
+[topics.generalization-regularization]
+owner = "presentations/regularization"
+mentioned_in = ["presentations/neural-nets", "presentations/cnns"]
 
-[topics.density-estimation-distances]  # KDE, KL/JSD, Wasserstein, drift detection
-owner = "presentations/pdf-distances"
-mentioned_in = ["presentations/generative"]  # WGAN pointer only
+[topics.geometric-deep-learning]
+owner = "presentations/geometric-deep-learning"
+mentioned_in = ["presentations/cnns", "presentations/transformers", "presentations/gnns"]
+
+[topics.convolutional-networks]
+owner = "presentations/cnns"
+mentioned_in = ["presentations/geometric-deep-learning"]
+
+[topics.recurrent-networks]
+owner = "presentations/rnns"
+mentioned_in = ["presentations/transformers"]
+
+[topics.transformers]
+owner = "presentations/transformers"
+mentioned_in = ["presentations/geometric-deep-learning"]
 
 [topics.graph-networks]
 owner = "presentations/gnns"
-mentioned_in = ["presentations/neural-nets"]  # signpost frame only
+mentioned_in = ["presentations/geometric-deep-learning"]
 
-[topics.diffusion-flow-matching]
-owner = "presentations/generative"
+[topics.pinns-neural-operators]
+owner = "presentations/pinns-neural-operators"
+
+[topics.diffusion-models]
+owner = "presentations/diffusion-models"
+mentioned_in = ["presentations/flow-matching"]
 exercises = ["exercises/toy-diffusion-flow"]
 
-[topics.lstm-mechanical-systems]  # assignment only (see _archive/machine-learning/assignments)
-owner = "presentations/neural-nets"  # RNN theory; no dedicated deck yet
+[topics.flow-matching]
+owner = "presentations/flow-matching"
+mentioned_in = ["presentations/diffusion-models"]
+exercises = ["exercises/toy-diffusion-flow"]
+
+[topics.pca-pod-rom]
+owner = "presentations/pca-rom"
+
+[topics.density-estimation-distances]
+owner = "presentations/pdf-distances"
+mentioned_in = ["presentations/diffusion-models", "presentations/flow-matching"]
+
+[topics.lstm-mechanical-systems]
+owner = "presentations/rnns"
+exercises = ["exercises/lstm-mechanical-system"]
