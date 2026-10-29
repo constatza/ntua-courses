@@ -35,7 +35,7 @@
 
 \begin{frame}{A Sequence Has an Explicit Time Axis}
   \[
-    \mathbf{X}in\mathbb{R}^{B\times T\times d_x}
+    \mathbf{X}\in\mathbb{R}^{B\times T\times d_x}
   \]
   \begin{itemize}
     \item $B$: number of sequences in a batch.
@@ -86,7 +86,9 @@
     \node[box,fill=coursegreen!18,right=of cell] (output) {$\widehat{\mathbf{y}}_t$};
     \draw[flow] (input) -- (cell);
     \draw[flow] (cell) -- (output);
-    \draw[backflow] (cell.north) to[out=75,in=105,looseness=4] node[above] {$\mathbf{h}_{t-1}\rightarrow\mathbf{h}_t$} (cell.north);
+    \draw[backflow]
+      (cell.north east) .. controls +(0.9,1.25) and +(-0.9,1.25) ..
+      node[above] {$\mathbf{h}_{t-1}\rightarrow\mathbf{h}_t$} (cell.north west);
   \end{tikzpicture}
 \end{frame}
 
@@ -157,8 +159,25 @@
   \end{tikzpicture}
   \vspace{0.45cm}
   \[
-    \mathcal{L}=\sum_{t=1}^{T}\ell_t
+    L=\sum_{t=1}^{T}\ell_t
   \]
+\end{frame}
+
+\begin{frame}{Shared Parameters Accumulate Gradients from Every Use}
+  Let $\overline{\mathbf h}_t=\mathrm dL/\mathrm d\mathbf h_t$ be the total adjoint
+  after all later losses have been propagated backward. Then
+  \[
+    \frac{\mathrm d L}{\mathrm d\boldsymbol\theta}
+    =\sum_{t=1}^{T}
+      \overline{\mathbf h}_t^{\mathsf T}
+      \frac{\partial F_{\boldsymbol\theta}
+      (\mathbf x_t,\mathbf h_{t-1})}{\partial\boldsymbol\theta}.
+  \]
+  \begin{itemize}
+    \item Each local use of $\boldsymbol\theta$ contributes once.
+    \item The adjoint includes direct and later losses.
+    \item BPTT is reverse-mode differentiation on the unrolled graph.
+  \end{itemize}
 \end{frame}
 
 \begin{frame}{Long Gradient Paths Multiply Many Jacobians}
@@ -173,6 +192,23 @@
     \item Repeated Jacobians with norms below one can make gradients vanish.
     \item Repeated Jacobians with norms above one can make gradients explode.
     \item Long dependencies are therefore difficult to learn.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The Recurrent Jacobian Controls Gradient Scale}
+  For $\mathbf h_t=\phi(\mathbf W_{xh}\mathbf x_t+\mathbf W_{hh}\mathbf h_{t-1}+\mathbf b)$,
+  \[
+    \mathbf J_t
+    =\operatorname{diag}(\phi'(\mathbf z_t))\mathbf W_{hh}.
+  \]
+  \[
+    \left\|\mathbf J_T\cdots\mathbf J_{t+1}\right\|_2
+    \leq \prod_{k=t+1}^{T}\|\mathbf J_k\|_2.
+  \]
+  \begin{itemize}
+    \item Norms uniformly below one imply contraction.
+    \item Large norms permit growth; they do not guarantee it.
+    \item The Jacobian changes with the state and input.
   \end{itemize}
 \end{frame}
 
@@ -213,6 +249,18 @@
     \item Small gradients remain unchanged.
     \item Large gradients keep their direction but not their norm.
     \item Clipping does not solve vanishing gradients.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Truncated BPTT Limits the Reverse-Time Horizon}
+  Split a long stream into windows of $K$ steps. Carry the hidden state forward, but stop its gradient at each window boundary.
+  \[
+    \frac{\partial\mathbf h_t}{\partial\mathbf h_{t-K}}
+    \quad\text{is omitted when the boundary is detached.}
+  \]
+  \begin{itemize}
+    \item Memory and reverse-pass cost become bounded by $K$.
+    \item Dependencies longer than $K$ receive no direct gradient credit through that boundary.
   \end{itemize}
 \end{frame}
 
@@ -275,6 +323,20 @@
   \end{itemize}
 \end{frame}
 
+\begin{frame}{The Additive Cell Path Supports Gradient Flow}
+  Holding the gates fixed for the local derivative,
+  \[
+    \frac{\partial\mathbf c_t}{\partial\mathbf c_{t-1}}
+    =\operatorname{diag}(\mathbf f_t).
+  \]
+  Across several steps, the direct cell-state path contains
+  \[
+    \prod_{k=t+1}^{T}\operatorname{diag}(\mathbf f_k).
+  \]
+  Forget gates near one can preserve information and gradients. Gates near zero intentionally erase them;
+  LSTMs mitigate but do not eliminate long-horizon difficulties.
+\end{frame}
+
 \begin{frame}{GRU Uses a Single State and Fewer Gates}
   \[
     \mathbf{z}_t=\sigma(\mathbf{W}_z[\mathbf{x}_t;\mathbf{h}_{t-1}]+\mathbf{b}_z),
@@ -293,6 +355,42 @@
       +\mathbf{z}_t\odot\widetilde{\mathbf{h}}_t
     }
   \]
+  This deck uses the convention that $\mathbf z_t=1$ selects the candidate state;
+  some references reverse the two coefficients.
+\end{frame}
+
+\begin{frame}{Bidirectional RNNs Use Past and Future Context}
+  \[
+    \overrightarrow{\mathbf h}_t
+      =F_\rightarrow(\mathbf x_t,\overrightarrow{\mathbf h}_{t-1}),
+    \qquad
+    \overleftarrow{\mathbf h}_t
+      =F_\leftarrow(\mathbf x_t,\overleftarrow{\mathbf h}_{t+1}),
+  \]
+  \[
+    \mathbf h_t=[\overrightarrow{\mathbf h}_t;\overleftarrow{\mathbf h}_t].
+  \]
+  This improves offline sequence labeling when the whole sequence is available.
+  It is invalid for causal streaming predictions that must not access future inputs.
+\end{frame}
+
+\begin{frame}{Autoregressive Decoders Feed Outputs Back as Inputs}
+  \[
+    p(\mathbf y_{1:T}\mid\mathbf x)
+    =\prod_{t=1}^{T}p(\mathbf y_t\mid\mathbf y_{<t},\mathbf x).
+  \]
+  During teacher forcing, training conditions on the observed previous target $\mathbf y_{t-1}$.
+  At inference, the model conditions on its own previous prediction $\widehat{\mathbf y}_{t-1}$.
+  This mismatch can compound errors over long generated sequences.
+\end{frame}
+
+\begin{frame}{Recurrence Is Sequential by Construction}
+  \begin{itemize}
+    \item State $\mathbf h_t$ cannot be computed before $\mathbf h_{t-1}$.
+    \item Training can parallelize across sequences and matrix operations, not fully across time.
+    \item The state provides a compact streaming memory with fixed per-step computation.
+  \end{itemize}
+  RNNs remain useful for online signals, control, and small stateful models even when attention is preferable for large offline datasets.
 \end{frame}
 
 \begin{frame}{Attention Creates Direct Paths Between Time Steps}
