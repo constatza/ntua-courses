@@ -178,6 +178,35 @@
   \end{tikzpicture}
 \end{frame}
 
+\begin{frame}{Shared Kernels Produce Translation Equivariance}
+  Ignoring boundaries and sampling, shifting the input shifts the feature map:
+  \[
+    \operatorname{Conv}_{K}(T_u\mathbf X)
+    =T_u\operatorname{Conv}_{K}(\mathbf X).
+  \]
+  \begin{itemize}
+    \item The same local rule is evaluated at every spatial location.
+    \item A feature does not need to be relearned separately at every coordinate.
+    \item Global pooling may turn an equivariant representation into an invariant prediction.
+  \end{itemize}
+  The geometric-deep-learning lecture proves this identity formally.
+\end{frame}
+
+\begin{frame}{Receptive Fields Grow across Layers}
+  Let $r_\ell$ be receptive-field size and $j_\ell$ the input spacing between
+  neighboring layer-$\ell$ features. Starting with $r_0=j_0=1$,
+  \[
+    j_\ell=j_{\ell-1}S_\ell,
+    \qquad
+    r_\ell=r_{\ell-1}+(K_\ell-1)D_\ell j_{\ell-1}.
+  \]
+  Three stride-one $3\times3$ layers have receptive fields
+  \[
+    3\times3\ \longrightarrow\ 5\times5\ \longrightarrow\ 7\times7.
+  \]
+  Depth combines local operations into progressively wider context.
+\end{frame}
+
 \begin{frame}{Stride Controls How Far the Kernel Moves}
   \centering
   \begin{tikzpicture}[scale=0.82]
@@ -190,6 +219,18 @@
     \node[above,coursered,font=\bfseries] at (1.45,0.5) {stride $S=2$};
     \node[below] at (1.8,-4.0) {larger stride produces fewer spatial outputs};
   \end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Dilation Expands Support without More Kernel Weights}
+  In one spatial dimension,
+  \[
+    y_i=\sum_{u=0}^{K-1}k_u\,x_{i+D u}.
+  \]
+  The effective kernel size is
+  \[
+    K_{\mathrm{eff}}=D(K-1)+1.
+  \]
+  A $3$-tap kernel with dilation $D=2$ spans $5$ input positions but still learns only three weights per channel pair.
 \end{frame}
 
 \begin{frame}{Padding Preserves Information Near Boundaries}
@@ -212,23 +253,35 @@
   \end{tikzpicture}
 \end{frame}
 
-\begin{frame}{Kernel, Padding, and Stride Set Output Size}
+\begin{frame}{Kernel, Dilation, Padding, and Stride Set Output Size}
   For each spatial dimension:
   \[
     \boxed{
-      O=\left\lfloor\frac{I+2P-K}{S}\right\rfloor+1
+      O=\left\lfloor
+      \frac{I+2P-D(K-1)-1}{S}
+      \right\rfloor+1
     }
   \]
   \begin{itemize}
     \item $I$: input size.
     \item $K$: kernel size.
+    \item $D$: dilation.
     \item $P$: padding on each side.
     \item $S$: stride.
   \end{itemize}
   \[
-    I=5,\quad K=3,\quad P=1,\quad S=1
+    I=5,\quad K=3,\quad D=1,\quad P=1,\quad S=1
     \quad\Longrightarrow\quad O=5
   \]
+\end{frame}
+
+\begin{frame}{Padding and Stride Limit Exact Equivariance}
+  \begin{itemize}
+    \item Zero padding treats the image boundary differently from its interior.
+    \item Stride keeps one sampling phase; a one-pixel shift can change which values survive.
+    \item Downsampling without adequate low-pass filtering can alias high frequencies.
+  \end{itemize}
+  Translation equivariance is exact for the ideal operator, not automatically for every finite CNN implementation.
 \end{frame}
 
 \begin{frame}{Pooling Is One Optional Downsampling Choice}
@@ -322,6 +375,41 @@
   \begin{itemize}
     \item Examples include segmentation and surrogate field prediction.
   \end{itemize}
+\end{frame}
+
+\begin{frame}{Encoder--Decoder Networks Recover Spatial Resolution}
+  \centering
+  \begin{tikzpicture}[node distance=0.55cm,scale=0.88,transform shape]
+    \node[box,fill=courselightblue,minimum width=1.2cm,minimum height=2.2cm] (x) {input};
+    \node[box,fill=courselightorange,minimum width=1.4cm,minimum height=1.7cm,right=of x] (e1) {encode};
+    \node[box,fill=courseorange!25,minimum width=1.4cm,minimum height=1.15cm,right=of e1] (e2) {bottleneck};
+    \node[box,fill=coursegreen!18,minimum width=1.4cm,minimum height=1.7cm,right=of e2] (d1) {decode};
+    \node[box,fill=coursepurple!18,minimum width=1.2cm,minimum height=2.2cm,right=of d1] (y) {field\\output};
+    \draw[flow] (x)--(e1); \draw[flow] (e1)--(e2); \draw[flow] (e2)--(d1); \draw[flow] (d1)--(y);
+    \draw[-{Latex[length=3mm]},very thick,coursepurple,bend left=35]
+      (e1.north) to node[above]{skip features} (d1.north);
+  \end{tikzpicture}
+
+  Skip connections restore fine spatial information that a compressed bottleneck may lose.
+\end{frame}
+
+\begin{frame}{CNNs Also Process Scientific Grids and Fields}
+  \begin{itemize}
+    \item Images: classification, detection, and segmentation.
+    \item Time--frequency maps: audio and vibration diagnostics.
+    \item Structured meshes or voxels: stress, flow, temperature, and medical volumes.
+  \end{itemize}
+  The grid spacing, boundary conditions, channels, and target transformation determine whether the convolutional prior is appropriate.
+\end{frame}
+
+\begin{frame}{Local Shared Operators Have Limits}
+  \begin{itemize}
+    \item Long-range interaction may require many layers or explicit global mechanisms.
+    \item Downsampling can discard phase and fine-scale information.
+    \item Boundaries and irregular geometry violate the ideal translation model.
+    \item Memory and computation grow with spatial resolution and channel count.
+  \end{itemize}
+  Use a CNN because locality and translation structure match the task, not merely because the input can be stored as an array.
 \end{frame}
 
 \begin{frame}{CNNs Encode a Spatial Prior}
