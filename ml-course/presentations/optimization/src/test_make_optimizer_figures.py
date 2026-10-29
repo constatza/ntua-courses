@@ -14,6 +14,7 @@ from make_optimizer_figures import (
     generate_figures,
     quadratic_gradient,
     quadratic_value,
+    run_constant_gradient_updates,
     run_optimizer,
 )
 
@@ -42,6 +43,41 @@ class OptimizerFigureTests(unittest.TestCase):
                 trajectory = run_optimizer(optimizer, steps=80, seed=20261029)
                 np.testing.assert_allclose(trajectory[0], INITIAL_POINT)
                 self.assertLess(quadratic_value(trajectory[-1]), quadratic_value(trajectory[0]))
+
+    def test_stateful_updates_match_hand_calculated_constant_gradients(self) -> None:
+        expected = {
+            OptimizerName.MOMENTUM: np.array([-0.1, -0.29, -0.561]),
+            OptimizerName.ADAGRAD: np.array(
+                [-0.1, -0.17071067811865476, -0.22844570503761735]
+            ),
+            OptimizerName.RMSPROP: np.array(
+                [-0.31622776601683794, -0.5456434998873998, -0.7377381874862244]
+            ),
+            OptimizerName.ADAM: np.array([-0.1, -0.2, -0.3]),
+        }
+
+        for optimizer, wanted in expected.items():
+            with self.subTest(optimizer=optimizer.value):
+                actual = run_constant_gradient_updates(
+                    optimizer,
+                    gradient=1.0,
+                    steps=3,
+                    learning_rate=0.1,
+                    first_decay=0.9,
+                    second_decay=0.9 if optimizer is OptimizerName.RMSPROP else 0.999,
+                    epsilon=0.0,
+                )
+                np.testing.assert_allclose(actual, wanted, rtol=1e-12, atol=1e-12)
+
+    def test_deterministic_comparison_reaches_the_minimum_by_objective_and_gradient(self) -> None:
+        deterministic = tuple(
+            optimizer for optimizer in OptimizerName if optimizer is not OptimizerName.SGD
+        )
+        for optimizer in deterministic:
+            with self.subTest(optimizer=optimizer.value):
+                final = run_optimizer(optimizer, steps=1_000, seed=20261029)[-1]
+                self.assertLess(quadratic_value(final), 1e-4)
+                self.assertLess(np.linalg.norm(quadratic_gradient(final)), 2e-2)
 
     def test_generate_figures_writes_expected_nonempty_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

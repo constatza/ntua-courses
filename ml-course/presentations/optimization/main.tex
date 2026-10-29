@@ -31,20 +31,39 @@
 
 \begin{frame}{Optimization Chooses the Parameters}
   \[
-    \mathcal{L}(\boldsymbol{\theta})
+    L(\boldsymbol{\theta})
     =\frac{1}{n}\sum_{i=1}^{n}
-    \ell\!\left(y_i,f_{\boldsymbol{\theta}}(\mathbf{x}_i)\right)
+    \ell\!\left(f_{\boldsymbol{\theta}}(\mathbf{x}_i),y_i\right)
   \]
   \begin{itemize}
     \item $\boldsymbol{\theta}$ contains all learnable parameters.
-    \item $\mathcal{L}$ measures error on the training data.
+    \item $L$ measures error on the training data.
     \item Training searches for parameters with a smaller objective.
   \end{itemize}
   \[
     \boldsymbol{\theta}^{\star}
     \in \operatorname*{arg\,min}_{\boldsymbol{\theta}}
-    \mathcal{L}(\boldsymbol{\theta})
+    L(\boldsymbol{\theta})
   \]
+\end{frame}
+
+\begin{frame}{A Direction Predicts the Local Change}
+  For a unit direction $\mathbf d$, the directional derivative is
+  \[
+    D_{\mathbf d}L(\boldsymbol\theta)
+    =\nabla L(\boldsymbol\theta)^\top\mathbf d.
+  \]
+  Cauchy--Schwarz gives
+  \[
+    \nabla L^\top\mathbf d
+    \geq -\|\nabla L\|_2\|\mathbf d\|_2
+    =-\|\nabla L\|_2.
+  \]
+  The lower bound is attained by
+  \[
+    \boxed{\mathbf d^\star=-\frac{\nabla L}{\|\nabla L\|_2}}.
+  \]
+  Thus $-\nabla L$ is the steepest local descent direction in Euclidean geometry.
 \end{frame}
 
 \begin{frame}{The Negative Gradient Points Downhill}
@@ -54,13 +73,13 @@
 
 \begin{frame}{Gradient Descent Repeats One Update}
   \[
-    \mathbf{g}_t=\nabla_{\boldsymbol{\theta}}
-    \mathcal{L}(\boldsymbol{\theta}_t)
+    \mathbf{g}^{(t)}=\nabla_{\boldsymbol{\theta}}
+    L(\boldsymbol{\theta}^{(t)})
   \]
   \[
     \boxed{
-      \boldsymbol{\theta}_{t+1}
-      =\boldsymbol{\theta}_t-\eta\mathbf{g}_t
+      \boldsymbol{\theta}^{(t+1)}
+      =\boldsymbol{\theta}^{(t)}-\eta\mathbf{g}^{(t)}
     }
   \]
   \begin{itemize}
@@ -68,6 +87,24 @@
     \item The gradient sets the local direction.
     \item The learning rate sets the step size.
   \end{itemize}
+\end{frame}
+
+\begin{frame}{The Update Minimizes a Local Linear Model}
+  First-order Taylor expansion gives
+  \[
+    L(\boldsymbol\theta+\Delta\boldsymbol\theta)
+    =L(\boldsymbol\theta)
+    +\nabla L(\boldsymbol\theta)^\top\Delta\boldsymbol\theta
+    +O(\|\Delta\boldsymbol\theta\|_2^2).
+  \]
+  Constraining the displacement prevents an unbounded linear problem:
+  \[
+    \min_{\|\Delta\boldsymbol\theta\|_2\leq\eta\|\nabla L\|_2}
+    \nabla L^\top\Delta\boldsymbol\theta
+    \quad\Longrightarrow\quad
+    \Delta\boldsymbol\theta=-\eta\nabla L.
+  \]
+  The step is justified locally; the learning rate decides whether that local model is trusted too far.
 \end{frame}
 
 \begin{frame}{The Learning Rate Controls Progress and Stability}
@@ -87,10 +124,24 @@
     \item Large $\kappa$: narrow valleys cause zig-zagging.
     \item Feature scaling can improve the geometry.
   \end{itemize}
+  Scaling does not change which physical relation the data represent; it changes how easily
+  a first-order method traverses the parameter space.
+\end{frame}
+
+\begin{frame}{Quadratic Stability Is an Eigenvalue Condition}
+  Let $L(\boldsymbol\theta)=\tfrac12\boldsymbol\theta^\top\mathbf H\boldsymbol\theta$
+  with $\mathbf H\succ0$. Along eigenvector $\mathbf q_j$,
   \[
-    0<\eta<\frac{2}{\lambda_{\max}(\mathbf{H})}
-    \qquad \text{ensures convergence for this quadratic.}
+    z_j^{(t+1)}=(1-\eta\lambda_j)z_j^{(t)}.
   \]
+  Convergence in every eigendirection requires
+  \[
+    |1-\eta\lambda_j|<1
+    \quad\forall j
+    \quad\Longleftrightarrow\quad
+    \boxed{0<\eta<\frac{2}{\lambda_{\max}}}.
+  \]
+  A large condition number leaves no single step size that is fast in every direction.
 \end{frame}
 
 \begin{frame}{Ill-Conditioned Objectives Slow Gradient Descent}
@@ -98,13 +149,27 @@
   \includegraphics[width=0.98\linewidth,height=0.79\textheight,keepaspectratio]{conditioning.png}
 \end{frame}
 
+\begin{frame}{Smooth Convex Objectives Admit a Descent Guarantee}
+  If $L$ has an $M$-Lipschitz gradient, the descent lemma gives
+  \[
+    L(\boldsymbol\theta-\eta\nabla L)
+    \leq L(\boldsymbol\theta)
+    -\eta\left(1-\frac{M\eta}{2}\right)\|\nabla L\|_2^2.
+  \]
+  Therefore $0<\eta<2/M$ decreases the objective unless $\nabla L=0$.
+  \begin{itemize}
+    \item Convexity turns a stationary point into a global minimizer.
+    \item Neural-network objectives are generally nonconvex; the local descent statement still matters.
+  \end{itemize}
+\end{frame}
+
 \begin{frame}{A Batch Chooses the Gradient Estimate}
   \[
-    \mathbf{g}_t
+    \mathbf{g}^{(t)}
     =\frac{1}{|\mathcal{B}_t|}
       \sum_{i\in\mathcal{B}_t}
       \nabla_{\boldsymbol{\theta}}
-      \ell_i(\boldsymbol{\theta}_t)
+      \ell_i(\boldsymbol{\theta}^{(t)})
   \]
   \begin{center}
     \begin{tabular}{lll}
@@ -117,6 +182,23 @@
       \bottomrule
     \end{tabular}
   \end{center}
+\end{frame}
+
+\begin{frame}{A Uniform Mini-Batch Gradient Is Unbiased}
+  For a uniformly sampled batch $\mathcal B_t$ of size $b$,
+  \[
+    \mathbf g^{(t)}
+    =\frac1b\sum_{i\in\mathcal B_t}\nabla\ell_i(\boldsymbol\theta^{(t)}),
+    \qquad
+    \mathbb E_{\mathcal B_t}[\mathbf g^{(t)}]
+    =\nabla L(\boldsymbol\theta^{(t)}).
+  \]
+  Under independent sampling,
+  \[
+    \operatorname{Var}(\mathbf g^{(t)})
+    =\frac1b\operatorname{Var}(\nabla\ell_i).
+  \]
+  A larger batch reduces gradient variance, but usually costs more per update.
 \end{frame}
 
 \begin{frame}{Mini-Batches Trade Noise for Throughput}
@@ -166,16 +248,30 @@
   \end{itemize}
 \end{frame}
 
+\begin{frame}{Learning-Rate Schedules Change the Long-Run Behavior}
+  \[
+    \eta_t=\eta_0
+    \quad\text{or}\quad
+    \eta_t=\frac{\eta_0}{(1+t)^\alpha},\;\alpha>0.
+  \]
+  \begin{itemize}
+    \item A constant step can keep stochastic or normalized updates near the minimum.
+    \item Decay permits smaller corrections late in training.
+    \item Warm-up limits unstable early updates when gradients or moment estimates are poorly scaled.
+  \end{itemize}
+  The schedule is part of the algorithm and must be reported in a comparison.
+\end{frame}
+
 \begin{frame}{Momentum Accumulates a Descent Direction}
   \[
-    \mathbf{v}_t
-    =\beta\mathbf{v}_{t-1}+\mathbf{g}_t,
+    \mathbf{v}^{(t)}
+    =\beta\mathbf{v}^{(t-1)}+\mathbf{g}^{(t)},
     \qquad 0\leq\beta<1
   \]
   \[
     \boxed{
-      \boldsymbol{\theta}_{t+1}
-      =\boldsymbol{\theta}_t-\eta\mathbf{v}_t
+      \boldsymbol{\theta}^{(t+1)}
+      =\boldsymbol{\theta}^{(t)}-\eta\mathbf{v}^{(t)}
     }
   \]
   \begin{itemize}
@@ -192,13 +288,13 @@
 
 \begin{frame}{AdaGrad Scales Each Parameter Separately}
   \[
-    \mathbf{s}_t
-    =\mathbf{s}_{t-1}+\mathbf{g}_t\odot\mathbf{g}_t
+    \mathbf{s}^{(t)}
+    =\mathbf{s}^{(t-1)}+\mathbf{g}^{(t)}\odot\mathbf{g}^{(t)}
   \]
   \[
-    \boldsymbol{\theta}_{t+1}
-    =\boldsymbol{\theta}_t
-    -\eta\frac{\mathbf{g}_t}{\sqrt{\mathbf{s}_t}+\varepsilon}
+    \boldsymbol{\theta}^{(t+1)}
+    =\boldsymbol{\theta}^{(t)}
+    -\eta\frac{\mathbf{g}^{(t)}}{\sqrt{\mathbf{s}^{(t)}}+\varepsilon}
   \]
   \begin{itemize}
     \item Large historical gradients shrink future steps.
@@ -209,15 +305,15 @@
 
 \begin{frame}{RMSProp Forgets Distant Squared Gradients}
   \[
-    \mathbf{s}_t
-    =\rho\mathbf{s}_{t-1}
-    +(1-\rho)\mathbf{g}_t\odot\mathbf{g}_t
+    \mathbf{s}^{(t)}
+    =\rho\mathbf{s}^{(t-1)}
+    +(1-\rho)\mathbf{g}^{(t)}\odot\mathbf{g}^{(t)}
   \]
   \[
     \boxed{
-      \boldsymbol{\theta}_{t+1}
-      =\boldsymbol{\theta}_t
-      -\eta\frac{\mathbf{g}_t}{\sqrt{\mathbf{s}_t}+\varepsilon}
+      \boldsymbol{\theta}^{(t+1)}
+      =\boldsymbol{\theta}^{(t)}
+      -\eta\frac{\mathbf{g}^{(t)}}{\sqrt{\mathbf{s}^{(t)}}+\varepsilon}
     }
   \]
   \begin{itemize}
@@ -231,44 +327,61 @@
   \includegraphics[width=0.96\linewidth,height=0.79\textheight,keepaspectratio]{rmsprop.png}
 \end{frame}
 
-\begin{frame}{Adam Tracks Two Gradient Moments}
+\begin{frame}{A Fixed RMSProp Step Need Not Land on the Minimizer}
+  Before $\varepsilon$ dominates, both $\mathbf g^{(t)}$ and its running scale shrink;
+  their ratio need not shrink with the gradient:
   \[
-    \mathbf{m}_t
-    =\beta_1\mathbf{m}_{t-1}
-    +(1-\beta_1)\mathbf{g}_t
-  \]
-  \[
-    \mathbf{v}_t
-    =\beta_2\mathbf{v}_{t-1}
-    +(1-\beta_2)\mathbf{g}_t\odot\mathbf{g}_t
+    \frac{\mathbf g^{(t)}}{\sqrt{\mathbf s^{(t)}}+\varepsilon}.
   \]
   \begin{itemize}
-    \item $\mathbf{m}_t$ tracks direction.
-    \item $\mathbf{v}_t$ tracks coordinate-wise scale.
+    \item A large constant $\eta$ can produce a neighborhood or a limit cycle.
+    \item This is a step-size effect, not a missing additive bias correction.
+    \item The plotted deterministic trace uses $\eta_t=0.05/\sqrt{t}$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Adam Tracks Two Gradient Moments}
+  \[
+    \mathbf{m}^{(t)}
+    =\beta_1\mathbf{m}^{(t-1)}
+    +(1-\beta_1)\mathbf{g}^{(t)}
+  \]
+  \[
+    \mathbf{v}^{(t)}
+    =\beta_2\mathbf{v}^{(t-1)}
+    +(1-\beta_2)\mathbf{g}^{(t)}\odot\mathbf{g}^{(t)}
+  \]
+  \begin{itemize}
+    \item $\mathbf{m}^{(t)}$ tracks direction.
+    \item $\mathbf{v}^{(t)}$ tracks coordinate-wise scale.
     \item Both start at zero.
   \end{itemize}
 \end{frame}
 
 \begin{frame}{Bias Correction Fixes Adam's Zero Start}
+  If the first two raw gradient moments are approximately stationary, then
   \[
-    \widehat{\mathbf{m}}_t
-    =\frac{\mathbf{m}_t}{1-\beta_1^t},
+    \mathbb E[\mathbf m^{(t)}]=(1-\beta_1^t)\boldsymbol\mu,
     \qquad
-    \widehat{\mathbf{v}}_t
-    =\frac{\mathbf{v}_t}{1-\beta_2^t}
+    \mathbb E[\mathbf v^{(t)}]=(1-\beta_2^t)\mathbb E[(\mathbf g^{(t)})^2].
+  \]
+  \[
+    \widehat{\mathbf{m}}^{(t)}
+    =\frac{\mathbf{m}^{(t)}}{1-\beta_1^t},
+    \qquad
+    \widehat{\mathbf{v}}^{(t)}
+    =\frac{\mathbf{v}^{(t)}}{1-\beta_2^t}
   \]
   \[
     \boxed{
-      \boldsymbol{\theta}_{t+1}
-      =\boldsymbol{\theta}_t
-      -\eta\frac{\widehat{\mathbf{m}}_t}
-      {\sqrt{\widehat{\mathbf{v}}_t}+\varepsilon}
+      \boldsymbol{\theta}^{(t+1)}
+      =\boldsymbol{\theta}^{(t)}
+      -\eta\frac{\widehat{\mathbf{m}}^{(t)}}
+      {\sqrt{\widehat{\mathbf{v}}^{(t)}}+\varepsilon}
     }
   \]
-  \begin{itemize}
-    \item Early moving averages are biased toward zero.
-    \item The correction is largest during early updates.
-  \end{itemize}
+  The correction removes the known attenuation caused by zero initialization;
+  $\varepsilon$ prevents division by zero and sets the small-scale numerical regime.
 \end{frame}
 
 \begin{frame}{Adam Combines Momentum and Adaptive Scaling}
@@ -278,10 +391,10 @@
     box/.style={draw,rounded corners,minimum width=2.5cm,minimum height=0.9cm,align=center,very thick},
     flow/.style={-{Latex[length=3mm]},very thick,courseblue}
   ]
-    \node[box,fill=courselightblue] (gradient) {gradient\\$\mathbf{g}_t$};
-    \node[box,fill=coursegreen!18,below left=of gradient] (first) {first moment\\$\widehat{\mathbf{m}}_t$};
-    \node[box,fill=coursepurple!18,below right=of gradient] (second) {second moment\\$\widehat{\mathbf{v}}_t$};
-    \node[box,fill=courselightorange,below=2.8cm of gradient] (update) {scaled update\\$\Delta\boldsymbol{\theta}_t$};
+    \node[box,fill=courselightblue] (gradient) {gradient\\$\mathbf{g}^{(t)}$};
+    \node[box,fill=coursegreen!18,below left=of gradient] (first) {first moment\\$\widehat{\mathbf{m}}^{(t)}$};
+    \node[box,fill=coursepurple!18,below right=of gradient] (second) {second moment\\$\widehat{\mathbf{v}}^{(t)}$};
+    \node[box,fill=courselightorange,below=2.8cm of gradient] (update) {scaled update\\$\Delta\boldsymbol{\theta}^{(t)}$};
     \draw[flow] (gradient) -- (first);
     \draw[flow] (gradient) -- (second);
     \draw[flow] (first) -- (update);
@@ -292,6 +405,48 @@
 \begin{frame}{One Objective Reveals Different Optimizer Paths}
   \centering
   \includegraphics[width=0.96\linewidth,height=0.79\textheight,keepaspectratio]{optimizer-comparison.png}
+\end{frame}
+
+\begin{frame}{Compare Convergence with Quantities, Not Endpoint Appearance}
+  \centering
+  \includegraphics[width=0.96\linewidth,height=0.79\textheight,keepaspectratio]{optimizer-progress.png}
+\end{frame}
+
+\begin{frame}{The Comparison Declares Its Budget and Schedule}
+  \begin{itemize}
+    \item Same quadratic objective, initial point, and 1000-update budget.
+    \item Constant rates: GD $0.075$, momentum $0.012$, AdaGrad $0.35$, Adam $0.11$.
+    \item RMSProp uses $\eta_t=0.05/\sqrt{t}$ to demonstrate convergence.
+    \item SGD uses a constant rate and additive gradient noise to show its noise floor.
+  \end{itemize}
+  We evaluate both
+  \[
+    L(\boldsymbol\theta^{(T)})-L^\star
+    \qquad\text{and}\qquad
+    \|\nabla L(\boldsymbol\theta^{(T)})\|_2.
+  \]
+  A trajectory plot explains geometry; these quantities check whether an optimizer is actually near a stationary minimum.
+\end{frame}
+
+\begin{frame}{The Final Diagnostics Confirm Which Methods Arrived}
+  \centering
+  \begin{tabular}{lrr}
+    \toprule
+    \textbf{Method} & $L(\boldsymbol\theta^{(1000)})-L^\star$
+      & $\|\nabla L(\boldsymbol\theta^{(1000)})\|_2$ \\
+    \midrule
+    GD       & $2.0\times10^{-68}$ & $2.0\times10^{-34}$ \\
+    SGD      & $1.4\times10^{-2}$  & $1.9\times10^{-1}$ \\
+    Momentum & $3.4\times10^{-85}$ & $3.4\times10^{-42}$ \\
+    AdaGrad  & $5.0\times10^{-5}$  & $1.0\times10^{-2}$ \\
+    RMSProp  & $1.0\times10^{-5}$  & $1.9\times10^{-2}$ \\
+    Adam     & $3.0\times10^{-32}$ & $2.6\times10^{-16}$ \\
+    \bottomrule
+  \end{tabular}
+
+  \vspace{0.5cm}
+  The constant-rate noisy SGD trace is intentionally near the optimum rather than at it.
+  These values describe this controlled quadratic, not a universal ranking.
 \end{frame}
 
 \begin{frame}{Optimizer Choice Does Not Replace Validation}

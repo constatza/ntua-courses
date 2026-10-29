@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
@@ -36,6 +37,7 @@ EXPECTED_FILENAMES = (
     "momentum.png",
     "rmsprop.png",
     "optimizer-comparison.png",
+    "optimizer-progress.png",
 )
 
 
@@ -43,8 +45,76 @@ class OptimizerName(str, Enum):
     GD = "GD"
     SGD = "SGD"
     MOMENTUM = "Momentum"
+    ADAGRAD = "AdaGrad"
     RMSPROP = "RMSProp"
     ADAM = "Adam"
+
+
+@dataclass(frozen=True, slots=True)
+class OptimizerState:
+    first_moment: NDArray[np.float64]
+    second_moment: NDArray[np.float64]
+
+
+def optimizer_direction(
+    optimizer: OptimizerName,
+    gradient: NDArray[np.float64],
+    state: OptimizerState,
+    iteration: int,
+    first_decay: float,
+    second_decay: float,
+    epsilon: float,
+) -> tuple[NDArray[np.float64], OptimizerState]:
+    first_moment = state.first_moment
+    second_moment = state.second_moment
+
+    match optimizer:
+        case OptimizerName.GD | OptimizerName.SGD:
+            direction = gradient
+        case OptimizerName.MOMENTUM:
+            first_moment = first_decay * first_moment + gradient
+            direction = first_moment
+        case OptimizerName.ADAGRAD:
+            second_moment = second_moment + gradient**2
+            direction = gradient / (np.sqrt(second_moment) + epsilon)
+        case OptimizerName.RMSPROP:
+            second_moment = second_decay * second_moment + (1.0 - second_decay) * gradient**2
+            direction = gradient / (np.sqrt(second_moment) + epsilon)
+        case OptimizerName.ADAM:
+            first_moment = first_decay * first_moment + (1.0 - first_decay) * gradient
+            second_moment = second_decay * second_moment + (1.0 - second_decay) * gradient**2
+            corrected_first = first_moment / (1.0 - first_decay**iteration)
+            corrected_second = second_moment / (1.0 - second_decay**iteration)
+            direction = corrected_first / (np.sqrt(corrected_second) + epsilon)
+
+    return direction, OptimizerState(first_moment, second_moment)
+
+
+def run_constant_gradient_updates(
+    optimizer: OptimizerName,
+    gradient: float,
+    steps: int,
+    learning_rate: float,
+    first_decay: float,
+    second_decay: float,
+    epsilon: float,
+) -> NDArray[np.float64]:
+    parameters = np.zeros(1)
+    state = OptimizerState(np.zeros(1), np.zeros(1))
+    trajectory = []
+    for iteration in range(1, steps + 1):
+        direction, state = optimizer_direction(
+            optimizer,
+            np.array([gradient]),
+            state,
+            iteration,
+            first_decay,
+            second_decay,
+            epsilon,
+        )
+        parameters = parameters - learning_rate * direction
+        trajectory.append(float(parameters[0]))
+    return np.asarray(trajectory)
 
 
 def quadratic_value(parameters: NDArray[np.float64]) -> float:
@@ -68,30 +138,35 @@ def run_optimizer(optimizer: OptimizerName, steps: int, seed: int) -> NDArray[np
     parameters = INITIAL_POINT.copy()
     trajectory = [parameters.copy()]
     rng = np.random.default_rng(seed)
-    first_moment = np.zeros_like(parameters)
-    second_moment = np.zeros_like(parameters)
+    state = OptimizerState(np.zeros_like(parameters), np.zeros_like(parameters))
+
+    learning_rates = {
+        OptimizerName.GD: 0.075,
+        OptimizerName.SGD: 0.035,
+        OptimizerName.MOMENTUM: 0.012,
+        OptimizerName.ADAGRAD: 0.35,
+        OptimizerName.RMSPROP: 0.05,
+        OptimizerName.ADAM: 0.11,
+    }
 
     for iteration in range(1, steps + 1):
         gradient = quadratic_gradient(parameters)
+        if optimizer is OptimizerName.SGD:
+            gradient = gradient + rng.normal(0.0, 1.4, size=parameters.shape)
 
-        match optimizer:
-            case OptimizerName.GD:
-                parameters = parameters - 0.075 * gradient
-            case OptimizerName.SGD:
-                stochastic_gradient = gradient + rng.normal(0.0, 1.4, size=parameters.shape)
-                parameters = parameters - 0.035 * stochastic_gradient
-            case OptimizerName.MOMENTUM:
-                first_moment = 0.82 * first_moment + gradient
-                parameters = parameters - 0.012 * first_moment
-            case OptimizerName.RMSPROP:
-                second_moment = 0.9 * second_moment + 0.1 * gradient**2
-                parameters = parameters - 0.09 * gradient / (np.sqrt(second_moment) + 1e-8)
-            case OptimizerName.ADAM:
-                first_moment = 0.9 * first_moment + 0.1 * gradient
-                second_moment = 0.999 * second_moment + 0.001 * gradient**2
-                corrected_first = first_moment / (1.0 - 0.9**iteration)
-                corrected_second = second_moment / (1.0 - 0.999**iteration)
-                parameters = parameters - 0.11 * corrected_first / (np.sqrt(corrected_second) + 1e-8)
+        direction, state = optimizer_direction(
+            optimizer,
+            gradient,
+            state,
+            iteration,
+            first_decay=0.82 if optimizer is OptimizerName.MOMENTUM else 0.9,
+            second_decay=0.9 if optimizer is OptimizerName.RMSPROP else 0.999,
+            epsilon=1e-8,
+        )
+        learning_rate = learning_rates[optimizer]
+        if optimizer is OptimizerName.RMSPROP:
+            learning_rate /= np.sqrt(iteration)
+        parameters = parameters - learning_rate * direction
 
         trajectory.append(parameters.copy())
 
@@ -237,6 +312,7 @@ def _comparison(
         OptimizerName.GD: ORANGE,
         OptimizerName.SGD: GRAY,
         OptimizerName.MOMENTUM: GREEN,
+        OptimizerName.ADAGRAD: BLUE,
         OptimizerName.RMSPROP: PURPLE,
         OptimizerName.ADAM: RED,
     }
@@ -245,6 +321,31 @@ def _comparison(
     for method, label in methods:
         _plot_trajectory(axis, run_optimizer(method, steps, SEED), label, colors[method])
     axis.legend(frameon=False, fontsize=11, loc="upper left")
+    _save(figure, path)
+
+
+def _optimizer_progress(path: Path, steps: int = 1_000) -> None:
+    colors = {
+        OptimizerName.GD: ORANGE,
+        OptimizerName.SGD: GRAY,
+        OptimizerName.MOMENTUM: GREEN,
+        OptimizerName.ADAGRAD: BLUE,
+        OptimizerName.RMSPROP: PURPLE,
+        OptimizerName.ADAM: RED,
+    }
+    figure, axis = plt.subplots(figsize=(8.8, 5.5))
+    for optimizer in OptimizerName:
+        trajectory = run_optimizer(optimizer, steps, SEED)
+        values = np.asarray([quadratic_value(parameters) for parameters in trajectory])
+        axis.semilogy(values, color=colors[optimizer], linewidth=2.3, label=optimizer.value)
+    axis.set_xlabel("update", fontsize=14)
+    axis.set_ylabel(r"objective gap $L(\boldsymbol{\theta}_t)-L^\star$", fontsize=14)
+    axis.set_xlim(0, steps)
+    axis.set_ylim(1e-10, 1e3)
+    axis.grid(alpha=0.2)
+    axis.tick_params(labelsize=10)
+    axis.spines[["top", "right"]].set_visible(False)
+    axis.legend(frameon=False, fontsize=10, ncol=2, loc="upper right")
     _save(figure, path)
 
 
@@ -257,17 +358,24 @@ def generate_figures(output_directory: Path) -> tuple[Path, ...]:
     _conditioning(outputs[2])
     _comparison(outputs[3], ((OptimizerName.GD, "full-batch GD"), (OptimizerName.SGD, "SGD")))
     _comparison(outputs[4], ((OptimizerName.GD, "GD"), (OptimizerName.MOMENTUM, "momentum")))
-    _comparison(outputs[5], ((OptimizerName.GD, "GD"), (OptimizerName.RMSPROP, "RMSProp")))
+    _comparison(
+        outputs[5],
+        ((OptimizerName.GD, "GD"), (OptimizerName.RMSPROP, r"RMSProp, $\eta_t\propto t^{-1/2}$")),
+        steps=1_000,
+    )
     _comparison(
         outputs[6],
         (
             (OptimizerName.GD, "GD"),
             (OptimizerName.SGD, "SGD"),
             (OptimizerName.MOMENTUM, "momentum"),
+            (OptimizerName.ADAGRAD, "AdaGrad"),
             (OptimizerName.RMSPROP, "RMSProp"),
             (OptimizerName.ADAM, "Adam"),
         ),
+        steps=1_000,
     )
+    _optimizer_progress(outputs[7])
 
     trajectories = tuple(run_optimizer(method, 80, SEED) for method in OptimizerName)
     assert all(np.allclose(trajectory[0], INITIAL_POINT) for trajectory in trajectories)
