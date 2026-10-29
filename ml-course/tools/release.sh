@@ -21,6 +21,7 @@ REPO="machine-learning"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 STAGE="$(mktemp -d -t ml-release-XXXXXX)"
 NOTES="$STAGE/release-notes.md"
+DECKS="$STAGE/decks.txt"
 ASSETS=""
 
 cleanup() {
@@ -71,7 +72,7 @@ for d in presentations/*/; do
     slug="$(basename "$d")"
     cp "$pdf" "$STAGE/$slug.pdf"
     ASSETS="$ASSETS $STAGE/$slug.pdf"
-    DECK_LIST="$DECK_LIST- $slug\n"
+    echo "- $slug" >> "$DECKS"
   fi
 done
 
@@ -90,8 +91,7 @@ SHORT="$(git rev-parse --short HEAD)"
   echo ""
   echo "## Decks"
   echo ""
-  # shellcheck disable=SC2059
-  printf -- "$DECK_LIST"
+  cat "$DECKS"
   echo ""
   echo "## Install"
   echo ""
