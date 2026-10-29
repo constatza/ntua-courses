@@ -3,431 +3,435 @@
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath}
 \usepackage{amssymb}
-\usepackage{graphicx}
 \usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{arrows.meta,positioning}
 
-\title{From Linear Regression to Neural Networks: A Gentle Introduction}
+\title{Dense Neural Networks and Backpropagation}
 \author{}
 \date{}
 
-\graphicspath{{assets/}}
+\definecolor{courseblue}{HTML}{3F7CAC}
+\definecolor{courseorange}{HTML}{D97706}
+\definecolor{coursegreen}{HTML}{27864A}
+\definecolor{coursepurple}{HTML}{7656A3}
+\definecolor{coursered}{HTML}{B5473C}
+\definecolor{courselightblue}{HTML}{DCE9F5}
+\definecolor{courselightorange}{HTML}{F9E4C8}
+
 \begin{document}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Title Frame
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 \begin{frame}[plain]
-	\makepresentationtitle
+  \makepresentationtitle
 \end{frame}
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Frame: What is AI
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\begin{frame}{What is Artificial Intelligence?}
-	\begin{figure}
-		\centering
-		\includegraphics[height=.62\textheight]{ai-ml-dl.png}
-	\end{figure}
-\end{frame}
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Frame: History of AI (II)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\begin{frame}{Recent history of Machine Learning}
-	
-	\textbf{Principles (17th-19th century)}
-	\begin{itemize}
-		\item Linear Algebra
-		\item Calculus (e.g. Chain rule - Backpropagation)
-		\item Statistics \& Probability (e.g. Linear Regression)
-	\end{itemize}
-	
-	\textbf{Algorithms (1950-)}
-	\begin{itemize}
-		\item Perceptron, 
-		\item Hidden Markov Models, Bayesian Networks
-		\item Support vector machines
-		\item RNNs, LSTMs, CNNs
-	\end{itemize}
-	
-	\textbf{Big data (2001--)}
-	\begin{itemize}
-		\item World Wide Web: large datasets (billions-trillions of samples)
-		\item ImageNet, IBM’s Watson
-	\end{itemize}
-	
-	\textbf{Deep learning (2011--)}
-	\begin{itemize}
-		\item Hardware improvements (GPU vs.\ CPU FLOPs)
-		\item Deep CNNs (AlexNet), AlphaGo
-	\end{itemize}
-\end{frame}
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Frame: Definition
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\begin{frame}{Definition}
-	Most machine learning algorithms involve:
-	\begin{itemize}
-		\item Dataset
-		\item Parametrized model
-		\item Cost function
-		\item Optimization procedure
-	\end{itemize}
-\end{frame}
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Frame: Types of Learning
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\begin{frame}{Types of Learning}
-	\begin{itemize}
-		\item \textbf{Supervised learning:} Labeled dataset (e.g., image + label).
-		\item \textbf{Unsupervised learning:} Discover structure in data (e.g., clustering, anomaly detection).
-		\item \textbf{Semi-supervised learning:} Partial labels help shape an unsupervised approach.
-		\item \textbf{Reinforcement learning:} Agent interacts with environment, maximizing a reward signal.
-	\end{itemize}
-\end{frame}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Frame:  ML Tasks (I)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\begin{frame}{Machine Learning Tasks}
-	\textbf{Regression}
-	\begin{itemize}
-		\item Prediction of a numerical value.
-		\item Example: House price based on area, age, location, etc.
-	\end{itemize}
-	\textbf{Classification}
-	\begin{itemize}
-		\item Prediction of a discrete category.
-		\item Example: Distinguish cats vs.\ dogs in images.
-	\end{itemize}
-	\textbf{Clustering}
-	\begin{itemize}
-		\item Group data into clusters based on similarity (no labels).
-		\item Example: Identify similar customer groups.
-	\end{itemize}
-	\textbf{Generative modeling}
-	\begin{itemize}
-		\item Generate new data points that resemble a given dataset.
-		\item Example: Produce novel designs that look like existing data.
-	\end{itemize}
-\end{frame}
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Frame: Machine Learning Algorithms (Supervised)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\begin{frame}{Machine Learning Algorithms (Supervised)}
-	\centering
-	\scriptsize
-	\resizebox{\textwidth}{!}{%
-	\begin{tabular}{lll}
-		\toprule
-		\textbf{Category} & \textbf{Algorithm} & \textbf{Tasks} \\
-		\midrule
-		\textbf{Supervised} & Decision Trees & Classification \\
-		& Random Forest & Classification, Regression \\
-		& Support Vector Machines & Classification, Regression \\
-		& K-Nearest Neighbors & Classification \\
-		& Bayesian Network & Classification \\
-		& Gaussian Process & Regression \\
-		& Multi-gene Genetic Programming & Regression \\
-		& Hidden Semi-Markov Model & Classification \\
-		& Multi-layer Perceptron & Classification, Regression \\
-		& Convolutional Neural Network & Classification \\
-		& Recurrent Neural Network & Time series (Regression) \\
-		& Transformers & Regression, Classification, Generative \\
-		\bottomrule
-	\end{tabular}
-	}
-\end{frame}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Frame: Machine Learning Algorithms (Unsupervised)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\begin{frame}{Machine Learning Algorithms (Unsupervised and Semi-supervised)}
-	\centering
-	\scriptsize
-	\resizebox{\textwidth}{!}{%
-	\begin{tabular}{lll}
-		\toprule
-		\textbf{Category} & \textbf{Algorithm} & \textbf{Tasks} \\
-		\midrule
-		\textbf{Unsupervised} & Self-organizing Map & Clustering \\
-		& Deep Belief Network & Classification \\
-		& K-means Clustering & Clustering \\
-		& POD (Reduced Order Modeling) & Dimensionality Red. \\
-		& Autoencoder & Generative Modeling, Dim. Red. \\
-		& GANs & Generative Modeling, (Classification) \\
-		& Diffusion Model & Generative Modeling \\
-		\midrule
-		\textbf{Semi-supervised} & Gaussian Mixture Model & Clustering \\
-		\bottomrule
-	\end{tabular}
-	}
-\end{frame}
-
-
-
-\begin{frame}{Data Split}
-	\begin{itemize}
-		\item \textbf{Training set} ($\approx 60-80\%$):
-		
-		Used to learn parameters.
-		\item \textbf{Validation set} ($\approx 10-20\%$): 
-		
-		Check model performance \& tune hyperparameters.
-		\item \textbf{Test set} ($\approx 10-20\%$): 
-		
-		Final evaluation. No test information is allowed to leak into the model.
-	\end{itemize}
-\end{frame}
-
-
-
-% Notation Explanation Slide
-\begin{frame}{Mathematical Notation}
-\textbf{Understanding the Symbols:}
-\begin{itemize}
-  \item $\mathbf{x}$: Input feature vector, $\mathbf{x} \in \mathbb{R}^d$
-  \item $\mathbf{y}$: Output vector, $\mathbf{y} \in \mathbb{R}^m$
-  \item $\mathbf{W}$: Weight vector or matrix, depending on context
-  \item $\mathbf{b}$: Bias scalar or vector
-  \item $d$: Number of input features
-  \item $n$: Number of samples (when relevant, implied in summation)
-  \item $m$: Number of output variables (for neural networks)
-\end{itemize}
-\end{frame}
-
-% Linear Regression Slide
-\begin{frame}{Linear Regression}
-\textbf{Model Definition}
-\medskip
-\textbf{Objective}: Predict outputs $y$ from inputs $\mathbf{x}$.
-\begin{itemize}
-  \item \textbf{Input}: $\mathbf{x} \in \mathbb{R}^d$
-  \item \textbf{Output}: $y \in \mathbb{R}$
-\end{itemize}
-\textbf{Model}:
-$$\hat{y} = \mathbf{W}^\top \mathbf{x} + b$$
-\medskip
-\textbf{Example}:
-\begin{itemize}
-  \item Predicting house prices based on features like area and number of rooms.
-\end{itemize}
-\end{frame}
-
-% Linear Regression Visualization
-\begin{frame}{Linear Regression Visualization}
-\begin{figure}
+\begin{frame}{Linear Models Cannot Bend a Decision Boundary}
   \centering
-  \includegraphics[width=0.52\linewidth]{linear-regression.png}
-  \caption{Illustration of a linear regression model fitting a dataset.}
-\end{figure}
+  \begin{tikzpicture}[scale=0.85]
+    \draw[->] (-3.3,0)--(3.3,0) node[right] {$x_1$};
+    \draw[->] (0,-2.5)--(0,2.7) node[above] {$x_2$};
+    \foreach \a in {0,45,...,315}{
+      \fill[courseblue] ({1.0*cos(\a)},{1.0*sin(\a)}) circle (2.2pt);
+      \fill[courseorange] ({2.15*cos(\a)},{2.15*sin(\a)}) circle (2.2pt);
+    }
+    \draw[coursered,very thick] (-2.8,-1.1)--(2.8,1.4);
+    \node[coursered,align=center] at (2.3,-1.6) {every affine classifier\\uses one line};
+  \end{tikzpicture}
+
+  A composition of learned nonlinear features can represent the circular separation.
 \end{frame}
 
-% Linear Regression Loss Function and Gradient Descent
-\begin{frame}{Linear Regression (cont.)}
-\textbf{Loss Function (Mean Squared Error):}
-$$\mathcal{L} = \frac{1}{n} \sum_{i=1}^{n} (\hat{y}_i - y_i)^2$$
-\textbf{Gradient Descent}
-\medskip
-\begin{itemize}
-  \item Iteratively adjust $\mathbf{W}$ and $b$ to minimize $\mathcal{L}$.
-  \item \textbf{Update Rules}:
-\end{itemize}
-$$\mathbf{W} \leftarrow \mathbf{W} - \eta \frac{\partial \mathcal{L}}{\partial \mathbf{W}}$$
-$$b \leftarrow b - \eta \frac{\partial \mathcal{L}}{\partial b}$$
-- $\eta$: Learning rate
-\end{frame}
-
-% Additional Slide on Gradient Computation in Linear Regression
-\begin{frame}{Gradient Computation in Linear Regression}
-\textbf{Applying the Chain Rule}
-\begin{itemize}
-  \item The gradient of the loss with respect to $\mathbf{W}$ is calculated as:
-  $$\frac{\partial \mathcal{L}}{\partial \mathbf{W}} = \frac{1}{n} \sum_{i=1}^{n} \frac{\partial \mathcal{L}}{\partial \hat{y}_i} \cdot \frac{\partial \hat{y}_i}{\partial \mathbf{W}}$$
-  \item This chain rule approach allows us to compute gradients efficiently by breaking down complex derivatives into simpler parts.
-\end{itemize}
-\end{frame}
-
-% Gradient Descent Visualization
-\begin{frame}{Gradient Descent Visualization}
-\begin{figure}
+\begin{frame}{A Neuron Is an Affine Map Followed by an Activation}
+  \[
+    z=\mathbf w^\top\mathbf x+b,
+    \qquad a=\sigma(z).
+  \]
   \centering
-  \includegraphics[width=0.48\linewidth]{gd.png}
-  \caption{Gradient descent iteratively minimizing the loss function in 2D space.}
-\end{figure}
+  \begin{tikzpicture}[
+    box/.style={draw,rounded corners,minimum width=2.1cm,minimum height=0.9cm,align=center,very thick},
+    flow/.style={-{Latex[length=3mm]},very thick,courseblue},node distance=0.8cm
+  ]
+    \node[box,fill=courselightblue] (x) {input\\$\mathbf x$};
+    \node[box,right=of x] (affine) {affine score\\$z=\mathbf w^\top\mathbf x+b$};
+    \node[box,fill=courselightorange,right=of affine] (activation) {activation\\$a=\sigma(z)$};
+    \draw[flow] (x)--(affine);
+    \draw[flow] (affine)--(activation);
+  \end{tikzpicture}
+
+  The parameters choose a direction and offset; the activation changes the representation.
 \end{frame}
 
-% Logistic Regression Slide
-\begin{frame}{Logistic Regression}
-\textbf{Model Definition}
-\medskip
-\textbf{Objective}: Predict binary outputs using multiple inputs.
-\begin{itemize}
-  \item \textbf{Input}: $\mathbf{x} \in \mathbb{R}^d$
-  \item \textbf{Output}: $y \in \{0, 1\}$
-\end{itemize}
-\textbf{Model}:
-$$\hat{y} = \sigma(\mathbf{W}^\top \mathbf{x} + b)$$
-\textbf{Sigmoid Function:} $\sigma(z) = \frac{1}{1 + e^{-z}}$
-\medskip
-\textbf{Example}:
-\begin{itemize}
-  \item Classifying whether an email is spam or not.
-\end{itemize}
+\begin{frame}{A Dense Layer Transforms a Whole Representation}
+  For layer $\ell=1,\dots,L$,
+  \[
+    \mathbf z^{(\ell)}
+      =\mathbf W^{(\ell)}\mathbf a^{(\ell-1)}+\mathbf b^{(\ell)},
+    \qquad
+    \mathbf a^{(\ell)}=\sigma^{(\ell)}(\mathbf z^{(\ell)}).
+  \]
+  \[
+    \mathbf W^{(\ell)}\in\mathbb R^{d_\ell\times d_{\ell-1}},
+    \quad \mathbf b^{(\ell)},\mathbf z^{(\ell)},\mathbf a^{(\ell)}\in\mathbb R^{d_\ell},
+    \quad \mathbf a^{(0)}=\mathbf x.
+  \]
+  ``Dense'' means every output unit may depend on every input unit in the preceding layer.
 \end{frame}
 
-% Logistic Regression Visualization
-\begin{frame}{Logistic Regression Visualization}
-\begin{figure}
+\begin{frame}{Depth Composes Learned Coordinate Systems}
+  \[
+    f_{\boldsymbol\theta}(\mathbf x)
+    =f^{(L)}\!\circ f^{(L-1)}\!\circ\cdots\circ f^{(1)}(\mathbf x).
+  \]
   \centering
-  \includegraphics[width=0.8\linewidth]{logistic-regression.png}
-  \caption{Sigmoid function used in logistic regression for binary classification.}
-\end{figure}
+  \begin{tikzpicture}[scale=0.86,transform shape,node distance=0.55cm,
+    box/.style={draw,rounded corners,minimum width=1.65cm,minimum height=0.85cm,very thick},
+    flow/.style={-{Latex[length=2.5mm]},very thick,courseblue}]
+    \node[box,fill=courselightblue] (x) {$\mathbf a^{(0)}$};
+    \node[box,right=of x] (h1) {$f^{(1)}$};
+    \node[box,right=of h1] (h2) {$f^{(2)}$};
+    \node[right=0.35cm of h2] (dots) {$\cdots$};
+    \node[box,right=0.35cm of dots] (hl) {$f^{(L)}$};
+    \node[box,fill=courselightorange,right=of hl] (y) {$\hat{\mathbf y}$};
+    \draw[flow] (x)--(h1); \draw[flow] (h1)--(h2); \draw[flow] (h2)--(dots);
+    \draw[flow] (dots)--(hl); \draw[flow] (hl)--(y);
+  \end{tikzpicture}
 \end{frame}
 
-% Logistic Regression Loss Function
-\begin{frame}{Logistic Regression (cont.)}
-\textbf{Loss Function (Binary Cross-Entropy):}
-$$\mathcal{L} = -\frac{1}{n} \sum_{i=1}^{n} \left[ y_i \log \hat{y}_i + (1 - y_i) \log (1 - \hat{y}_i) \right]$$
+\begin{frame}{Without Nonlinearity, Depth Collapses}
+  Two affine layers give
+  \begin{align*}
+    \mathbf a^{(2)}
+      &=\mathbf W^{(2)}(\mathbf W^{(1)}\mathbf x+\mathbf b^{(1)})+\mathbf b^{(2)}\\
+      &=(\mathbf W^{(2)}\mathbf W^{(1)})\mathbf x
+        +(\mathbf W^{(2)}\mathbf b^{(1)}+\mathbf b^{(2)})\\
+      &=\widetilde{\mathbf W}\mathbf x+\widetilde{\mathbf b}.
+  \end{align*}
+  Induction gives the same result for any number of affine layers.
+  Nonlinear activations prevent this algebraic collapse.
 \end{frame}
 
-% Additional Slide on Gradient Computation in Logistic Regression
-\begin{frame}{Gradient Computation in Logistic Regression}
-\textbf{Applying the Chain Rule}
-\begin{itemize}
-  \item The gradient of the loss with respect to $\mathbf{W}$ involves the chain rule applied through the sigmoid function:
-  $$\frac{\partial \mathcal{L}}{\partial \mathbf{W}} = \frac{1}{n} \sum_{i=1}^{n} \frac{\partial \mathcal{L}}{\partial \hat{y}_i} \cdot \frac{\partial \hat{y}_i}{\partial z_i} \cdot \frac{\partial z_i}{\partial \mathbf{W}}$$
-  where $z_i = \mathbf{W}^\top \mathbf{x}_i + b$.
-  \item This approach helps in computing derivatives by breaking down complex relationships step-by-step.
-\end{itemize}
-\end{frame}
-
-% Neural Networks Slide
-\begin{frame}{Neural Networks}
-\textbf{Model Definition}
-\medskip
-\textbf{Objective}: Predict outputs from inputs using a network with hidden layers.
-\medskip
-\textbf{Architecture}:
-\begin{enumerate}
-  \item \textbf{Input Layer}: Receives $\mathbf{x}$
-  \item \textbf{Hidden Layer}:
-    $$\mathbf{h} = f(\mathbf{W}^{(1)} \mathbf{x} + \mathbf{b}^{(1)})$$
-    - $f$: Activation function (e.g., ReLU, sigmoid)
-  \item \textbf{Output Layer}:
-    $$\hat{\mathbf{y}} = \mathbf{W}^{(2)} \mathbf{h} + \mathbf{b}^{(2)}$$
-\end{enumerate}
-\medskip
-\textbf{Activation Functions:}
-\begin{itemize}
-  \item \textbf{Sigmoid:} $\sigma(z) = \frac{1}{1 + e^{-z}}$
-  \item \textbf{ReLU:} $f(z) = \max(0, z)$
-\end{itemize}
-\end{frame}
-
-% Neural Network Visualization
-\begin{frame}{Neural Network Visualization}
-\begin{figure}
+\begin{frame}{Sigmoid and Tanh Are Smooth but Saturating}
   \centering
-  \includegraphics[width=0.65\linewidth]{simple-nn.png}
-  \caption{Structure of a simple neural network with input, hidden, and output layers.}
-\end{figure}
+  \begin{tikzpicture}
+    \begin{axis}[width=0.9\linewidth,height=0.7\textheight,axis lines=middle,
+      xmin=-5,xmax=5,ymin=-1.3,ymax=1.3,grid=both,legend style={draw=none,at={(0.02,0.98)},anchor=north west}]
+      \addplot[courseorange,very thick,domain=-5:5,samples=150] {1/(1+exp(-x))};
+      \addlegendentry{sigmoid}
+      \addplot[coursepurple,very thick,domain=-5:5,samples=150] {tanh(x)};
+      \addlegendentry{$\tanh$}
+    \end{axis}
+  \end{tikzpicture}
 \end{frame}
 
-% Neural Networks Loss Function
-\begin{frame}{Neural Networks (cont.)}
-\textbf{Common Loss Functions for Neural Networks:}
-\begin{itemize}
-  \item \textbf{Mean Squared Error (MSE):}
-  $$\mathcal{L}_{\text{MSE}} = \frac{1}{n} \sum_{i=1}^{n} \| \hat{\mathbf{y}}_i - \mathbf{y}_i \|^2$$
-  - Used for regression problems.
-  \item \textbf{Binary Cross-Entropy (BCE):}
-  $$\mathcal{L}_{\text{BCE}} = -\frac{1}{n} \sum_{i=1}^{n} \left[ y_i \log \hat{y}_i + (1 - y_i) \log (1 - \hat{y}_i) \right]$$
-  - Used for binary classification.
-  \item \textbf{Categorical Cross-Entropy:}
-  $$\mathcal{L}_{\text{CCE}} = -\sum_{i=1}^{n} \sum_{j=1}^{m} y_{ij} \log \hat{y}_{ij}$$
-  - Used for multi-class classification.
-\end{itemize}
-\end{frame}
-
-% Backpropagation in Neural Networks
-\begin{frame}{Backpropagation in Neural Networks}
-\textbf{Backpropagation using the Chain Rule:}
-\begin{itemize}
-  \item Gradients for each layer are computed using the chain rule, propagating errors backward.
-  \item For the output layer:
-  $$\frac{\partial \mathcal{L}}{\partial \mathbf{W}^{(2)}} = \frac{\partial \mathcal{L}}{\partial \hat{\mathbf{y}}} \cdot \frac{\partial \hat{\mathbf{y}}}{\partial \mathbf{W}^{(2)}}$$
-  \item For the hidden layer:
-  $$\frac{\partial \mathcal{L}}{\partial \mathbf{W}^{(1)}} = \frac{\partial \mathcal{L}}{\partial \hat{\mathbf{y}}} \cdot \frac{\partial \hat{\mathbf{y}}}{\partial \mathbf{h}} \cdot \frac{\partial \mathbf{h}}{\partial \mathbf{W}^{(1)}}$$
-\end{itemize}
-\end{frame}
-
-% CNN Architecture Description Slide
-\begin{frame}{Convolutional Neural Networks (CNNs)}
-\textbf{High-Level Description:}
-\begin{itemize}
-  \item CNNs use a series of convolutional and pooling layers to extract spatial features from input data, followed by fully connected layers.
-  \item Convolution operation:
-  $$\mathbf{H} = f(\mathbf{W} * \mathbf{X} + \mathbf{b})$$
-  - where $*$ denotes convolution, and $f$ is an activation function like ReLU.
-\end{itemize}
-\end{frame}
-
-% CNN Architecture Visualization Placeholder
-\begin{frame}{CNN Architecture Visualization}
-\begin{figure}
+\begin{frame}{ReLU Is Piecewise Linear and Sparse}
   \centering
-  \includegraphics[width=0.9\linewidth]{cnn.png}
-  \caption{Visualization of a typical CNN architecture.}
-\end{figure}
+  \begin{tikzpicture}
+    \begin{axis}[width=0.9\linewidth,height=0.7\textheight,axis lines=middle,
+      xmin=-5,xmax=5,ymin=-0.6,ymax=5.2,grid=both]
+      \addplot[coursegreen,very thick,domain=-5:5,samples=3] {max(0,x)};
+      \node[coursegreen,font=\bfseries] at (axis cs:3.1,3.7) {$\max(0,z)$};
+    \end{axis}
+  \end{tikzpicture}
 \end{frame}
 
-% Simple RNN Architecture Slide
-\begin{frame}{Recurrent Neural Networks (RNNs)}
-\textbf{High-Level Description:}
-\begin{itemize}
-  \item RNNs are designed for sequential data, where the output at each step depends on the previous outputs.
-  \item Basic RNN update:
-  $$\mathbf{h}_t = f(\mathbf{W} \mathbf{x}_t + \mathbf{U} \mathbf{h}_{t-1} + \mathbf{b})$$
-  - where $\mathbf{h}_t$ represents the hidden state at time $t$.
-\end{itemize}
+\begin{frame}{Saturation Weakens Gradient Transmission}
+  \[
+    \sigma'_{\mathrm{sigmoid}}(z)=\sigma(z)(1-\sigma(z))\leq\tfrac14,
+    \qquad
+    \tanh'(z)=1-\tanh^2(z).
+  \]
+  Both derivatives approach zero for large $|z|$.
+  \[
+    \operatorname{ReLU}'(z)=
+    \begin{cases}0,&z<0,\\1,&z>0,
+    \end{cases}
+  \]
+  with a conventional subgradient chosen at $z=0$.
+  ReLU avoids positive-side saturation but a unit can remain inactive when its preactivation stays negative.
 \end{frame}
 
-% Simple RNN Architecture Visualization Placeholder
-\begin{frame}{RNN Architecture Visualization}
-\begin{figure}
+\begin{frame}{A Forward Pass Reuses the Same Layer Rule}
+  \[
+    \mathbf x
+    \xrightarrow{\mathbf W^{(1)},\mathbf b^{(1)},\sigma}
+    \mathbf a^{(1)}
+    \xrightarrow{\mathbf W^{(2)},\mathbf b^{(2)}}
+    \hat y
+    \xrightarrow{\ell(\hat y,y)}
+    L.
+  \]
+  For one hidden layer with scalar output,
+  \[
+    \mathbf z^{(1)}=\mathbf W^{(1)}\mathbf x+\mathbf b^{(1)},\quad
+    \mathbf a^{(1)}=\operatorname{ReLU}(\mathbf z^{(1)}),\quad
+    \hat y=(\mathbf w^{(2)})^\top\mathbf a^{(1)}+b^{(2)}.
+  \]
+  Store intermediate values: the reverse pass will need them.
+\end{frame}
+
+\begin{frame}{Worked Forward Pass: Every Intermediate Has a Shape}
+  Let
+  \[
+    \mathbf x=\begin{bmatrix}1\\-1\end{bmatrix},\quad
+    \mathbf W^{(1)}=\begin{bmatrix}1&0.5\\-0.5&1\end{bmatrix},\quad
+    \mathbf b^{(1)}=\begin{bmatrix}0\\0.5\end{bmatrix}.
+  \]
+  Then
+  \[
+    \mathbf z^{(1)}=\begin{bmatrix}0.5\\-1\end{bmatrix},
+    \qquad
+    \mathbf a^{(1)}=\begin{bmatrix}0.5\\0\end{bmatrix}.
+  \]
+  With $\mathbf w^{(2)}=[2,-1]^\top$ and $b^{(2)}=0.1$,
+  \[
+    \hat y=1.1,\qquad
+    L=\tfrac12(\hat y-1)^2=0.005.
+  \]
+\end{frame}
+
+\begin{frame}{The Output Layer Must Match the Statistical Task}
   \centering
-  \includegraphics[width=\linewidth]{rnn.png}
-  \caption{Visualization of a simple RNN architecture.}
-\end{figure}
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Task} & \textbf{Output} & \textbf{Typical likelihood loss}\\
+    \midrule
+    Regression & linear $\hat{\mathbf y}\in\mathbb R^k$ & Gaussian / MSE\\
+    Binary class & sigmoid $\hat p\in(0,1)$ & Bernoulli / BCE\\
+    $K$ classes & softmax $\hat{\mathbf p}\in\Delta^{K-1}$ & categorical CE\\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.5cm}
+  \[
+    \operatorname{softmax}(\mathbf z)_k
+    =\frac{e^{z_k}}{\sum_{j=1}^K e^{z_j}}.
+  \]
+  The hidden representation may be shared; the output and loss encode the target distribution.
 \end{frame}
 
-% Advanced Neural Network Architectures Slide
-\begin{frame}{Advanced Neural Network Architectures}
-\textbf{Autoencoders:}
-\begin{itemize}
-  \item Used for unsupervised learning to encode and reconstruct input data, useful for anomaly detection and data compression.
-\end{itemize}
-\textbf{Generative Adversarial Networks (GANs):}
-\begin{itemize}
-  \item Comprised of a generator and discriminator working in opposition to generate realistic data, used in image synthesis and style transfer.
-\end{itemize}
-\textbf{Long Short-Term Memory (LSTM):}
-\begin{itemize}
-  \item A special RNN variant for handling long-term dependencies in sequence data, commonly used in language modeling and time-series forecasting.
-\end{itemize}
-\textbf{Transformers:}
-\begin{itemize}
-  \item Based on self-attention, widely used for language models, translation, and chatbots, such as GPT and BERT.
-\end{itemize}
+\begin{frame}{A Computation Graph Exposes Local Dependencies}
+  \centering
+  \begin{tikzpicture}[node distance=0.55cm,
+    node/.style={draw,circle,minimum size=0.9cm,very thick},
+    flow/.style={-{Latex[length=2.5mm]},very thick,courseblue}]
+    \node[node,fill=courselightblue] (x) {$x$};
+    \node[node,above=of x] (w) {$w$};
+    \node[node,right=of x] (mul) {$\times$};
+    \node[node,below=of mul] (b) {$b$};
+    \node[node,right=of mul] (add) {$+$};
+    \node[node,right=of add,fill=courselightorange] (act) {$\sigma$};
+    \node[node,right=of act] (loss) {$\ell$};
+    \draw[flow] (x)--(mul); \draw[flow] (w)--(mul); \draw[flow] (mul)--(add);
+    \draw[flow] (b)--(add); \draw[flow] (add)--(act); \draw[flow] (act)--(loss);
+  \end{tikzpicture}
+
+  Backpropagation sends one adjoint from each node to its parents using the node's local derivative.
+\end{frame}
+
+\begin{frame}{The Chain Rule Multiplies Sensitivities Along a Path}
+  For $L=\ell(a)$, $a=\sigma(z)$, and $z=wx+b$,
+  \[
+    \frac{\partial L}{\partial w}
+    =\frac{\partial L}{\partial a}
+     \frac{\partial a}{\partial z}
+     \frac{\partial z}{\partial w}
+    =\ell'(a)\sigma'(z)x.
+  \]
+  When paths merge, their contributions add. Backpropagation avoids recomputing a shared downstream derivative for every parameter.
+\end{frame}
+
+\begin{frame}{Reverse Mode Fits Many Parameters and One Loss}
+  For $\mathbf y=f(\mathbf x)$ with Jacobian $\mathbf J_f$:
+  \[
+    \underbrace{\mathbf J_f\mathbf v}_{\text{JVP}}
+    \quad\text{propagates an input direction forward},
+  \]
+  \[
+    \underbrace{\mathbf u^\top\mathbf J_f}_{\text{VJP}}
+    \quad\text{propagates an output adjoint backward}.
+  \]
+  Training has millions of parameter inputs but usually one scalar loss output.
+  One reverse pass computes the VJP
+  \[
+    1\cdot\frac{\partial L}{\partial\boldsymbol\theta}
+    =\nabla_{\boldsymbol\theta}L^\top
+  \]
+  at a cost comparable to a small multiple of the forward pass.
+\end{frame}
+
+\begin{frame}{Backpropagation Starts with a Layer Error Signal}
+  Define
+  \[
+    \boldsymbol\delta^{(\ell)}
+    :=\frac{\partial L}{\partial\mathbf z^{(\ell)}}.
+  \]
+  For hidden layers,
+  \[
+    \boxed{
+    \boldsymbol\delta^{(\ell)}
+    =\left(\mathbf W^{(\ell+1)}\right)^\top
+      \boldsymbol\delta^{(\ell+1)}
+      \odot\sigma'^{(\ell)}(\mathbf z^{(\ell)})}.
+  \]
+  The transpose returns sensitivity through the affine map; the Hadamard product applies the activation derivative coordinate by coordinate.
+\end{frame}
+
+\begin{frame}{Layer Gradients Are Outer Products}
+  Because $z_i^{(\ell)}=\sum_jW_{ij}^{(\ell)}a_j^{(\ell-1)}+b_i^{(\ell)}$,
+  \[
+    \boxed{
+    \frac{\partial L}{\partial\mathbf W^{(\ell)}}
+      =\boldsymbol\delta^{(\ell)}(\mathbf a^{(\ell-1)})^\top},
+    \qquad
+    \boxed{\frac{\partial L}{\partial\mathbf b^{(\ell)}}
+      =\boldsymbol\delta^{(\ell)}}.
+  \]
+  For a mini-batch, sum or average the per-example outer products according to the loss convention.
+\end{frame}
+
+\begin{frame}{Worked Backward Pass Reuses the Forward Values}
+  From the earlier example, $\hat y-y=0.1$:
+  \[
+    \delta^{(2)}=0.1,
+    \qquad
+    \frac{\partial L}{\partial\mathbf w^{(2)}}
+      =0.1\begin{bmatrix}0.5\\0\end{bmatrix}
+      =\begin{bmatrix}0.05\\0\end{bmatrix},
+    \qquad
+    \frac{\partial L}{\partial b^{(2)}}=0.1.
+  \]
+  Since $\operatorname{ReLU}'([0.5,-1]^\top)=[1,0]^\top$,
+  \[
+    \boldsymbol\delta^{(1)}
+    =\begin{bmatrix}2\\-1\end{bmatrix}0.1\odot\begin{bmatrix}1\\0\end{bmatrix}
+    =\begin{bmatrix}0.2\\0\end{bmatrix}.
+  \]
+\end{frame}
+
+\begin{frame}{The Remaining Gradients Follow Immediately}
+  \[
+    \frac{\partial L}{\partial\mathbf W^{(1)}}
+    =\boldsymbol\delta^{(1)}\mathbf x^\top
+    =\begin{bmatrix}0.2\\0\end{bmatrix}
+      \begin{bmatrix}1&-1\end{bmatrix}
+    =\begin{bmatrix}0.2&-0.2\\0&0\end{bmatrix},
+  \]
+  \[
+    \frac{\partial L}{\partial\mathbf b^{(1)}}
+    =\begin{bmatrix}0.2\\0\end{bmatrix}.
+  \]
+  The inactive second ReLU receives zero gradient on this example.
+\end{frame}
+
+\begin{frame}{Finite Differences Check an Analytic Gradient}
+  For coordinate $j$ and unit vector $\mathbf e_j$,
+  \[
+    \frac{\partial L}{\partial\theta_j}
+    \approx
+    \frac{L(\boldsymbol\theta+h\mathbf e_j)-L(\boldsymbol\theta-h\mathbf e_j)}{2h}
+    \qquad\text{with error }O(h^2).
+  \]
+  \begin{itemize}
+    \item Large $h$: truncation error hides local behavior.
+    \item Tiny $h$: floating-point cancellation dominates.
+    \item Nondifferentiable activation points require care.
+  \end{itemize}
+  This is a diagnostic for selected coordinates, not an efficient training method.
+\end{frame}
+
+\begin{frame}{Training Alternates Differentiation and Optimization}
+  \centering
+  \begin{tikzpicture}[node distance=0.45cm,
+    box/.style={draw,rounded corners,minimum width=2.1cm,minimum height=0.85cm,very thick,align=center},
+    flow/.style={-{Latex[length=2.4mm]},very thick,courseblue}]
+    \node[box,fill=courselightblue] (forward) {forward\\$\hat{\mathbf y}$};
+    \node[box,right=of forward] (loss) {loss\\$L$};
+    \node[box,right=of loss] (backward) {reverse\\$\nabla_\theta L$};
+    \node[box,fill=courselightorange,right=of backward] (update) {optimizer\\$\theta\leftarrow\theta+\Delta\theta$};
+    \draw[flow] (forward)--(loss); \draw[flow] (loss)--(backward); \draw[flow] (backward)--(update);
+    \draw[flow] (update.south) -- ++(0,-0.55) -| (forward.south);
+  \end{tikzpicture}
+
+  Backpropagation computes gradients; it is not itself an optimizer.
+\end{frame}
+
+\begin{frame}{Initialization Tries to Preserve Signal Scale}
+  Suppose inputs and centered weights are independent. For fan-in $d_{\ell-1}$,
+  \[
+    \operatorname{Var}(z_i^{(\ell)})
+    \approx d_{\ell-1}\operatorname{Var}(W_{ij}^{(\ell)})
+      \operatorname{Var}(a_j^{(\ell-1)}).
+  \]
+  \begin{itemize}
+    \item Xavier: $\operatorname{Var}(W_{ij})\approx 1/d_{\ell-1}$ for roughly symmetric activations.
+    \item He: $\operatorname{Var}(W_{ij})\approx 2/d_{\ell-1}$ compensates for inactive ReLU units.
+  \end{itemize}
+  These are variance heuristics, not guarantees against every optimization pathology.
+\end{frame}
+
+\begin{frame}{Piecewise-Linear Units Build a Nonlinear Approximation}
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[width=0.92\linewidth,height=0.7\textheight,xmin=-3.2,xmax=3.2,ymin=-1.3,ymax=1.3,
+      axis lines=middle,grid=both,legend style={draw=none,at={(0.03,0.97)},anchor=north west}]
+      \addplot[courseblue,very thick,domain=-3.14:3.14,samples=160] {sin(deg(x))};
+      \addlegendentry{$f(x)=\sin x$}
+      \addplot[courseorange,very thick,mark=*] coordinates {
+        (-3.14,0) (-2.36,-0.707) (-1.57,-1) (-0.79,-0.707) (0,0)
+        (0.79,0.707) (1.57,1) (2.36,0.707) (3.14,0)};
+      \addlegendentry{ReLU spline}
+    \end{axis}
+  \end{tikzpicture}
+  \par\vspace{0.15cm}
+  A one-hidden-layer ReLU network can represent any continuous piecewise-linear spline in one dimension.
+\end{frame}
+
+\begin{frame}{Universal Approximation: A Formal Statement}
+  Let $K\subset\mathbb R^d$ be compact and $f\in C(K)$. For every $\varepsilon>0$,
+  there exist width $m$ and parameters $\alpha_j,\mathbf w_j,b_j,c$ such that
+  \[
+    \sup_{\mathbf x\in K}
+    \left|f(\mathbf x)-
+    \left(c+\sum_{j=1}^{m}\alpha_j
+      \operatorname{ReLU}(\mathbf w_j^\top\mathbf x+b_j)\right)\right|
+    <\varepsilon.
+  \]
+  Thus one sufficiently wide hidden layer is dense in the continuous functions on a compact domain.
+\end{frame}
+
+\begin{frame}{The Theorem Is About Existence, Not Learning}
+  It does \emph{not} provide:
+  \begin{itemize}
+    \item the required width for a useful accuracy;
+    \item parameters or an algorithm that finds them;
+    \item numerical stability or sample efficiency;
+    \item generalization outside the observed distribution.
+  \end{itemize}
+  Depth can represent some structured functions far more efficiently than a single enormous layer,
+  but approximation power alone does not choose an architecture.
+\end{frame}
+
+\begin{frame}{Derivative Information Can Constrain the Learned Function}
+  If derivative targets $\mathbf g_i\approx\nabla f(\mathbf x_i)$ are available, use
+  \[
+    L(\boldsymbol\theta)
+    =\frac1n\sum_{i=1}^n|f_{\boldsymbol\theta}(\mathbf x_i)-y_i|^2
+    +\lambda\frac1n\sum_{i=1}^n
+      \|\nabla_{\mathbf x}f_{\boldsymbol\theta}(\mathbf x_i)-\mathbf g_i\|_2^2.
+  \]
+  Function values anchor height; derivatives constrain local shape.
+  This Sobolev-style objective is useful only when derivative information is reliable and consistently scaled.
+\end{frame}
+
+\begin{frame}{Dense Networks Separate Representation from Training}
+  \begin{itemize}
+    \item Nonlinear layers compose learned representations.
+    \item Reverse-mode differentiation computes all parameter gradients efficiently.
+    \item An optimizer uses those gradients to update parameters.
+    \item Approximation theorems establish capacity, not trainability or generalization.
+  \end{itemize}
+  The next lecture asks how capacity, data, and regularization determine performance on unseen examples.
 \end{frame}
 
 \end{document}
