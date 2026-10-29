@@ -1,0 +1,308 @@
+\documentclass{ntuabeamer}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning}
+
+\title{Optimization: From Gradient Descent to Adam}
+\author{}
+\date{}
+
+\graphicspath{{assets/}{assets/generated/}}
+
+\definecolor{courseblue}{HTML}{3F7CAC}
+\definecolor{courseorange}{HTML}{D97706}
+\definecolor{coursegreen}{HTML}{27864A}
+\definecolor{coursegray}{HTML}{667085}
+\definecolor{coursepurple}{HTML}{7656A3}
+\definecolor{coursered}{HTML}{B5473C}
+\definecolor{courselightblue}{HTML}{DCE9F5}
+\definecolor{courselightorange}{HTML}{F9E4C8}
+
+\begin{document}
+
+\begin{frame}[plain]
+  \makepresentationtitle
+\end{frame}
+
+\begin{frame}{Optimization Chooses the Parameters}
+  \[
+    \mathcal{L}(\boldsymbol{\theta})
+    =\frac{1}{n}\sum_{i=1}^{n}
+    \ell\!\left(y_i,f_{\boldsymbol{\theta}}(\mathbf{x}_i)\right)
+  \]
+  \begin{itemize}
+    \item $\boldsymbol{\theta}$ contains all learnable parameters.
+    \item $\mathcal{L}$ measures error on the training data.
+    \item Training searches for parameters with a smaller objective.
+  \end{itemize}
+  \[
+    \boldsymbol{\theta}^{\star}
+    \in \operatorname*{arg\,min}_{\boldsymbol{\theta}}
+    \mathcal{L}(\boldsymbol{\theta})
+  \]
+\end{frame}
+
+\begin{frame}{The Negative Gradient Points Downhill}
+  \centering
+  \includegraphics[width=0.96\linewidth,height=0.79\textheight,keepaspectratio]{objective-geometry.png}
+\end{frame}
+
+\begin{frame}{Gradient Descent Repeats One Update}
+  \[
+    \mathbf{g}_t=\nabla_{\boldsymbol{\theta}}
+    \mathcal{L}(\boldsymbol{\theta}_t)
+  \]
+  \[
+    \boxed{
+      \boldsymbol{\theta}_{t+1}
+      =\boldsymbol{\theta}_t-\eta\mathbf{g}_t
+    }
+  \]
+  \begin{itemize}
+    \item $\eta>0$ is the learning rate.
+    \item The gradient sets the local direction.
+    \item The learning rate sets the step size.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The Learning Rate Controls Progress and Stability}
+  \centering
+  \includegraphics[width=0.96\linewidth,height=0.79\textheight,keepaspectratio]{learning-rates.png}
+\end{frame}
+
+\begin{frame}{Conditioning Couples Curvature to Step Size}
+  For a quadratic objective with Hessian $\mathbf{H}$:
+  \[
+    \kappa(\mathbf{H})
+    =\frac{\lambda_{\max}(\mathbf{H})}
+           {\lambda_{\min}(\mathbf{H})}
+  \]
+  \begin{itemize}
+    \item $\kappa\approx 1$: similar curvature in every direction.
+    \item Large $\kappa$: narrow valleys cause zig-zagging.
+    \item Feature scaling can improve the geometry.
+  \end{itemize}
+  \[
+    0<\eta<\frac{2}{\lambda_{\max}(\mathbf{H})}
+    \qquad \text{ensures convergence for this quadratic.}
+  \]
+\end{frame}
+
+\begin{frame}{Ill-Conditioned Objectives Slow Gradient Descent}
+  \centering
+  \includegraphics[width=0.98\linewidth,height=0.79\textheight,keepaspectratio]{conditioning.png}
+\end{frame}
+
+\begin{frame}{A Batch Chooses the Gradient Estimate}
+  \[
+    \mathbf{g}_t
+    =\frac{1}{|\mathcal{B}_t|}
+      \sum_{i\in\mathcal{B}_t}
+      \nabla_{\boldsymbol{\theta}}
+      \ell_i(\boldsymbol{\theta}_t)
+  \]
+  \begin{center}
+    \begin{tabular}{lll}
+      \toprule
+      \textbf{Method} & \textbf{Batch size} & \textbf{Behavior} \\
+      \midrule
+      Full-batch GD & $|\mathcal{B}_t|=n$ & exact training gradient \\
+      SGD & $|\mathcal{B}_t|=1$ & noisy, cheap update \\
+      Mini-batch GD & $1<|\mathcal{B}_t|<n$ & practical compromise \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+\end{frame}
+
+\begin{frame}{Mini-Batches Trade Noise for Throughput}
+  \centering
+  \begin{tikzpicture}[
+    cell/.style={draw,minimum width=0.58cm,minimum height=0.68cm},
+    label/.style={font=\bfseries,anchor=east}
+  ]
+    \node[label] at (-0.4,2.2) {full batch};
+    \foreach \x in {0,...,9}{\node[cell,fill=courseblue!25] at (0.62*\x,2.2) {};}
+    \node[right] at (6.2,2.2) {$n$ samples};
+
+    \node[label] at (-0.4,1.1) {mini-batch};
+    \foreach \x in {0,...,9}{
+      \ifnum\x<4
+        \node[cell,fill=courseorange!45] at (0.62*\x,1.1) {};
+      \else
+        \node[cell,fill=white] at (0.62*\x,1.1) {};
+      \fi
+    }
+    \node[right] at (6.2,1.1) {$b$ samples};
+
+    \node[label] at (-0.4,0) {SGD};
+    \foreach \x in {0,...,9}{
+      \ifnum\x=0
+        \node[cell,fill=coursegreen!45] at (0.62*\x,0) {};
+      \else
+        \node[cell,fill=white] at (0.62*\x,0) {};
+      \fi
+    }
+    \node[right] at (6.2,0) {$1$ sample};
+  \end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Stochastic Gradients Wander Around the Descent Path}
+  \centering
+  \includegraphics[width=0.96\linewidth,height=0.79\textheight,keepaspectratio]{gd-vs-sgd.png}
+\end{frame}
+
+\begin{frame}{Count Work Before Comparing Optimizers}
+  \begin{itemize}
+    \item An \textbf{update} changes $\boldsymbol{\theta}$ once.
+    \item An \textbf{epoch} processes the training set once.
+    \item With batch size $b$, one epoch uses about $n/b$ updates.
+    \item Equal update counts need not mean equal computation.
+    \item Compare examples processed, epochs, or wall-clock time.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Momentum Accumulates a Descent Direction}
+  \[
+    \mathbf{v}_t
+    =\beta\mathbf{v}_{t-1}+\mathbf{g}_t,
+    \qquad 0\leq\beta<1
+  \]
+  \[
+    \boxed{
+      \boldsymbol{\theta}_{t+1}
+      =\boldsymbol{\theta}_t-\eta\mathbf{v}_t
+    }
+  \]
+  \begin{itemize}
+    \item Persistent directions accumulate.
+    \item Alternating directions partially cancel.
+    \item Momentum can move faster along long valleys.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Momentum Reduces Repeated Zig-Zagging}
+  \centering
+  \includegraphics[width=0.96\linewidth,height=0.79\textheight,keepaspectratio]{momentum.png}
+\end{frame}
+
+\begin{frame}{AdaGrad Scales Each Parameter Separately}
+  \[
+    \mathbf{s}_t
+    =\mathbf{s}_{t-1}+\mathbf{g}_t\odot\mathbf{g}_t
+  \]
+  \[
+    \boldsymbol{\theta}_{t+1}
+    =\boldsymbol{\theta}_t
+    -\eta\frac{\mathbf{g}_t}{\sqrt{\mathbf{s}_t}+\varepsilon}
+  \]
+  \begin{itemize}
+    \item Large historical gradients shrink future steps.
+    \item Each parameter receives its own effective step size.
+    \item The accumulated scale can grow without bound.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{RMSProp Forgets Distant Squared Gradients}
+  \[
+    \mathbf{s}_t
+    =\rho\mathbf{s}_{t-1}
+    +(1-\rho)\mathbf{g}_t\odot\mathbf{g}_t
+  \]
+  \[
+    \boxed{
+      \boldsymbol{\theta}_{t+1}
+      =\boldsymbol{\theta}_t
+      -\eta\frac{\mathbf{g}_t}{\sqrt{\mathbf{s}_t}+\varepsilon}
+    }
+  \]
+  \begin{itemize}
+    \item Recent squared gradients control the scale.
+    \item $\rho$ controls the memory length.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{RMSProp Adapts to Unequal Curvature}
+  \centering
+  \includegraphics[width=0.96\linewidth,height=0.79\textheight,keepaspectratio]{rmsprop.png}
+\end{frame}
+
+\begin{frame}{Adam Tracks Two Gradient Moments}
+  \[
+    \mathbf{m}_t
+    =\beta_1\mathbf{m}_{t-1}
+    +(1-\beta_1)\mathbf{g}_t
+  \]
+  \[
+    \mathbf{v}_t
+    =\beta_2\mathbf{v}_{t-1}
+    +(1-\beta_2)\mathbf{g}_t\odot\mathbf{g}_t
+  \]
+  \begin{itemize}
+    \item $\mathbf{m}_t$ tracks direction.
+    \item $\mathbf{v}_t$ tracks coordinate-wise scale.
+    \item Both start at zero.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Bias Correction Fixes Adam's Zero Start}
+  \[
+    \widehat{\mathbf{m}}_t
+    =\frac{\mathbf{m}_t}{1-\beta_1^t},
+    \qquad
+    \widehat{\mathbf{v}}_t
+    =\frac{\mathbf{v}_t}{1-\beta_2^t}
+  \]
+  \[
+    \boxed{
+      \boldsymbol{\theta}_{t+1}
+      =\boldsymbol{\theta}_t
+      -\eta\frac{\widehat{\mathbf{m}}_t}
+      {\sqrt{\widehat{\mathbf{v}}_t}+\varepsilon}
+    }
+  \]
+  \begin{itemize}
+    \item Early moving averages are biased toward zero.
+    \item The correction is largest during early updates.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Adam Combines Momentum and Adaptive Scaling}
+  \centering
+  \begin{tikzpicture}[
+    node distance=1.05cm,
+    box/.style={draw,rounded corners,minimum width=2.5cm,minimum height=0.9cm,align=center,very thick},
+    flow/.style={-{Latex[length=3mm]},very thick,courseblue}
+  ]
+    \node[box,fill=courselightblue] (gradient) {gradient\\$\mathbf{g}_t$};
+    \node[box,fill=coursegreen!18,below left=of gradient] (first) {first moment\\$\widehat{\mathbf{m}}_t$};
+    \node[box,fill=coursepurple!18,below right=of gradient] (second) {second moment\\$\widehat{\mathbf{v}}_t$};
+    \node[box,fill=courselightorange,below=2.8cm of gradient] (update) {scaled update\\$\Delta\boldsymbol{\theta}_t$};
+    \draw[flow] (gradient) -- (first);
+    \draw[flow] (gradient) -- (second);
+    \draw[flow] (first) -- (update);
+    \draw[flow] (second) -- (update);
+  \end{tikzpicture}
+\end{frame}
+
+\begin{frame}{One Objective Reveals Different Optimizer Paths}
+  \centering
+  \includegraphics[width=0.96\linewidth,height=0.79\textheight,keepaspectratio]{optimizer-comparison.png}
+\end{frame}
+
+\begin{frame}{Optimizer Choice Does Not Replace Validation}
+  \begin{itemize}
+    \item GD provides the baseline update.
+    \item Mini-batches trade gradient noise for throughput.
+    \item Momentum smooths directions over time.
+    \item RMSProp adapts coordinate-wise step sizes.
+    \item Adam combines both ideas with bias correction.
+    \item No optimizer is best for every objective.
+  \end{itemize}
+\end{frame}
+
+\end{document}
