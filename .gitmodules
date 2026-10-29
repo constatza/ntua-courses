@@ -3,7 +3,7 @@
 	url = git@github.com:constatza/machine-learning.git
 [submodule "stochastic-methods"]
 	path = stochastic-methods
-	url = ./stochastic-methods
+	url = git@github.com:constatza/stochastic-methods.git
 [submodule "beamer-ntua"]
 	path = beamer-ntua
 	url = github:constatza/beamer-ntua
