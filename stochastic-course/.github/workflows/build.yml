@@ -1,0 +1,29 @@
+name: Build all decks and notes
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up TeX Live
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y texlive-latex-base texlive-latex-recommended \
+            texlive-latex-extra latexmk lualatex fonts-libertinus
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Install ntuabeamer class
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/constatza/beamer-ntua/main/scripts/install-class.sh | sh
+
+      - name: Build all decks and notes
+        run: sh tools/build-all
