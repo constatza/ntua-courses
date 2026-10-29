@@ -1,0 +1,534 @@
+\documentclass{ntuabeamer}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,calc,fit,matrix,positioning}
+
+\title{Transformers}
+\author{}
+\date{}
+
+\definecolor{courseblue}{HTML}{3F7CAC}
+\definecolor{courseorange}{HTML}{D97706}
+\definecolor{coursegreen}{HTML}{27864A}
+\definecolor{coursegray}{HTML}{667085}
+\definecolor{coursepurple}{HTML}{7656A3}
+\definecolor{coursered}{HTML}{B5473C}
+\definecolor{courselightblue}{HTML}{DCE9F5}
+\definecolor{courselightorange}{HTML}{F9E4C8}
+
+\tikzset{
+  flow/.style={-{Latex[length=3mm]},very thick,courseblue},
+  maskflow/.style={-{Latex[length=3mm]},very thick,courseorange},
+  box/.style={draw,rounded corners,very thick,align=center,minimum width=1.65cm,minimum height=0.85cm},
+  token/.style={draw,rounded corners,thick,align=center,minimum width=0.85cm,minimum height=0.7cm}
+}
+
+\begin{document}
+
+\begin{frame}[plain]
+  \makepresentationtitle
+\end{frame}
+
+\begin{frame}{Attention Shortens the Path Between Distant Tokens}
+  \centering
+  \begin{tikzpicture}[scale=0.92,transform shape]
+    \node[font=\bfseries] at (2.5,2.0) {recurrence};
+    \foreach \t in {1,...,5}{
+      \node[token,fill=courselightorange] (r\t) at (1.15*\t,0.8) {$\mathbf h_{\t}$};
+    }
+    \foreach \t in {1,...,4}{
+      \pgfmathtruncatemacro{\next}{\t+1}
+      \draw[maskflow] (r\t) -- (r\next);
+    }
+    \node[font=\bfseries] at (8.3,2.0) {self-attention};
+    \foreach \t in {1,...,5}{
+      \node[token,fill=courselightblue] (a\t) at (5.8+1.15*\t,0.8) {$\mathbf x_{\t}$};
+    }
+    \draw[flow,bend left=25] (a1) to (a5);
+  \end{tikzpicture}
+  \vspace{0.5cm}
+  \begin{itemize}
+    \item Recurrence requires a chain of $T-1$ transitions.
+    \item Attention creates content-dependent, direct interactions.
+    \item It also allows parallel processing across training positions.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Tokens Become Vectors}
+  For a sequence of $T$ tokens,
+  \[
+    \mathbf X=
+    \begin{bmatrix}
+      \mathbf x_1^{\mathsf T}\\[-1mm]
+      \vdots\\[-1mm]
+      \mathbf x_T^{\mathsf T}
+    \end{bmatrix}
+    \in\mathbb R^{T\times d_{\text{model}}}.
+  \]
+  \centering
+  \begin{tikzpicture}[node distance=0.45cm]
+    \foreach \t/\word in {1/The,2/bridge,3/is,4/closed}{
+      \node[token,fill=courselightblue] (w\t) at (1.8*\t,0) {\word};
+      \node[token,fill=coursegreen!18,below=of w\t] (x\t) {$\mathbf x_{\t}$};
+      \draw[flow] (w\t) -- (x\t);
+    }
+  \end{tikzpicture}
+  \begin{itemize}
+    \item Rows index tokens; columns index learned features.
+    \item Batches add a leading axis: $B\times T\times d_{\text{model}}$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Queries Retrieve Values Through Keys}
+  \[
+    \mathbf Q=\mathbf X\mathbf W_Q,\qquad
+    \mathbf K=\mathbf X\mathbf W_K,\qquad
+    \mathbf V=\mathbf X\mathbf W_V,
+  \]
+  \[
+    \mathbf Q,\mathbf K\in\mathbb R^{T\times d_k},
+    \qquad
+    \mathbf V\in\mathbb R^{T\times d_v}.
+  \]
+  \begin{itemize}
+    \item Query $\mathbf q_i$: what token $i$ seeks.
+    \item Key $\mathbf k_j$: what token $j$ offers for matching.
+    \item Value $\mathbf v_j$: information returned from token $j$.
+    \item All three are learned projections, not fixed semantic labels.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Scaled Dot-Product Attention Is Soft Retrieval}
+  \[
+    \boxed{
+    \operatorname{Attn}(\mathbf Q,\mathbf K,\mathbf V)
+    =\underbrace{\operatorname{softmax}_{\text{row}}
+      \!\left(\frac{\mathbf Q\mathbf K^{\mathsf T}}{\sqrt{d_k}}\right)}_{\mathbf A\in\mathbb R^{T\times T}}
+      \mathbf V
+    }
+  \]
+  \[
+    A_{ij}
+    =\frac{\exp(\mathbf q_i^{\mathsf T}\mathbf k_j/\sqrt{d_k})}
+    {\sum_{m=1}^{T}\exp(\mathbf q_i^{\mathsf T}\mathbf k_m/\sqrt{d_k})},
+    \qquad
+    \mathbf y_i=\sum_{j=1}^{T}A_{ij}\mathbf v_j.
+  \]
+  \begin{itemize}
+    \item $A_{ij}\geq0$ and $\sum_j A_{ij}=1$.
+    \item Each output is a data-dependent weighted average of values.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The $\sqrt{d_k}$ Scale Controls Logit Variance}
+  Assume independent, zero-mean query and key coordinates with unit variance.
+  \[
+    s=\mathbf q^{\mathsf T}\mathbf k=\sum_{r=1}^{d_k}q_rk_r,
+    \qquad
+    \mathbb E[s]=0,
+    \qquad
+    \operatorname{Var}(s)=d_k.
+  \]
+  Therefore,
+  \[
+    \operatorname{Var}\!\left(\frac{s}{\sqrt{d_k}}\right)=1.
+  \]
+  \begin{itemize}
+    \item Unscaled logits grow in typical magnitude with dimension.
+    \item Very large logits can saturate the softmax.
+    \item The argument is an initialization-scale heuristic, not a theorem about trained activations.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{A Two-Token Attention Calculation}
+  Let $d_k=2$, $\mathbf Q=\mathbf K=\mathbf I_2$, and
+  $\mathbf V=\begin{bmatrix}1&2\\3&0\end{bmatrix}$.
+  \[
+    \frac{\mathbf Q\mathbf K^{\mathsf T}}{\sqrt2}
+    =\begin{bmatrix}1/\sqrt2&0\\0&1/\sqrt2\end{bmatrix},
+    \qquad
+    \mathbf A=\begin{bmatrix}a&1-a\\1-a&a\end{bmatrix},
+  \]
+  \[
+    a=\frac{e^{1/\sqrt2}}{e^{1/\sqrt2}+1}\approx0.6698.
+  \]
+  \[
+    \mathbf A\mathbf V
+    =\begin{bmatrix}3-2a&2a\\1+2a&2(1-a)\end{bmatrix}
+    \approx
+    \begin{bmatrix}1.660&1.340\\2.340&0.660\end{bmatrix}.
+  \]
+\end{frame}
+
+\begin{frame}{Self-Attention Preserves the Token Axis}
+  \centering
+  \begin{tikzpicture}[node distance=0.55cm]
+    \node[box,fill=courselightblue] (x) {$\mathbf X$\\$T\times d_{\text{model}}$};
+    \node[box,fill=courseorange!18,right=of x] (q) {$\mathbf Q$\\$T\times d_k$};
+    \node[box,fill=courseorange!18,above=of q] (k) {$\mathbf K$\\$T\times d_k$};
+    \node[box,fill=courseorange!18,below=of q] (v) {$\mathbf V$\\$T\times d_v$};
+    \node[box,fill=coursepurple!18,right=1.0cm of q] (a) {$\mathbf A$\\$T\times T$};
+    \node[box,fill=coursegreen!18,right=of a] (y) {$\mathbf Y$\\$T\times d_v$};
+    \draw[flow] (x) -- (q);
+    \draw[flow] (x.north east) -- (k.west);
+    \draw[flow] (x.south east) -- (v.west);
+    \draw[flow] (q) -- (a);
+    \draw[flow] (k.east) -- (a.north west);
+    \draw[flow] (v.east) -- (a.south west);
+    \draw[flow] (a) -- (y);
+  \end{tikzpicture}
+  \vspace{0.5cm}
+  \begin{itemize}
+    \item Every output row corresponds to one query token.
+    \item The $T\times T$ matrix contains all pairwise attention weights.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Multiple Heads Learn Different Interaction Subspaces}
+  For head $h=1,\ldots,H$,
+  \[
+    \mathbf Z_h
+    =\operatorname{Attn}(\mathbf X\mathbf W_Q^{(h)},
+      \mathbf X\mathbf W_K^{(h)},
+      \mathbf X\mathbf W_V^{(h)}).
+  \]
+  \[
+    \boxed{
+      \operatorname{MHA}(\mathbf X)
+      =[\mathbf Z_1\,|\,\cdots\,|\,\mathbf Z_H]\mathbf W_O
+    }
+  \]
+  \begin{itemize}
+    \item Heads have separate learned projections.
+    \item Concatenation restores the combined feature dimension.
+    \item Heads may specialize, but specialization is not guaranteed.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Content-Only Attention Does Not Know Token Order}
+  For a permutation matrix $\mathbf P$,
+  \[
+    \operatorname{Attn}(\mathbf P\mathbf X)
+    =\mathbf P\operatorname{Attn}(\mathbf X).
+  \]
+  \centering
+  \begin{tikzpicture}[node distance=0.35cm]
+    \foreach \i/\word in {1/dog,2/chases,3/cat}{
+      \node[token,fill=courselightblue] (a\i) at (1.5*\i,0.7) {\word};
+    }
+    \foreach \i/\word in {1/cat,2/dog,3/chases}{
+      \node[token,fill=courselightorange] (b\i) at (6.2+1.5*\i,0.7) {\word};
+    }
+    \draw[maskflow] (a3.east) -- node[above,font=\small] {permute rows} (b1.west);
+  \end{tikzpicture}
+  \begin{itemize}
+    \item Reordering inputs only reorders outputs.
+    \item Sequence order must enter through additional structure.
+    \item The geometric deep-learning lecture proves this result.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Position Information Breaks Permutation Symmetry}
+  \[
+    \widetilde{\mathbf x}_t=\mathbf x_t+\mathbf p_t.
+  \]
+  Learned embeddings treat $\mathbf p_t$ as parameters. A fixed sinusoidal choice is
+  \[
+    p_{t,2i}=\sin\!\left(t/10000^{2i/d_{\text{model}}}\right),
+    \qquad
+    p_{t,2i+1}=\cos\!\left(t/10000^{2i/d_{\text{model}}}\right).
+  \]
+  \begin{itemize}
+    \item Position vectors distinguish identical tokens at different locations.
+    \item Learned positions are flexible within the trained range.
+    \item Fixed sinusoids provide a deterministic extension, not guaranteed extrapolation.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{A Causal Mask Prevents Access to the Future}
+  \[
+    M_{ij}=\begin{cases}
+      0,&j\leq i,\\
+      -\infty,&j>i,
+    \end{cases}
+    \qquad
+    \mathbf A=\operatorname{softmax}_{\text{row}}
+      \!\left(\frac{\mathbf Q\mathbf K^{\mathsf T}}{\sqrt{d_k}}+\mathbf M\right).
+  \]
+  \centering
+  \begin{tikzpicture}[scale=0.52]
+    \foreach \i in {1,...,5}{
+      \foreach \j in {1,...,5}{
+        \ifnum\j>\i
+          \fill[coursered!22] (\j,-\i) rectangle ++(0.9,0.9);
+        \else
+          \fill[coursegreen!25] (\j,-\i) rectangle ++(0.9,0.9);
+        \fi
+        \draw[white,thick] (\j,-\i) rectangle ++(0.9,0.9);
+      }
+    }
+    \node[right] at (6,-2.5) {green: visible\quad red: masked};
+  \end{tikzpicture}
+  \begin{itemize}
+    \item Masked logits receive zero probability after softmax.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Residual Paths Preserve an Identity Route}
+  \[
+    \boxed{\mathbf Y=\mathbf X+F(\mathbf X)}
+  \]
+  \centering
+  \begin{tikzpicture}[node distance=0.75cm]
+    \node[box,fill=courselightblue] (x) {$\mathbf X$};
+    \node[box,fill=courselightorange,right=of x] (f) {$F$\\attention or MLP};
+    \node[draw,circle,very thick,right=of f] (plus) {$+$};
+    \node[box,fill=coursegreen!18,right=of plus] (y) {$\mathbf Y$};
+    \draw[flow] (x) -- (f);
+    \draw[flow] (f) -- (plus);
+    \draw[flow] (plus) -- (y);
+    \draw[flow] (x.north) -- ++(0,1) -| (plus.north);
+  \end{tikzpicture}
+  \begin{itemize}
+    \item Features can pass unchanged when the learned update is small.
+    \item The derivative contains an identity term: $\mathrm d\mathbf Y/\mathrm d\mathbf X=\mathbf I+\mathrm dF/\mathrm d\mathbf X$.
+    \item Residuals help optimization; they do not guarantee stable deep training alone.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Layer Normalization Acts Within Each Token}
+  For one token vector $\mathbf x\in\mathbb R^d$,
+  \[
+    \mu=\frac1d\sum_{j=1}^{d}x_j,
+    \qquad
+    \sigma^2=\frac1d\sum_{j=1}^{d}(x_j-\mu)^2,
+  \]
+  \[
+    \operatorname{LN}(\mathbf x)
+    =\boldsymbol\gamma\odot
+      \frac{\mathbf x-\mu\mathbf 1}{\sqrt{\sigma^2+\varepsilon}}
+      +\boldsymbol\beta.
+  \]
+  A common pre-norm block uses
+  \[
+    \boxed{\mathbf Y=\mathbf X+F(\operatorname{LN}(\mathbf X))}.
+  \]
+  \begin{itemize}
+    \item Statistics are not pooled across tokens or batches.
+    \item Pre-norm supplies a direct residual path between blocks.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{An Encoder Block Mixes Tokens, Then Features}
+  \centering
+  \begin{tikzpicture}[node distance=0.38cm,scale=0.72,transform shape]
+    \node[box,fill=courselightblue] (x) {$\mathbf X$};
+    \node[box,fill=coursegray!18,right=of x] (ln1) {LN};
+    \node[box,fill=courselightorange,right=of ln1] (mha) {self-\\attention};
+    \node[draw,circle,thick,right=of mha] (p1) {$+$};
+    \node[box,fill=coursegray!18,right=of p1] (ln2) {LN};
+    \node[box,fill=coursepurple!18,right=of ln2] (ffn) {position-wise\\MLP};
+    \node[draw,circle,thick,right=of ffn] (p2) {$+$};
+    \node[box,fill=coursegreen!18,right=of p2] (y) {$\mathbf Y$};
+    \draw[flow] (x)--(ln1)--(mha)--(p1)--(ln2)--(ffn)--(p2)--(y);
+    \draw[flow] (x.north) -- ++(0,0.8) -| (p1.north);
+    \draw[flow] (p1.north) -- ++(0,0.45) -| (p2.north);
+  \end{tikzpicture}
+  \vspace{0.55cm}
+  \begin{itemize}
+    \item Self-attention mixes information across token positions.
+    \item The same MLP independently transforms every token row.
+    \item Residual connections wrap both sublayers.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{A Decoder Block Uses Masked Self-Attention}
+  \centering
+  \begin{tikzpicture}[node distance=0.55cm,scale=0.86,transform shape]
+    \node[box,fill=courselightblue] (x) {generated\\prefix};
+    \node[box,fill=courselightorange,right=of x] (self) {masked\\self-attention};
+    \node[box,fill=coursepurple!18,right=of self] (cross) {cross-\\attention};
+    \node[box,fill=coursegray!18,right=of cross] (ffn) {position-wise\\MLP};
+    \node[box,fill=coursegreen!18,right=of ffn] (y) {next-token\\features};
+    \node[box,fill=courselightblue,above=of cross] (enc) {encoder\\outputs};
+    \draw[flow] (x)--(self)--(cross)--(ffn)--(y);
+    \draw[flow] (enc)--(cross);
+  \end{tikzpicture}
+  \vspace{0.55cm}
+  \begin{itemize}
+    \item The causal mask protects autoregressive training.
+    \item Cross-attention is present in encoder--decoder models.
+    \item Decoder-only language models omit the encoder and cross-attention.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Cross-Attention Connects Two Streams}
+  \[
+    \mathbf Q=\mathbf X_{\text{target}}\mathbf W_Q,
+    \qquad
+    \mathbf K=\mathbf X_{\text{source}}\mathbf W_K,
+    \qquad
+    \mathbf V=\mathbf X_{\text{source}}\mathbf W_V.
+  \]
+  \centering
+  \begin{tikzpicture}[node distance=0.65cm]
+    \node[box,fill=courselightblue] (source) {source tokens\\keys and values};
+    \node[box,fill=courselightorange,below=of source] (target) {target tokens\\queries};
+    \node[box,fill=coursepurple!18,right=1.1cm of $(source)!0.5!(target)$] (attn) {cross-\\attention};
+    \node[box,fill=coursegreen!18,right=of attn] (out) {target-aligned\\outputs};
+    \draw[flow] (source.east) -- (attn.north west);
+    \draw[flow] (target.east) -- (attn.south west);
+    \draw[flow] (attn) -- (out);
+  \end{tikzpicture}
+  \begin{itemize}
+    \item Translation: target words retrieve source information.
+    \item Multimodal models can connect text, images, or other streams.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Autoregressive Language Models Factorize a Sequence}
+  \[
+    \boxed{
+      p(x_{1:T})=\prod_{t=1}^{T}p(x_t\mid x_{<t})
+    }
+  \]
+  Maximum likelihood minimizes token-level negative log-likelihood:
+  \[
+    L(\boldsymbol\theta)
+    =-\sum_{t=1}^{T}\log p_{\boldsymbol\theta}(x_t\mid x_{<t}).
+  \]
+  \begin{itemize}
+    \item The causal mask enforces the conditioning set $x_{<t}$.
+    \item A linear output layer and softmax define a token distribution.
+    \item The factorization is exact; the learned conditional distributions are approximate.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Training Is Parallel; Generation Is Sequential}
+  \centering
+  \begin{tikzpicture}[scale=0.88,transform shape]
+    \node[font=\bfseries] at (2.6,2.0) {teacher-forced training};
+    \foreach \t in {1,...,4}{
+      \node[token,fill=courselightblue] (tr\t) at (1.15*\t,0.8) {$x_{\t}$};
+      \node[token,fill=coursegreen!18,below=0.55cm of tr\t] (pr\t) {$p_{\t+1}$};
+      \draw[flow] (tr\t)--(pr\t);
+    }
+    \node at (2.6,-1.15) {all positions in one forward pass};
+    \node[font=\bfseries] at (8.4,2.0) {generation};
+    \foreach \t in {1,...,4}{
+      \node[token,fill=courselightorange] (g\t) at (5.9+1.15*\t,0.8) {$x_{\t}$};
+    }
+    \foreach \t in {1,...,3}{
+      \pgfmathtruncatemacro{\next}{\t+1}
+      \draw[maskflow] (g\t)--(g\next);
+    }
+    \node at (8.4,-1.15) {sample, append, repeat};
+  \end{tikzpicture}
+  \begin{itemize}
+    \item Training uses all observed prefix tokens simultaneously.
+    \item Generation must produce unknown tokens one after another.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Dense Attention Has Quadratic Sequence Cost}
+  \[
+    \mathbf Q\mathbf K^{\mathsf T}\in\mathbb R^{T\times T},
+  \]
+  \[
+    \text{score cost }=\mathcal O(T^2d_k),
+    \qquad
+    \text{score memory }=\mathcal O(T^2).
+  \]
+  \centering
+  \begin{tikzpicture}[scale=0.46]
+    \foreach \i in {1,...,8}{
+      \foreach \j in {1,...,8}{
+        \fill[courseblue!22] (\i,-\j) rectangle ++(0.88,0.88);
+        \draw[white,thick] (\i,-\j) rectangle ++(0.88,0.88);
+      }
+    }
+    \node[right] at (9,-4) {$T^2$ pairwise scores};
+  \end{tikzpicture}
+  \begin{itemize}
+    \item Doubling $T$ produces four times as many pairwise scores.
+    \item Sparse, local, or kernelized alternatives change the trade-off.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{A Token Can Represent More Than a Word}
+  \centering
+  \begin{tikzpicture}[node distance=0.75cm]
+    \node[box,fill=courselightblue] (text) {text\\subwords};
+    \node[box,fill=courselightorange,right=of text] (image) {image\\patches};
+    \node[box,fill=coursegreen!18,right=of image] (set) {set\\elements};
+    \node[box,fill=coursepurple!18,right=of set] (multi) {multimodal\\tokens};
+    \node[box,fill=coursegray!18,below=0.8cm of $(image)!0.5!(set)$] (block) {shared attention machinery};
+    \draw[flow] (text)--(block);
+    \draw[flow] (image)--(block);
+    \draw[flow] (set)--(block);
+    \draw[flow] (multi)--(block);
+  \end{tikzpicture}
+  \vspace{0.45cm}
+  \begin{itemize}
+    \item The tokenizer determines what one row of $\mathbf X$ means.
+    \item Positional or structural information must match the domain.
+    \item Attention is an interaction rule, not a complete inductive bias.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Attention Weights Are Not Automatically Explanations}
+  \[
+    \mathbf y_i=\sum_j A_{ij}\mathbf v_j
+  \]
+  \begin{itemize}
+    \item $A_{ij}$ measures weight within one attention operation.
+    \item Values, output projections, residual paths, and later layers also affect predictions.
+    \item Different heads may distribute weight differently.
+    \item A plausible heat map is not evidence of causal importance.
+  \end{itemize}
+  \vspace{0.35cm}
+  \centering
+  \begin{tikzpicture}[scale=0.84,transform shape]
+    \node[box,fill=courselightblue] (weights) {attention\\weights};
+    \node[box,fill=courselightorange,right=of weights] (values) {value and output\\projections};
+    \node[box,fill=coursepurple!18,right=of values] (layers) {residual and\\later layers};
+    \node[box,fill=coursegreen!18,right=of layers] (prediction) {prediction};
+    \draw[flow] (weights)--(values)--(layers)--(prediction);
+  \end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Transformers Still Have Important Failure Modes}
+  \begin{itemize}
+    \item Context is finite; relevant information may be absent or poorly used.
+    \item Dense attention becomes expensive for long sequences.
+    \item Position schemes may extrapolate poorly beyond training lengths.
+    \item Learned correlations can reproduce bias and generate unsupported claims.
+    \item Large capacity does not remove the need for validation and uncertainty awareness.
+  \end{itemize}
+  \vspace{0.5cm}
+  \centering
+  \begin{tikzpicture}[node distance=0.45cm]
+    \node[box,fill=coursered!16] (data) {data};
+    \node[box,fill=coursered!16,right=of data] (objective) {objective};
+    \node[box,fill=coursered!16,right=of objective] (context) {context};
+    \node[box,fill=coursered!16,right=of context] (evaluation) {evaluation};
+    \draw[maskflow] (data)--(objective)--(context)--(evaluation);
+  \end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Transformers Combine Content Interaction and Structure}
+  \begin{itemize}
+    \item Queries and keys define content-dependent retrieval weights.
+    \item Values carry the information combined at each token.
+    \item Multi-head attention learns several interaction subspaces.
+    \item Position information and masks encode sequence structure.
+    \item Residual paths, normalization, and MLPs form trainable deep blocks.
+    \item Parallel training comes with quadratic dense-attention cost.
+  \end{itemize}
+\end{frame}
+
+\end{document}
