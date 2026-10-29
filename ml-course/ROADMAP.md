@@ -5,13 +5,14 @@ foundations, dense networks and generalization, geometric deep learning, special
 architectures, then scientific and generative models. This order prevents the archived
 lectures' topic jumps and gives every concept one owning deck in `TOPICS.toml`.
 
-Current work:
+Completed redesign:
 
-1. Complete and verify the two foundation decks: `supervised-learning` and `optimization`.
-2. Separate dense-network material into `neural-nets`; add `regularization`.
-3. Add the geometric framework, then finish CNN, RNN, Transformer, and GNN decks.
-4. Add PINNs/neural operators and split diffusion from flow matching.
-5. Run the course-wide mathematical, notation, archive-coverage, and rendered-page review.
+1. Foundation material is owned by `supervised-learning` and `optimization`.
+2. Dense networks and generalization are separated into `neural-nets` and `regularization`.
+3. Geometric deep learning precedes the CNN, RNN, Transformer, and GNN specialist decks.
+4. Scientific ML is covered by `pinns-neural-operators`.
+5. Diffusion and flow matching are separate lectures with one shared generated-asset source.
+6. Every redesigned deck has passed mathematical, notation, compilation, and rendered-page review.
 
 Independent repository cleanup:
 
