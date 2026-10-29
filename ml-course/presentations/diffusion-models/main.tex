@@ -1,0 +1,356 @@
+\documentclass{ntuabeamer}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb,graphicx,tikz}
+\usetikzlibrary{arrows.meta,positioning}
+\graphicspath{{../generative/assets/generated/}}
+
+\framesource{ho2020}{Ho, Jain, Abbeel. \emph{Denoising Diffusion Probabilistic Models}. NeurIPS, 2020.}
+\framesource{song2021}{Song et al. \emph{Score-Based Generative Modeling through Stochastic Differential Equations}. ICLR, 2021.}
+
+\title{Diffusion Models}
+\author{}
+\date{}
+\definecolor{courseblue}{HTML}{3F7CAC}
+\definecolor{courseorange}{HTML}{D97706}
+\definecolor{coursegreen}{HTML}{27864A}
+\definecolor{coursegray}{HTML}{667085}
+\definecolor{coursepurple}{HTML}{7656A3}
+\definecolor{coursered}{HTML}{B5473C}
+\definecolor{courselightblue}{HTML}{DCE9F5}
+\definecolor{courselightorange}{HTML}{F9E4C8}
+\tikzset{flow/.style={-{Latex[length=3mm]},very thick,courseblue},
+box/.style={draw,rounded corners,very thick,align=center,minimum width=1.6cm,minimum height=0.85cm}}
+
+\begin{document}
+\begin{frame}[plain]\makepresentationtitle\end{frame}
+
+\begin{frame}{Generative Models Learn a Distribution}
+  Given samples \(\mathbf x_0\sim p_{\mathrm{data}}\), learn a model \(p_\theta\) that can
+  \begin{itemize}
+    \item generate new samples,
+    \item condition generation on information \(\mathbf c\),
+    \item represent uncertainty and multiple plausible outputs.
+  \end{itemize}
+  Diffusion introduces known latent corruptions:
+  \[
+    \mathbf x_0\to\mathbf x_1\to\cdots\to\mathbf x_T\approx\mathcal N(\mathbf0,\mathbf I).
+  \]
+  \begin{itemize}
+    \item Training learns to reverse a corruption whose statistics are known.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Forward Diffusion Gradually Destroys Structure}
+  \centering
+  \includegraphics[width=0.95\textwidth]{diffusion_forward_chain_cat.png}
+  \vspace{0.35cm}
+  \begin{itemize}
+    \item Small Gaussian perturbations make neighboring noise levels similar.
+    \item The terminal distribution is designed to be close to a simple Gaussian.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The Noise Schedule Controls Signal Retention}
+  Define
+  \[
+    \beta_t\in(0,1),\qquad
+    \alpha_t=1-\beta_t,\qquad
+    \bar\alpha_t=\prod_{s=1}^{t}\alpha_s.
+  \]
+  The forward Markov transition is
+  \[
+    q(\mathbf x_t\mid\mathbf x_{t-1})
+      =\mathcal N(\sqrt{\alpha_t}\mathbf x_{t-1},\beta_t\mathbf I).
+  \]
+  \begin{itemize}
+    \item \(\beta_t\): new variance injected at step \(t\).
+    \item \(\bar\alpha_t\): fraction of original signal power retained through step \(t\).
+    \item Schedules affect difficulty, weighting, and sampling discretization.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Any Noise Level Can Be Sampled Directly}
+  Gaussian composition gives
+  \[
+    q(\mathbf x_t\mid\mathbf x_0)
+      =\mathcal N\!\left(
+        \sqrt{\bar\alpha_t}\mathbf x_0,
+        (1-\bar\alpha_t)\mathbf I
+      \right).
+  \]
+  Therefore,
+  \[
+    \boxed{
+    \mathbf x_t
+      =\sqrt{\bar\alpha_t}\mathbf x_0
+       +\sqrt{1-\bar\alpha_t}\boldsymbol\epsilon,
+    \qquad \boldsymbol\epsilon\sim\mathcal N(\mathbf0,\mathbf I)}.
+  \]
+  \begin{itemize}
+    \item Training need not simulate all preceding forward steps.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The Score Points Toward Higher Noisy Density}
+  For the noisy marginal \(p_t(\mathbf x)\), define
+  \[
+    \boxed{\mathbf s_t(\mathbf x)=\nabla_{\mathbf x}\log p_t(\mathbf x)}.
+  \]
+  \begin{itemize}
+    \item Direction: steepest local increase of log density.
+    \item Magnitude: local sensitivity of log density.
+    \item The score is a vector field, not a normalized direction.
+    \item Reverse-time dynamics use the score of the marginal \(p_t\).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Noise and Conditional Score Are Exactly Related}
+  Let \(\sigma_t=\sqrt{1-\bar\alpha_t}\). For fixed \(\mathbf x_0\),
+  \[
+    \nabla_{\mathbf x_t}\log q(\mathbf x_t\mid\mathbf x_0)
+      =-\frac{\mathbf x_t-\sqrt{\bar\alpha_t}\mathbf x_0}{\sigma_t^2}
+      =-\frac{\boldsymbol\epsilon}{\sigma_t}.
+  \]
+  Averaging conditionally at a fixed noisy state gives
+  \[
+    \boxed{
+    \nabla_{\mathbf x_t}\log p_t(\mathbf x_t)
+      =-\frac{\mathbb E[\boldsymbol\epsilon\mid\mathbf x_t,t]}{\sigma_t}}.
+  \]
+  \begin{itemize}
+    \item Predicting conditional mean noise recovers the marginal score.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{A Smoothed Density Has a Structured Score Field}
+  \centering
+  \includegraphics[height=0.70\textheight]{score_field_gaussian_mixture.png}
+  \begin{itemize}
+    \item Arrows show \(\nabla_{\mathbf x}\log p_t(\mathbf x)\).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Training Samples Data, Time, and Noise}
+  One training experiment draws
+  \[
+    \mathbf x_0\sim p_{\mathrm{data}},\qquad
+    t\sim\operatorname{Uniform}\{1,\ldots,T\},\qquad
+    \boldsymbol\epsilon\sim\mathcal N(\mathbf0,\mathbf I),
+  \]
+  then forms
+  \[
+    \mathbf x_t=\sqrt{\bar\alpha_t}\mathbf x_0
+      +\sqrt{1-\bar\alpha_t}\boldsymbol\epsilon.
+  \]
+  \begin{itemize}
+    \item The network receives \((\mathbf x_t,t)\).
+    \item A time embedding identifies the noise level.
+    \item Conditioning information can be supplied as an additional input.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Noise Prediction Uses a Weighted Mean-Squared Error}
+  \[
+    \boxed{
+    L(\theta)=
+      \mathbb E_{t,\mathbf x_0,\boldsymbol\epsilon}
+      \left[
+        w_t\left\|
+          \boldsymbol\epsilon-
+          \boldsymbol\epsilon_\theta(\mathbf x_t,t)
+        \right\|_2^2
+      \right]}.
+  \]
+  \begin{itemize}
+    \item \(w_t>0\) changes the relative importance of noise levels.
+    \item The common simplified objective uses \(w_t=1\).
+    \item Other parameterizations predict \(\mathbf x_0\), velocity, or score.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The MSE Optimum Is a Conditional Expectation}
+  For any random target \(\mathbf Y\) and input \(\mathbf X\),
+  \[
+    \arg\min_f\mathbb E\|\mathbf Y-f(\mathbf X)\|^2
+      =\mathbb E[\mathbf Y\mid\mathbf X].
+  \]
+  Hence the ideal noise predictor satisfies
+  \[
+    \boxed{
+    \boldsymbol\epsilon_\star(\mathbf x_t,t)
+      =\mathbb E[\boldsymbol\epsilon\mid\mathbf x_t,t]}.
+  \]
+  \begin{itemize}
+    \item The target noise is not uniquely recoverable from one ambiguous noisy sample.
+    \item The predictor learns its conditional mean.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The Exact Reverse Posterior Is Gaussian}
+  Conditioning the forward chain on \(\mathbf x_0\) gives
+  \[
+    q(\mathbf x_{t-1}\mid\mathbf x_t,\mathbf x_0)
+      =\mathcal N(\widetilde{\boldsymbol\mu}_t,\widetilde\beta_t\mathbf I),
+  \]
+  \[
+    \widetilde{\boldsymbol\mu}_t
+      =\frac{\sqrt{\bar\alpha_{t-1}}\beta_t}{1-\bar\alpha_t}\mathbf x_0
+       +\frac{\sqrt{\alpha_t}(1-\bar\alpha_{t-1})}{1-\bar\alpha_t}\mathbf x_t,
+  \]
+  \[
+    \widetilde\beta_t
+      =\beta_t\frac{1-\bar\alpha_{t-1}}{1-\bar\alpha_t}.
+  \]
+  \begin{itemize}
+    \item At generation time, the unknown \(\mathbf x_0\) must be inferred.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The Learned Reverse Transition Uses Predicted Noise}
+  A standard DDPM mean is
+  \[
+    \boxed{
+    \boldsymbol\mu_\theta(\mathbf x_t,t)
+      =\frac1{\sqrt{\alpha_t}}
+       \left(
+        \mathbf x_t-\frac{\beta_t}{\sqrt{1-\bar\alpha_t}}
+        \boldsymbol\epsilon_\theta(\mathbf x_t,t)
+       \right)}.
+  \]
+  Then
+  \[
+    p_\theta(\mathbf x_{t-1}\mid\mathbf x_t)
+      =\mathcal N(\boldsymbol\mu_\theta,v_t\mathbf I),
+  \]
+  where \(v_t>0\) is fixed or learned by the chosen model.
+\end{frame}
+
+\begin{frame}{Sampling Repeatedly Removes Noise}
+  \centering
+  \includegraphics[width=0.95\textwidth]{diffusion_reverse_chain_cat_oracle.png}
+  \vspace{0.35cm}
+  \begin{itemize}
+    \item Start from \(\mathbf x_T\sim\mathcal N(\mathbf0,\mathbf I)\).
+    \item Apply reverse transitions from \(T\) down to \(1\).
+    \item The displayed oracle posterior means illustrate the geometry, not learned-model quality.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Stochastic and Deterministic Samplers Are Distinct}
+  \begin{itemize}
+    \item DDPM sampling injects reverse-transition noise.
+    \item DDIM-style implicit sampling can use deterministic updates.
+    \item Both reuse a trained denoiser but follow different trajectories.
+    \item Fewer steps reduce cost and increase discretization error.
+  \end{itemize}
+  \[
+    \text{same network}\;\not\Rightarrow\;\text{same sampler}.
+  \]
+  \begin{itemize}
+    \item Report the sampler, number of network evaluations, and schedule.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Classifier-Free Guidance Trades Diversity for Condition Strength}
+  Train conditional and unconditional predictions through condition dropout. At sampling,
+  \[
+    \boxed{
+    \boldsymbol\epsilon_{\mathrm{guide}}
+      =\boldsymbol\epsilon_{\mathrm{uncond}}
+       +s\big(
+        \boldsymbol\epsilon_{\mathrm{cond}}
+        -\boldsymbol\epsilon_{\mathrm{uncond}}
+       \big)}.
+  \]
+  \begin{itemize}
+    \item \(s=1\): ordinary conditional prediction.
+    \item \(s>1\): stronger condition following.
+    \item Large \(s\) can reduce diversity and create artifacts.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Continuous-Time Diffusion Uses an SDE}
+  A forward stochastic differential equation is
+  \[
+    d\mathbf x
+      =\mathbf f(\mathbf x,t)\,dt+g(t)\,d\mathbf W_t.
+  \]
+  The reverse-time SDE, integrated from \(T\) to \(0\), is
+  \[
+    \boxed{
+    d\mathbf x=
+      \left[\mathbf f(\mathbf x,t)
+      -g(t)^2\nabla_{\mathbf x}\log p_t(\mathbf x)\right]dt
+      +g(t)\,d\overline{\mathbf W}_t }.
+  \]
+  \begin{itemize}
+    \item The learned score supplies the unknown reverse drift correction.
+    \item Here time runs backward, so \(dt<0\) along numerical integration.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The Probability-Flow ODE Has the Same Marginals}
+  The deterministic ODE
+  \[
+    \boxed{
+    \frac{d\mathbf x}{dt}
+      =\mathbf f(\mathbf x,t)
+       -\frac12g(t)^2\nabla_{\mathbf x}\log p_t(\mathbf x)}
+  \]
+  shares the same one-time marginal densities \(p_t\) as the SDE.
+  \begin{itemize}
+    \item Individual paths differ from stochastic reverse-SDE paths.
+    \item Deterministic ODE solvers enable adaptive integration.
+    \item The score must still be evaluated repeatedly.
+    \item This ODE is the bridge to continuous transport and flow matching.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Sampling Cost Is Measured in Network Evaluations}
+  \begin{itemize}
+    \item Each solver step typically requires one or more denoiser evaluations.
+    \item More steps usually reduce discretization error but increase latency.
+    \item Higher-order solvers trade evaluations per step for accuracy.
+    \item Guidance may require conditional and unconditional evaluations.
+  \end{itemize}
+  \[
+    \text{quality}=\text{model error}+\text{solver error}+\text{conditioning trade-offs}.
+  \]
+\end{frame}
+
+\begin{frame}{Diffusion Applies Beyond Images}
+  \begin{itemize}
+    \item audio and time series,
+    \item molecular and geometric structures,
+    \item physical fields and surrogate ensembles,
+    \item inpainting and inverse problems,
+    \item conditional uncertainty generation.
+  \end{itemize}
+  \begin{itemize}
+    \item The corruption process and architecture must respect the data representation.
+    \item Constraints often require conditioning or projection, not only denoising.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Evaluation Must Address More Than Visual Quality}
+  \begin{itemize}
+    \item Sample fidelity and diversity can conflict.
+    \item Likelihood and perceptual metrics measure different properties.
+    \item Memorization and train-set leakage require explicit checks.
+    \item Conditional accuracy needs task-specific evaluation.
+    \item Scientific samples should satisfy physical and statistical diagnostics.
+    \item Sampling cost must include network evaluations and solver settings.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Diffusion Learns to Reverse Known Corruption}
+  \begin{itemize}
+    \item The forward chain has closed-form Gaussian marginals.
+    \item Noise prediction estimates a conditional mean and therefore the score.
+    \item Reverse transitions turn predicted noise into denoising updates.
+    \item SDE and probability-flow ODE views connect stochastic and deterministic sampling.
+    \item Guidance, schedules, and numerical solvers change the generated distribution.
+  \end{itemize}
+\end{frame}
+
+\end{document}
