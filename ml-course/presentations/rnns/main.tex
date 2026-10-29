@@ -1,0 +1,328 @@
+\documentclass{ntuabeamer}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,calc,positioning}
+
+\title{Recurrent Neural Networks}
+\author{}
+\date{}
+
+\definecolor{courseblue}{HTML}{3F7CAC}
+\definecolor{courseorange}{HTML}{D97706}
+\definecolor{coursegreen}{HTML}{27864A}
+\definecolor{coursegray}{HTML}{667085}
+\definecolor{coursepurple}{HTML}{7656A3}
+\definecolor{coursered}{HTML}{B5473C}
+\definecolor{courselightblue}{HTML}{DCE9F5}
+\definecolor{courselightorange}{HTML}{F9E4C8}
+
+\tikzset{
+  flow/.style={-{Latex[length=3mm]},very thick,courseblue},
+  backflow/.style={-{Latex[length=3mm]},very thick,courseorange},
+  box/.style={draw,rounded corners,very thick,align=center,minimum width=1.5cm,minimum height=0.9cm},
+  state/.style={circle,draw,very thick,minimum size=0.85cm,inner sep=0pt}
+}
+
+\begin{document}
+
+\begin{frame}[plain]
+  \makepresentationtitle
+\end{frame}
+
+\begin{frame}{A Sequence Has an Explicit Time Axis}
+  \[
+    \mathbf{X}in\mathbb{R}^{B\times T\times d_x}
+  \]
+  \begin{itemize}
+    \item $B$: number of sequences in a batch.
+    \item $T$: number of time steps.
+    \item $d_x$: features observed at each step.
+  \end{itemize}
+  \vspace{0.3cm}
+  \centering
+  \begin{tikzpicture}[node distance=0.65cm]
+    \foreach \t in {1,...,5}{
+      \node[box,fill=courselightblue,minimum width=1.0cm] (x\t) at (1.35*\t,0) {$\mathbf{x}_{\t}$};
+      \node[above=0.15cm of x\t,font=\small] {$t=\t$};
+    }
+    \foreach \t in {1,...,4}{
+      \pgfmathtruncatemacro{\next}{\t+1}
+      \draw[flow] (x\t) -- (x\next);
+    }
+  \end{tikzpicture}
+\end{frame}
+
+\begin{frame}{A Hidden State Summarizes the Observed Past}
+  \[
+    \boxed{
+      \mathbf{h}_t
+      =\phi\!\left(
+        \mathbf{W}_{xh}\mathbf{x}_t
+        +\mathbf{W}_{hh}\mathbf{h}_{t-1}
+        +\mathbf{b}_h
+      \right)
+    }
+  \]
+  \[
+    \widehat{\mathbf{y}}_t
+    =g\!\left(\mathbf{W}_{hy}\mathbf{h}_t+\mathbf{b}_y\right)
+  \]
+  \begin{itemize}
+    \item $\mathbf{h}_t$ is a learned, compressed summary.
+    \item It need not preserve every detail of the past.
+    \item $\mathbf{h}_0$ is fixed or learned.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Recurrence Feeds the State Back Into the Cell}
+  \centering
+  \begin{tikzpicture}[node distance=1.2cm]
+    \node[box,fill=courselightorange,minimum width=2.2cm,minimum height=1.25cm] (cell) {recurrent cell\\$f_{\boldsymbol{\theta}}$};
+    \node[box,fill=courselightblue,left=of cell] (input) {$\mathbf{x}_t$};
+    \node[box,fill=coursegreen!18,right=of cell] (output) {$\widehat{\mathbf{y}}_t$};
+    \draw[flow] (input) -- (cell);
+    \draw[flow] (cell) -- (output);
+    \draw[backflow] (cell.north) to[out=75,in=105,looseness=4] node[above] {$\mathbf{h}_{t-1}\rightarrow\mathbf{h}_t$} (cell.north);
+  \end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Unrolling Reveals Shared Parameters Through Time}
+  \centering
+  \begin{tikzpicture}[node distance=0.58cm,scale=0.92,transform shape]
+    \foreach \t in {1,...,5}{
+      \node[box,fill=courselightorange,minimum width=1.1cm] (h\t) at (1.65*\t,0) {$f_{\boldsymbol{\theta}}$};
+      \node[box,fill=courselightblue,minimum width=0.9cm,below=of h\t] (x\t) {$\mathbf{x}_{\t}$};
+      \node[box,fill=coursegreen!18,minimum width=0.9cm,above=of h\t] (y\t) {$\widehat{\mathbf{y}}_{\t}$};
+      \draw[flow] (x\t) -- (h\t);
+      \draw[flow] (h\t) -- (y\t);
+    }
+    \foreach \t in {1,...,4}{
+      \pgfmathtruncatemacro{\next}{\t+1}
+      \draw[flow] (h\t) -- node[above,font=\small] {$\mathbf{h}_{\t}$} (h\next);
+    }
+    \node[left=0.45cm of h1] {$\mathbf{h}_0$};
+    \draw[flow] ($(h1.west)+(-0.4,0)$) -- (h1);
+  \end{tikzpicture}
+  \vspace{0.5cm}
+  \begin{itemize}
+    \item The same $\boldsymbol{\theta}$ is reused at every time step.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Output Timing Depends on the Task}
+  \centering
+  \begin{tikzpicture}[scale=0.88,transform shape]
+    \node[font=\bfseries] at (2.4,2.4) {many-to-one};
+    \foreach \t in {1,...,4}{
+      \node[box,fill=courselightblue,minimum width=0.8cm] (a\t) at (1.15*\t,0) {$\mathbf{x}_{\t}$};
+    }
+    \foreach \t in {1,...,3}{
+      \pgfmathtruncatemacro{\next}{\t+1}
+      \draw[flow] (a\t) -- (a\next);
+    }
+    \node[box,fill=coursegreen!18,above=0.8cm of a4] (ao) {$\widehat{\mathbf{y}}$};
+    \draw[flow] (a4) -- (ao);
+
+    \draw[coursegray,very thick] (5.5,-0.8) -- (5.5,2.4);
+    \node[font=\bfseries] at (8.1,2.4) {many-to-many};
+    \foreach \t in {1,...,4}{
+      \node[box,fill=courselightblue,minimum width=0.8cm] (b\t) at (5.8+1.15*\t,0) {$\mathbf{x}_{\t}$};
+      \node[box,fill=coursegreen!18,minimum width=0.8cm,above=0.8cm of b\t] (bo\t) {$\widehat{\mathbf{y}}_{\t}$};
+      \draw[flow] (b\t) -- (bo\t);
+    }
+    \foreach \t in {1,...,3}{
+      \pgfmathtruncatemacro{\next}{\t+1}
+      \draw[flow] (b\t) -- (b\next);
+    }
+  \end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Backpropagation Also Unrolls Through Time}
+  \centering
+  \begin{tikzpicture}[scale=0.9,transform shape]
+    \foreach \t in {1,...,5}{
+      \node[state,fill=courselightorange] (h\t) at (1.55*\t,0) {$\mathbf{h}_{\t}$};
+      \node[box,fill=coursegreen!18,minimum width=0.9cm,above=0.8cm of h\t] (l\t) {$\ell_{\t}$};
+      \draw[flow] (h\t) -- (l\t);
+    }
+    \foreach \t in {1,...,4}{
+      \pgfmathtruncatemacro{\next}{\t+1}
+      \draw[flow] (h\t) -- (h\next);
+      \draw[backflow,bend left=28] (h\next) to (h\t);
+    }
+  \end{tikzpicture}
+  \vspace{0.45cm}
+  \[
+    \mathcal{L}=\sum_{t=1}^{T}\ell_t
+  \]
+\end{frame}
+
+\begin{frame}{Long Gradient Paths Multiply Many Jacobians}
+  \[
+    \frac{\partial\mathbf{h}_T}{\partial\mathbf{h}_t}
+    =\mathbf{J}_T\mathbf{J}_{T-1}\cdots\mathbf{J}_{t+1},
+    \qquad
+    \mathbf{J}_k
+    =\frac{\partial\mathbf{h}_k}{\partial\mathbf{h}_{k-1}}
+  \]
+  \begin{itemize}
+    \item Repeated Jacobians with norms below one can make gradients vanish.
+    \item Repeated Jacobians with norms above one can make gradients explode.
+    \item Long dependencies are therefore difficult to learn.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Gradients Can Shrink or Grow Across Time}
+  \centering
+  \begin{tikzpicture}[scale=0.94]
+    \node[font=\bfseries,courseblue] at (2.5,2.4) {vanishing};
+    \foreach \t/\size in {0/8,1/6,2/4,3/2,4/1}{
+      \draw[-{Latex[length=2.5mm]},line width=\size*0.25pt,courseblue]
+        (0.9+1.0*\t,1.4) -- ++(0.75,0);
+    }
+    \node[left] at (0.8,1.4) {$T$};
+    \node[right] at (5.9,1.4) {$t$};
+
+    \node[font=\bfseries,coursered] at (2.5,0.2) {exploding};
+    \foreach \t/\size in {0/1,1/2,2/4,3/6,4/8}{
+      \draw[-{Latex[length=2.5mm]},line width=\size*0.25pt,coursered]
+        (0.9+1.0*\t,-0.8) -- ++(0.75,0);
+    }
+    \node[left] at (0.8,-0.8) {$T$};
+    \node[right] at (5.9,-0.8) {$t$};
+  \end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Gradient Clipping Limits Exploding Updates}
+  \[
+    \boxed{
+      \widetilde{\mathbf{g}}
+      =\begin{cases}
+        \mathbf{g}, & \|\mathbf{g}\|_2\leq\tau,\\[2mm]
+        \displaystyle\tau\frac{\mathbf{g}}{\|\mathbf{g}\|_2},
+          & \|\mathbf{g}\|_2>\tau.
+      \end{cases}
+    }
+  \]
+  \begin{itemize}
+    \item $\tau>0$ is the clipping threshold.
+    \item Small gradients remain unchanged.
+    \item Large gradients keep their direction but not their norm.
+    \item Clipping does not solve vanishing gradients.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{LSTM Adds an Explicit Memory Path}
+  \centering
+  \begin{tikzpicture}[node distance=0.8cm]
+    \node[box,fill=courselightblue,minimum width=1.3cm] (previous) {$\mathbf{c}_{t-1}$};
+    \node[box,fill=courseorange!18,minimum width=1.3cm,right=of previous] (forget) {$\odot$\\$\mathbf{f}_t$};
+    \node[box,fill=coursegreen!18,minimum width=1.3cm,right=of forget] (add) {$+$\\$\mathbf{i}_t\odot\widetilde{\mathbf{c}}_t$};
+    \node[box,fill=coursepurple!18,minimum width=1.3cm,right=of add] (current) {$\mathbf{c}_t$};
+    \draw[flow] (previous) -- (forget);
+    \draw[flow] (forget) -- (add);
+    \draw[flow] (add) -- (current);
+  \end{tikzpicture}
+  \vspace{0.6cm}
+  \begin{itemize}
+    \item The additive path helps information and gradients persist.
+    \item Gates learn what to keep, write, and expose.
+    \item Long-range learning is improved, not guaranteed.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{LSTM Gates Read the Current Input and Previous State}
+  Let $\mathbf{q}_t=[\mathbf{x}_t;\mathbf{h}_{t-1}]$.
+  \[
+    \mathbf{f}_t=\sigma(\mathbf{W}_f\mathbf{q}_t+\mathbf{b}_f),
+    \qquad
+    \mathbf{i}_t=\sigma(\mathbf{W}_i\mathbf{q}_t+\mathbf{b}_i)
+  \]
+  \[
+    \widetilde{\mathbf{c}}_t
+    =\tanh(\mathbf{W}_c\mathbf{q}_t+\mathbf{b}_c),
+    \qquad
+    \mathbf{o}_t=\sigma(\mathbf{W}_o\mathbf{q}_t+\mathbf{b}_o)
+  \]
+  \begin{itemize}
+    \item $\mathbf{f}_t$: forget gate.
+    \item $\mathbf{i}_t$: input gate.
+    \item $\mathbf{o}_t$: output gate.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{LSTM Updates Memory Before Exposing State}
+  \[
+    \boxed{
+      \mathbf{c}_t
+      =\mathbf{f}_t\odot\mathbf{c}_{t-1}
+      +\mathbf{i}_t\odot\widetilde{\mathbf{c}}_t
+    }
+  \]
+  \[
+    \boxed{
+      \mathbf{h}_t
+      =\mathbf{o}_t\odot\tanh(\mathbf{c}_t)
+    }
+  \]
+  \begin{itemize}
+    \item The cell state $\mathbf{c}_t$ carries memory.
+    \item The hidden state $\mathbf{h}_t$ is the exposed representation.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{GRU Uses a Single State and Fewer Gates}
+  \[
+    \mathbf{z}_t=\sigma(\mathbf{W}_z[\mathbf{x}_t;\mathbf{h}_{t-1}]+\mathbf{b}_z),
+    \qquad
+    \mathbf{r}_t=\sigma(\mathbf{W}_r[\mathbf{x}_t;\mathbf{h}_{t-1}]+\mathbf{b}_r)
+  \]
+  \[
+    \widetilde{\mathbf{h}}_t
+    =\tanh\!\left(\mathbf{W}_h
+      [\mathbf{x}_t;\mathbf{r}_t\odot\mathbf{h}_{t-1}]+\mathbf{b}_h\right)
+  \]
+  \[
+    \boxed{
+      \mathbf{h}_t
+      =(1-\mathbf{z}_t)\odot\mathbf{h}_{t-1}
+      +\mathbf{z}_t\odot\widetilde{\mathbf{h}}_t
+    }
+  \]
+\end{frame}
+
+\begin{frame}{Attention Creates Direct Paths Between Time Steps}
+  \centering
+  \begin{tikzpicture}[scale=0.92]
+    \foreach \t in {1,...,5}{
+      \node[state,fill=courselightblue] (x\t) at (1.45*\t,0) {$\mathbf{x}_{\t}$};
+    }
+    \foreach \t in {1,...,4}{
+      \pgfmathtruncatemacro{\next}{\t+1}
+      \draw[coursegray,thick] (x\t) -- (x\next);
+    }
+    \draw[flow,bend left=35] (x1) to node[above] {direct interaction} (x5);
+  \end{tikzpicture}
+  \vspace{0.55cm}
+  \begin{itemize}
+    \item Transformers replace recurrence with attention-based blocks.
+    \item Attention is the next topic, not part of the recurrent update.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Recurrent Models Share Computation Across Time}
+  \begin{itemize}
+    \item A hidden state summarizes the observed sequence.
+    \item Unrolling exposes parameter sharing and gradient paths.
+    \item Long products can make gradients vanish or explode.
+    \item Clipping limits exploding gradient norms.
+    \item LSTMs and GRUs add learned gates.
+    \item Attention provides a different route to long-range interaction.
+  \end{itemize}
+\end{frame}
+
+\end{document}
