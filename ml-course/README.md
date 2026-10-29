@@ -14,4 +14,10 @@ curl -fsSL https://raw.githubusercontent.com/constatza/beamer-ntua/main/scripts/
 tools/build-all                  # or: cd presentations/<deck> && latexmk -pdf main.tex
 ```
 
-To pin a template version, set `NTUA_BEAMER_REF=<tag>` for the install script. Each deck builds into its own `.build/`.
+The install script respects `NTUA_BEAMER_REF`; this course is pinned to `v0.1.0-alpha.1`:
+
+```sh
+NTUA_BEAMER_REF=v0.1.0-alpha.1 curl -fsSL https://raw.githubusercontent.com/constatza/beamer-ntua/main/scripts/install-class.sh | sh
+```
+
+Each deck builds into its own `.build/`.
