@@ -1,6 +1,6 @@
 [submodule "machine-learning"]
 	path = machine-learning
-	url = ./machine-learning
+	url = git@github.com:constatza/machine-learning.git
 [submodule "stochastic-methods"]
 	path = stochastic-methods
 	url = ./stochastic-methods
