@@ -15,8 +15,8 @@ jobs:
       - name: Set up TeX Live
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y texlive-latex-base texlive-latex-recommended \
-            texlive-latex-extra latexmk lualatex fonts-libertinus
+          sudo apt-get install -y texlive-base texlive-latex-base texlive-latex-recommended \
+            texlive-latex-extra texlive-luatex latexmk
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v3
