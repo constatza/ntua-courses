@@ -17,7 +17,7 @@ import jax.numpy as jnp
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
-from common import apply_plot_style, assert_all_finite, generated_path, save_figure, plt, to_plot_array
+from figure_io import apply_plot_style, assert_all_finite, generated_path, save_figure, plt, to_plot_array
 from flow_core import build_monotone_transport, transport_characteristics, velocity_field_grid
 
 TRANSPORT_TIME_MIN = 0.03

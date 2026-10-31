@@ -27,7 +27,7 @@ from scipy.stats import gaussian_kde
 jax.config.update("jax_enable_x64", True)
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-GENERATED_DIR = ROOT_DIR.parent.parent / "exercises" / "toy-diffusion-flow" / "assets" / "generated"
+GENERATED_DIR = ROOT_DIR / "assets" / "generated"
 
 RNG_SEED = 20260403
 

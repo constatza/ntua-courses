@@ -22,35 +22,37 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.stats import wasserstein_distance
+from scipy.stats import gaussian_kde, wasserstein_distance_nd
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.neural_network import MLPRegressor
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-OUTPUT_DIR = ROOT_DIR.parent.parent / "exercises" / "toy-diffusion-flow" / "assets" / "generated"
+OUTPUT_DIR = ROOT_DIR / "assets" / "generated"
 
-MIXTURE_WEIGHTS = np.array([0.58, 0.42], dtype=float)
-MIXTURE_MEANS = np.array([-1.6, 1.8], dtype=float)
-MIXTURE_STDS = np.array([0.35, 0.55], dtype=float)
+SPIRAL_T_MIN = 1.0
+SPIRAL_T_MAX = 4.0 * np.pi
+SPIRAL_SCALE = 0.18
+SPIRAL_NOISE_STD = 0.08
 
 
 @dataclass(frozen=True)
 class BaselineConfig:
-    seed: int = 20260404
-    train_size: int = 2048
-    val_size: int = 1024
-    test_size: int = 2048
-    train_pairs: int = 8192
-    val_pairs: int = 4096
-    sample_count: int = 3000
+    seed: int = 20260405
+    train_size: int = 3072
+    val_size: int = 1536
+    test_size: int = 320
+    train_pairs: int = 12288
+    val_pairs: int = 6144
+    sample_count: int = 320
     epochs: int = 500
-    hidden_layers: tuple[int, int, int, int, int, int, int] = (16, 16, 16, 16, 16, 16, 16)
-    diffusion_steps: int = 40
+    hidden_layers: tuple[int, int, int, int, int, int] = (12, 12, 12, 12, 12, 12)
+    diffusion_steps: int = 50
     diffusion_beta_start: float = 1.0e-4
     diffusion_beta_end: float = 2.0e-2
-    flow_steps: int = 60
-    score_timesteps: tuple[int, int, int] = (5, 20, 40)
+    flow_steps: int = 70
+    score_timestep: int = 20
+    flow_timestep: float = 0.5
 
 
 @dataclass(frozen=True)
@@ -98,30 +100,19 @@ def make_rng(seed: int) -> np.random.Generator:
     return np.random.default_rng(seed)
 
 
-def normal_pdf(x: np.ndarray, mean: float, std: float) -> np.ndarray:
-    variance = std**2
-    return np.exp(-0.5 * ((x - mean) ** 2) / variance) / np.sqrt(2.0 * np.pi * variance)
-
-
-def mixture_pdf(x: np.ndarray) -> np.ndarray:
-    density = np.zeros_like(x, dtype=float)
-    for weight, mean, std in zip(MIXTURE_WEIGHTS, MIXTURE_MEANS, MIXTURE_STDS, strict=True):
-        density += weight * normal_pdf(x, float(mean), float(std))
-    return density
-
-
-def sample_mixture(rng: np.random.Generator, size: int) -> np.ndarray:
-    components = rng.choice(len(MIXTURE_WEIGHTS), size=size, p=MIXTURE_WEIGHTS)
-    means = MIXTURE_MEANS[components]
-    stds = MIXTURE_STDS[components]
-    return rng.normal(loc=means, scale=stds)
+def sample_swirl(rng: np.random.Generator, size: int) -> np.ndarray:
+    phi = rng.uniform(SPIRAL_T_MIN, SPIRAL_T_MAX, size=size)
+    radius = SPIRAL_SCALE * phi
+    x = radius * np.cos(phi) + SPIRAL_NOISE_STD * rng.normal(size=size)
+    y = radius * np.sin(phi) + SPIRAL_NOISE_STD * rng.normal(size=size)
+    return np.column_stack([x, y])
 
 
 def build_splits(config: BaselineConfig, rng: np.random.Generator) -> dict[str, np.ndarray]:
     return {
-        "train": sample_mixture(rng, config.train_size),
-        "val": sample_mixture(rng, config.val_size),
-        "test": sample_mixture(rng, config.test_size),
+        "train": sample_swirl(rng, config.train_size),
+        "val": sample_swirl(rng, config.val_size),
+        "test": sample_swirl(rng, config.test_size),
     }
 
 
@@ -143,12 +134,12 @@ def build_diffusion_pairs(
     pair_count: int,
     rng: np.random.Generator,
 ) -> tuple[np.ndarray, np.ndarray]:
-    indices = rng.integers(0, samples.size, size=pair_count)
+    indices = rng.integers(0, samples.shape[0], size=pair_count)
     x0 = samples[indices]
     timestep = rng.integers(1, schedule.num_steps + 1, size=pair_count)
-    epsilon = rng.normal(size=pair_count)
-    signal = np.sqrt(schedule.alpha_bar[timestep])
-    sigma = np.sqrt(1.0 - schedule.alpha_bar[timestep])
+    epsilon = rng.normal(size=(pair_count, 2))
+    signal = np.sqrt(schedule.alpha_bar[timestep])[:, None]
+    sigma = np.sqrt(1.0 - schedule.alpha_bar[timestep])[:, None]
     xt = signal * x0 + sigma * epsilon
     features = np.column_stack([xt, timestep / schedule.num_steps])
     return features, epsilon
@@ -159,11 +150,11 @@ def build_flow_pairs(
     pair_count: int,
     rng: np.random.Generator,
 ) -> tuple[np.ndarray, np.ndarray]:
-    indices = rng.integers(0, target_samples.size, size=pair_count)
+    indices = rng.integers(0, target_samples.shape[0], size=pair_count)
     x1 = target_samples[indices]
-    x0 = rng.normal(size=pair_count)
+    x0 = rng.normal(size=(pair_count, 2))
     time = rng.uniform(0.0, 1.0, size=pair_count)
-    xt = (1.0 - time) * x0 + time * x1
+    xt = (1.0 - time)[:, None] * x0 + time[:, None] * x1
     velocity = x1 - x0
     features = np.column_stack([xt, time])
     return features, velocity
@@ -185,8 +176,8 @@ def make_regressor(config: BaselineConfig, seed: int) -> MLPRegressor:
 
 
 def mean_squared_error(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    difference = np.asarray(y_true, dtype=float) - np.asarray(y_pred, dtype=float)
-    return float(np.mean(difference * difference))
+    diff = np.asarray(y_true, dtype=float) - np.asarray(y_pred, dtype=float)
+    return float(np.mean(diff * diff))
 
 
 def train_regressor(
@@ -199,14 +190,12 @@ def train_regressor(
 ) -> tuple[MLPRegressor, list[float], list[float]]:
     train_losses: list[float] = []
     val_losses: list[float] = []
-
     for _ in range(epochs):
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=ConvergenceWarning)
             model.fit(X_train, y_train)
         train_losses.append(mean_squared_error(y_train, model.predict(X_train)))
         val_losses.append(mean_squared_error(y_val, model.predict(X_val)))
-
     return model, train_losses, val_losses
 
 
@@ -226,13 +215,13 @@ def sample_diffusion(
     sample_count: int,
     rng: np.random.Generator,
 ) -> np.ndarray:
-    x_t = rng.normal(size=sample_count)
+    x_t = rng.normal(size=(sample_count, 2))
     for timestep in range(schedule.num_steps, 0, -1):
         features = np.column_stack([x_t, np.full(sample_count, timestep / schedule.num_steps)])
         epsilon_hat = model.predict(features)
         sigma_t = np.sqrt(1.0 - schedule.alpha_bar[timestep])
         x0_hat = (x_t - sigma_t * epsilon_hat) / np.sqrt(schedule.alpha_bar[timestep])
-        x0_hat = np.clip(x0_hat, -5.0, 5.0)
+        x0_hat = np.clip(x0_hat, -3.5, 3.5)
         x_t = diffusion_posterior_mean(x_t, x0_hat, schedule, timestep)
     return x_t
 
@@ -244,10 +233,10 @@ def sample_flow(
     rng: np.random.Generator,
 ) -> np.ndarray:
     def velocity(state: np.ndarray, time: float) -> np.ndarray:
-        features = np.column_stack([state, np.full(state.size, time)])
+        features = np.column_stack([state, np.full(state.shape[0], time)])
         return model.predict(features)
 
-    x_t = rng.normal(size=sample_count)
+    x_t = rng.normal(size=(sample_count, 2))
     dt = 1.0 / num_steps
     for step in range(num_steps):
         time = step / num_steps
@@ -261,53 +250,82 @@ def sample_flow(
 
 def plot_loss_curves(ax: plt.Axes, train_losses: list[float], val_losses: list[float], title: str) -> None:
     epochs = np.arange(1, len(train_losses) + 1)
-    ax.plot(epochs, train_losses, label="train", color="#8c1c13", linewidth=1.8)
-    ax.plot(epochs, val_losses, label="validation", color="#0b7189", linewidth=1.8)
+    ax.plot(epochs, train_losses, color="#111111", linewidth=1.8, label="train")
+    ax.plot(epochs, val_losses, color="#1f77b4", linewidth=1.8, label="validation")
     ax.set_xlabel("epoch")
     ax.set_ylabel("MSE loss")
     ax.set_title(title)
     ax.legend()
 
 
+def kde_density(points: np.ndarray, grid_x: np.ndarray, grid_y: np.ndarray) -> np.ndarray:
+    estimator = gaussian_kde(points.T)
+    grid_points = np.stack([grid_x.ravel(), grid_y.ravel()], axis=0)
+    return estimator(grid_points).reshape(grid_x.shape)
+
+
 def plot_sample_comparison(ax: plt.Axes, generated: np.ndarray, test: np.ndarray, title: str) -> None:
-    grid = np.linspace(-4.2, 4.2, 500)
-    bins = np.linspace(-4.2, 4.2, 45)
-    ax.plot(grid, mixture_pdf(grid), color="black", linewidth=1.8, label="target density")
-    ax.hist(test, bins=bins, density=True, alpha=0.45, color="#777777", label="test histogram")
-    ax.hist(generated, bins=bins, density=True, alpha=0.45, color="#1f77b4", label="generated histogram")
-    ax.set_xlabel("x")
-    ax.set_ylabel("density")
+    axis = np.linspace(-2.9, 2.9, 160)
+    grid_x, grid_y = np.meshgrid(axis, axis)
+    test_density = kde_density(test, grid_x, grid_y)
+    generated_density = kde_density(generated, grid_x, grid_y)
+    ax.scatter(test[:, 0], test[:, 1], s=8, alpha=0.22, color="#555555", label="test points")
+    ax.scatter(generated[:, 0], generated[:, 1], s=8, alpha=0.22, color="#1f77b4", label="generated points")
+    ax.contour(grid_x, grid_y, test_density, levels=5, colors="#555555", linewidths=0.9)
+    ax.contour(grid_x, grid_y, generated_density, levels=5, colors="#1f77b4", linewidths=0.9)
+    ax.set_aspect("equal")
+    ax.set_xlabel(r"$x_1$")
+    ax.set_ylabel(r"$x_2$")
     ax.set_title(title)
-    ax.legend()
+    ax.legend(loc="upper right")
 
 
-def plot_diffusion_scores(ax: plt.Axes, model: MLPRegressor, schedule: DiffusionSchedule, config: BaselineConfig) -> None:
-    grid = np.linspace(-4.1, 4.1, 600)
-    colors = ["#8c1c13", "#0b7189", "#5b8e7d"]
-    for timestep, color in zip(config.score_timesteps, colors, strict=True):
-        features = np.column_stack([grid, np.full(grid.size, timestep / schedule.num_steps)])
-        epsilon_hat = model.predict(features)
-        sigma_t = np.sqrt(1.0 - schedule.alpha_bar[timestep])
-        score_hat = -epsilon_hat / sigma_t
-        ax.plot(grid, score_hat, color=color, linewidth=2.0, label=fr"$t={timestep}$")
-    ax.axhline(0.0, color="black", linewidth=0.8, alpha=0.6)
-    ax.set_xlabel("x")
-    ax.set_ylabel(r"estimated score")
-    ax.set_title(r"Induced score estimate $-\varepsilon_\theta/\sigma_t$")
-    ax.legend()
+def plot_diffusion_score_field(ax: plt.Axes, model: MLPRegressor, schedule: DiffusionSchedule, config: BaselineConfig, overlay: np.ndarray) -> None:
+    axis = np.linspace(-2.6, 2.6, 15)
+    grid_x, grid_y = np.meshgrid(axis, axis)
+    points = np.column_stack([grid_x.ravel(), grid_y.ravel()])
+    features = np.column_stack([points, np.full(points.shape[0], config.score_timestep / schedule.num_steps)])
+    epsilon_hat = model.predict(features)
+    sigma_t = np.sqrt(1.0 - schedule.alpha_bar[config.score_timestep])
+    score_hat = -epsilon_hat / sigma_t
+    ax.scatter(overlay[:, 0], overlay[:, 1], s=8, alpha=0.18, color="#555555")
+    ax.quiver(
+        grid_x,
+        grid_y,
+        score_hat[:, 0].reshape(grid_x.shape),
+        score_hat[:, 1].reshape(grid_y.shape),
+        color="#1f77b4",
+        scale=26.0,
+        width=0.004,
+        pivot="mid",
+    )
+    ax.set_aspect("equal")
+    ax.set_xlabel(r"$x_1$")
+    ax.set_ylabel(r"$x_2$")
+    ax.set_title(fr"Induced score field at $t={config.score_timestep}$")
 
 
-def plot_flow_uxt(ax: plt.Axes, model: MLPRegressor) -> None:
-    state_grid = np.linspace(-4.2, 4.2, 220)
-    time_grid = np.linspace(0.0, 1.0, 140)
-    xx, tt = np.meshgrid(state_grid, time_grid)
-    features = np.column_stack([xx.ravel(), tt.ravel()])
-    velocity = model.predict(features).reshape(xx.shape)
-    image = ax.contourf(state_grid, time_grid, velocity, levels=22, cmap="coolwarm")
-    ax.set_xlabel("state x")
-    ax.set_ylabel("time t")
-    ax.set_title(r"Learned velocity $u_\theta(x,t)$")
-    plt.colorbar(image, ax=ax, fraction=0.046, pad=0.04, label="velocity")
+def plot_flow_velocity_field(ax: plt.Axes, model: MLPRegressor, config: BaselineConfig, overlay: np.ndarray) -> None:
+    axis = np.linspace(-2.6, 2.6, 15)
+    grid_x, grid_y = np.meshgrid(axis, axis)
+    points = np.column_stack([grid_x.ravel(), grid_y.ravel()])
+    features = np.column_stack([points, np.full(points.shape[0], config.flow_timestep)])
+    velocity = model.predict(features)
+    ax.scatter(overlay[:, 0], overlay[:, 1], s=8, alpha=0.18, color="#555555")
+    ax.quiver(
+        grid_x,
+        grid_y,
+        velocity[:, 0].reshape(grid_x.shape),
+        velocity[:, 1].reshape(grid_y.shape),
+        color="#1f77b4",
+        scale=18.0,
+        width=0.004,
+        pivot="mid",
+    )
+    ax.set_aspect("equal")
+    ax.set_xlabel(r"$x_1$")
+    ax.set_ylabel(r"$x_2$")
+    ax.set_title(fr"Velocity field at $t={config.flow_timestep:.1f}$")
 
 
 def render_diffusion_figure(
@@ -319,11 +337,11 @@ def render_diffusion_figure(
     schedule: DiffusionSchedule,
     config: BaselineConfig,
 ) -> Path:
-    fig, axes = plt.subplots(1, 3, figsize=(14.5, 3.8))
+    fig, axes = plt.subplots(1, 3, figsize=(13.8, 4.2))
     plot_loss_curves(axes[0], train_losses, val_losses, "Diffusion loss")
     plot_sample_comparison(axes[1], generated, test, "Diffusion samples vs test")
-    plot_diffusion_scores(axes[2], model, schedule, config)
-    path = output_path("exercise1_diffusion_answer.png")
+    plot_diffusion_score_field(axes[2], model, schedule, config, overlay=test[:220])
+    path = output_path("exercise2_diffusion_answer.png")
     save_figure(fig, path)
     return path
 
@@ -336,11 +354,11 @@ def render_flow_figure(
     model: MLPRegressor,
     config: BaselineConfig,
 ) -> Path:
-    fig, axes = plt.subplots(1, 3, figsize=(14.9, 3.8))
+    fig, axes = plt.subplots(1, 3, figsize=(13.8, 4.2))
     plot_loss_curves(axes[0], train_losses, val_losses, "Flow-matching loss")
     plot_sample_comparison(axes[1], generated, test, "Flow samples vs test")
-    plot_flow_uxt(axes[2], model)
-    path = output_path("exercise1_flow_answer.png")
+    plot_flow_velocity_field(axes[2], model, config, overlay=test[:220])
+    path = output_path("exercise2_flow_answer.png")
     save_figure(fig, path)
     return path
 
@@ -353,18 +371,18 @@ def write_results_tex(config: BaselineConfig, diffusion_w1: float, flow_w1: floa
     )
     content = "\n".join(
         [
-            rf"\newcommand{{\ExerciseOneTrainSize}}{{{config.train_size}}}",
-            rf"\newcommand{{\ExerciseOneValSize}}{{{config.val_size}}}",
-            rf"\newcommand{{\ExerciseOneTestSize}}{{{config.test_size}}}",
-            rf"\newcommand{{\ExerciseOneEpochs}}{{{config.epochs}}}",
-            r"\newcommand{\ExerciseOneArchitecture}{a fully connected MLP with 7 hidden layers of width 16, input $(x,t)$, scalar output, and \texttt{tanh} activations}",
-            rf"\newcommand{{\DiffusionWasserstein}}{{{diffusion_w1:.4f}}}",
-            rf"\newcommand{{\FlowWasserstein}}{{{flow_w1:.4f}}}",
-            rf"\newcommand{{\BetterMethodText}}{{{better_text}}}",
+            rf"\newcommand{{\ExerciseTwoTrainSize}}{{{config.train_size}}}",
+            rf"\newcommand{{\ExerciseTwoValSize}}{{{config.val_size}}}",
+            rf"\newcommand{{\ExerciseTwoTestSize}}{{{config.test_size}}}",
+            rf"\newcommand{{\ExerciseTwoEpochs}}{{{config.epochs}}}",
+            r"\newcommand{\ExerciseTwoArchitecture}{a fully connected MLP with 6 hidden layers of width 12, input $(x_1,x_2,t)$, two outputs, and \texttt{tanh} activations}",
+            rf"\newcommand{{\DiffusionWassersteinTwoD}}{{{diffusion_w1:.4f}}}",
+            rf"\newcommand{{\FlowWassersteinTwoD}}{{{flow_w1:.4f}}}",
+            rf"\newcommand{{\BetterMethodTextTwoD}}{{{better_text}}}",
             "",
         ]
     )
-    path = output_path("exercise1_results.tex")
+    path = output_path("exercise2_results.tex")
     path.write_text(content, encoding="utf-8")
     return path
 
@@ -380,7 +398,6 @@ def write_summary_json(
         "config": {
             **asdict(config),
             "hidden_layers": list(config.hidden_layers),
-            "score_timesteps": list(config.score_timesteps),
         },
         "diffusion": {
             "wasserstein_test": diffusion_w1,
@@ -393,7 +410,7 @@ def write_summary_json(
             "validation_loss_final": flow_losses[1][-1],
         },
     }
-    path = output_path("exercise1_summary.json")
+    path = output_path("exercise2_summary.json")
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return path
 
@@ -435,8 +452,8 @@ def main() -> None:
     diffusion_samples = sample_diffusion(diffusion_model, schedule, config.sample_count, rng)
     flow_samples = sample_flow(flow_model, config.sample_count, config.flow_steps, rng)
 
-    diffusion_w1 = float(wasserstein_distance(diffusion_samples, splits["test"]))
-    flow_w1 = float(wasserstein_distance(flow_samples, splits["test"]))
+    diffusion_w1 = float(wasserstein_distance_nd(diffusion_samples, splits["test"]))
+    flow_w1 = float(wasserstein_distance_nd(flow_samples, splits["test"]))
 
     render_diffusion_figure(
         diffusion_train_losses,

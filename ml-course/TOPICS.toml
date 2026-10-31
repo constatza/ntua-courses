@@ -57,4 +57,3 @@ mentioned_in = ["presentations/diffusion-models", "presentations/flow-matching"]
 
 [topics.lstm-mechanical-systems]
 owner = "presentations/rnns"
-exercises = ["exercises/lstm-mechanical-system"]
