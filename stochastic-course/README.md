@@ -1,7 +1,7 @@
 # Stochastic Methods — NTUA
 
 Lecture decks and notes for the stochastic methods course at NTUA School of Civil Engineering.
-The `sampling` deck uses the `ntuabeamer` class and needs `lualatex` and the Libertinus fonts.
+The `sampling` deck uses the `ntuabeamer` class and needs `lualatex`.
 
 Topic ownership is tracked in `TOPICS.toml`: each concept has one owning deck or note,
 and others cross-reference it instead of re-explaining.
@@ -24,7 +24,7 @@ Each item is a single PDF. Download whichever you need — no clone required.
 
 ## For instructors & developers (clone & build)
 
-Requires TeX Live with `latexmk`, `lualatex` and the Libertinus fonts (sampling deck),
+Requires TeX Live with `latexmk` and `lualatex` (sampling deck),
 and [`uv`](https://docs.astral.sh/uv/) for the Python demos.
 
 ```sh

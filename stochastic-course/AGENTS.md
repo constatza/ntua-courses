@@ -6,7 +6,7 @@ Setup and build instructions are in `README.md`; do not duplicate them here. Rem
 - One directory per deck or note: `presentations/<slug>/main.tex` or `notes/<slug>/main.tex` (always `main.tex`), with `assets/` for hand-made figures, `assets/generated/` for figures produced by `src/`, plus a one-line `.latexmkrc` only when the engine is not pdflatex (`$pdf_mode = 4;` for lualatex). `build-course` sets the output directory.
 - `exercises/<slug>/` (none yet) holds `main.tex`, optional `answers.tex`, and its own `src/` and `assets/generated/`; list it under every topic it covers in `TOPICS.toml`.
 - Python generators live in the deck's `src/`, are run with `uv run`, compute output paths from `__file__`, and use explicit RNG seeds (`np.random.default_rng(seed)`).
-- `sampling`: one script per technique in `src/`, writing `<method>_<topic>_{final|evolution}.{png,gif}` to `assets/generated/`; `run.sh` regenerates all. PNGs are tracked (the slides include them), gifs are not. Needs lualatex and the Libertinus fonts. Style: PEP 8, type annotations, frozen dataclasses for results, pure helpers above `main()`.
+- `sampling`: one script per technique in `src/`, writing `<method>_<topic>_{final|evolution}.{png,gif}` to `assets/generated/`; `run.sh` regenerates all. PNGs are tracked (the slides include them), gifs are not. Needs lualatex; text and math fonts come from `ntuabeamer` (Latin Modern). Style: PEP 8, type annotations, frozen dataclasses for results, pure helpers above `main()`.
 - `notes/bayesian-inference-mh`: `src/make_figures.py` writes `fig*.pdf` and `values.tex` into the note directory; rerun it instead of editing those by hand.
 
 ## Topics
