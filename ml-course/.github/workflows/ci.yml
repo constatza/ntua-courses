@@ -1,0 +1,14 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    uses: constatza/beamer-ntua/.github/workflows/course-ci.yml@v0.2.0
+    permissions:
+      contents: write

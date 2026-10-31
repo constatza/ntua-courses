@@ -18,3 +18,5 @@ __pycache__/
 presentations/*/main.pdf
 notes/*/main.pdf
 tools/*.pdf
+dist/
+dist.tmp/

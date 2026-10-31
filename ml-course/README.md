@@ -39,16 +39,14 @@ Each deck is a single PDF. Download whichever you need — no clone required.
 Requires TeX Live with `latexmk`, and [`uv`](https://docs.astral.sh/uv/) for the Python demos.
 
 ```sh
-git clone <this-repo> && cd machine-learning
-curl -fsSL https://raw.githubusercontent.com/constatza/beamer-ntua/main/scripts/install-class.sh | sh   # once; writes to TEXMFHOME
-tools/build-all                  # or: cd presentations/<deck> && latexmk -pdf main.tex
+git clone <this-repo> && cd ml-course
+ref=$(sed -n 's/.*course-ci.yml@//p' .github/workflows/ci.yml)   # beamer-ntua tag this course is pinned to
+curl -fsSL -o /tmp/install-class.sh "https://raw.githubusercontent.com/constatza/beamer-ntua/$ref/scripts/install-class.sh"
+NTUA_BEAMER_REF=$ref sh /tmp/install-class.sh   # once: class -> TEXMFHOME, build-course/release-course -> ~/.local/bin
+build-course                                    # PDFs end up in dist/
 ```
 
-Install the `ntuabeamer` class before building. The install script respects
-`NTUA_BEAMER_REF`; this course is pinned to `v0.1.0-alpha.1`:
+CI runs the same `build-course` through the shared workflow in beamer-ntua, so a local `ok` means a CI `ok`.
+Pushing a `v*` tag publishes `dist/` as a GitHub release (answer PDFs are withheld).
 
-```sh
-NTUA_BEAMER_REF=v0.1.0-alpha.1 curl -fsSL https://raw.githubusercontent.com/constatza/beamer-ntua/main/scripts/install-class.sh | sh
-```
-
-Each deck builds into its own `.build/`. Built PDFs are not committed to git.
+Each target builds into its own `.build/`. Built PDFs are not committed to git.
