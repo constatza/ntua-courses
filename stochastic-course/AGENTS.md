@@ -1,9 +1,10 @@
-# Agent guidelines — stochastic-methods
+# Agent guidelines — stochastic-course
 
 Setup and build instructions are in `README.md`; do not duplicate them here. Remaining work is in `ROADMAP.md`.
 
 ## Layout
-- One directory per deck or note: `presentations/<slug>/main.tex` or `notes/<slug>/main.tex` (always `main.tex`), with `assets/` for hand-made figures, `assets/generated/` for figures produced by `src/`, and `.latexmkrc` that sets `.build/` (and `$pdf_mode = 4` for lualatex decks such as `sampling`).
+- One directory per deck or note: `presentations/<slug>/main.tex` or `notes/<slug>/main.tex` (always `main.tex`), with `assets/` for hand-made figures, `assets/generated/` for figures produced by `src/`, plus a one-line `.latexmkrc` only when the engine is not pdflatex (`$pdf_mode = 4;` for lualatex). `build-course` sets the output directory.
+- `exercises/<slug>/` (none yet) holds `main.tex`, optional `answers.tex`, and its own `src/` and `assets/generated/`; list it under every topic it covers in `TOPICS.toml`.
 - Python generators live in the deck's `src/`, are run with `uv run`, compute output paths from `__file__`, and use explicit RNG seeds (`np.random.default_rng(seed)`).
 - `sampling`: one script per technique in `src/`, writing `<method>_<topic>_{final|evolution}.{png,gif}` to `assets/generated/`; `run.sh` regenerates all. PNGs are tracked (the slides include them), gifs are not. Needs lualatex and the Libertinus fonts. Style: PEP 8, type annotations, frozen dataclasses for results, pure helpers above `main()`.
 - `notes/bayesian-inference-mh`: `src/make_figures.py` writes `fig*.pdf` and `values.tex` into the note directory; rerun it instead of editing those by hand.
@@ -13,6 +14,6 @@ Setup and build instructions are in `README.md`; do not duplicate them here. Rem
 - Do not change a deck's content while reorganizing; path-only edits unless the task says otherwise.
 
 ## Rules
-- Verify with `tools/build-all`; every target must report `ok`.
+- Verify with `build-course` (see README); every target must report `ok`.
 - Never commit `.build/`, built PDFs, gifs, or anything from `../_archive` (books, lecture notes, Papadopoulos notes, assignments, grades, student work). Do not copy that material into the repo.
 - Commits: Conventional Commit header, bulleted body, no AI attribution.

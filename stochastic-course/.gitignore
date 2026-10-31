@@ -17,3 +17,5 @@ __pycache__/
 # built decks are published, not tracked; figures used by slides live under assets/
 presentations/*/main.pdf
 notes/*/main.pdf
+dist/
+dist.tmp/

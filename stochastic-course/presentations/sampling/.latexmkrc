@@ -1,4 +1,1 @@
-$aux_dir = ".build";
-$out_dir = $aux_dir;
-$pdf_mode = 4;
-1;
+$pdf_mode = 4;  # lualatex
