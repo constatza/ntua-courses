@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['*/v*']          # <course>/vX.Y.Z builds and publishes only that course
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx run prek run --all-files
+
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    # Full TeX Live 2026, pinned by digest: reproducible and no tlmgr or network at build time.
+    # Refresh by hand: docker pull texlive/texlive:latest; docker inspect it for the digest.
+    container: texlive/texlive:latest@sha256:540d736c78e2803cdd7b6a196bd21339c30185948db55e04e75a415959102ca8
+    env:
+      TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - run: sh tests/tools-smoke.sh
+      - run: tools/ci ${TAG:+--tag "$TAG"}
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            */*/*/.build/*.log
+            */*/*/.build/latexmk.out
+          include-hidden-files: true   # the logs live under .build/, which is hidden
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: |
+            */dist/*.pdf
+            */dist/MANIFEST
+          if-no-files-found: error
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: [lint, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: .
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: tools/release-course "${GITHUB_REF_NAME%%/*}" "$GITHUB_REF_NAME"

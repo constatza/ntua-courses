@@ -1,0 +1,23 @@
+#!/bin/sh
+# The single entry point CI calls (and you can call locally): build courses.
+#
+#   tools/ci                        build every course
+#   tools/ci ml-course              build the named course(s)
+#   tools/ci --tag ml-course/v1.2.0 build only the course named by the tag prefix; the prefix
+#                                   must be an existing course directory, otherwise this fails
+#
+# Style, secret and layout hooks run separately (prek, see .pre-commit-config.yaml).
+set -eu
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+
+if [ "${1:-}" = --tag ]; then
+  tag="${2:?usage: tools/ci --tag <course>/vX.Y.Z}"
+  course="${tag%%/*}"
+  [ "$course" != "$tag" ] || { echo "error: tag '$tag' has no <course>/ prefix" >&2; exit 1; }
+  [ -d "$course" ] || { echo "error: tag prefix '$course' is not a course directory" >&2; exit 1; }
+  set -- "$course"
+fi
+
+exec tools/build-course "$@"

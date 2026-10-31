@@ -1,0 +1,96 @@
+#!/bin/sh
+# Build the decks, notes and exercise sheets of one or more courses into <course>/dist/.
+#
+#   tools/build-course [course-dir...]     default: every top-level directory that has a
+#                                          presentations/, notes/ or exercises/ directory
+#
+# Targets (a directory with main.tex; exercises may also have answers.tex):
+#   presentations/<slug>/main.tex   notes/<slug>/main.tex   exercises/<slug>/{main,answers}.tex
+#
+# Guarantees, so a failed or skipped build can never ship an old PDF:
+#   - each target's previous .build/<stem>.pdf is deleted before it is rebuilt
+#   - <course>/dist/ only exists after every target of that course built; it is moved into place last
+#   - dist/MANIFEST lists exactly the PDFs built, named <kind>_<slug>[_answers].pdf
+#   - a LaTeX log tail is printed for every failing target
+#   - tools/check-course-layout must pass
+# The class is found through TEXINPUTS inside this repository; nothing is installed globally.
+set -u
+
+root=$(git rev-parse --show-toplevel) || { echo "FAIL not inside the git repository"; exit 1; }
+framework="$root/beamer-ntua/packages/ntuabeamer-class/framework"
+[ -f "$framework/ntuabeamer.cls" ] || { echo "FAIL class not found: $framework/ntuabeamer.cls"; exit 1; }
+TEXINPUTS="$framework//:${TEXINPUTS:-}"
+export TEXINPUTS
+
+LOG_TAIL_LINES=40
+
+build_one() { # <course-dir>; run from the repo root
+  course=$1
+  (
+    cd "$course" || exit 1
+    rm -rf dist dist.tmp
+    mkdir dist.tmp
+    rc=0
+    built=0
+    for t in presentations/*/main.tex notes/*/main.tex exercises/*/main.tex exercises/*/answers.tex; do
+      [ -f "$t" ] || continue
+      d=$(dirname "$t")
+      stem=$(basename "$t" .tex)
+      slug=$(basename "$d")
+      case "$d" in
+        presentations/*) kind=presentation ;;
+        notes/*) kind=note ;;
+        exercises/*) kind=exercise ;;
+      esac
+      name="${kind}_${slug}"
+      [ "$stem" = answers ] && name="${name}_answers"
+
+      mkdir -p "$d/.build"
+      rm -f "$d/.build/$stem.pdf"
+
+      # `-pdf` would override a target's own engine (e.g. lualatex); that is set in its .latexmkrc
+      if grep -q 'pdf_mode' "$d/.latexmkrc" 2>/dev/null; then flag=; else flag=-pdf; fi
+
+      if (cd "$d" && latexmk $flag -interaction=nonstopmode -halt-on-error \
+            -outdir=.build -auxdir=.build "$stem.tex" >.build/latexmk.out 2>&1) \
+          && [ -f "$d/.build/$stem.pdf" ]; then
+        cp "$d/.build/$stem.pdf" "dist.tmp/$name.pdf"
+        echo "ok   $course/$d/$stem.tex"
+        built=$((built + 1))
+      else
+        echo "FAIL $course/$d/$stem.tex"
+        tail -n "$LOG_TAIL_LINES" "$d/.build/latexmk.out" | sed 's/^/     | /'
+        rc=1
+      fi
+    done
+
+    if [ "$built" -eq 0 ] && [ "$rc" -eq 0 ]; then
+      echo "FAIL $course: no targets found under presentations/, notes/ or exercises/"
+      rc=1
+    fi
+    "$root/tools/check-course-layout" . || rc=1
+
+    if [ "$rc" -ne 0 ]; then
+      rm -rf dist.tmp
+      exit 1
+    fi
+    (cd dist.tmp && ls -1 -- *.pdf >../dist.manifest)
+    mv dist.manifest dist.tmp/MANIFEST
+    mv dist.tmp dist
+    echo "$course/dist ready: $built PDFs"
+  )
+}
+
+if [ "$#" -eq 0 ]; then
+  # shellcheck disable=SC2046  # course directory names contain no whitespace
+  set -- $("$root/tools/courses")
+fi
+[ "$#" -gt 0 ] || { echo "FAIL no course directories found"; exit 1; }
+
+cd "$root" || exit 1
+status=0
+for c in "$@"; do
+  [ -d "$c" ] || { echo "FAIL no such course directory: $c"; status=1; continue; }
+  build_one "${c%/}" || status=1
+done
+exit $status

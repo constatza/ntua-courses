@@ -1,2 +1,4 @@
 _archive/
-
+.build/
+dist/
+dist.tmp/

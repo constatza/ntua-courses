@@ -1,0 +1,31 @@
+#!/bin/sh
+# Static layout checks for one course directory, or for every course when called without
+# arguments; needs no TeX, so it also runs as a pre-commit hook.
+#   - every tracked target directory under presentations/, notes/, exercises/ has a main.tex
+#   - every target path named in TOPICS.toml exists
+set -u
+
+if [ "$#" -eq 0 ]; then
+  root=$(git rev-parse --show-toplevel) || exit 1
+  rc=0
+  for c in $("$root/tools/courses"); do "$root/tools/check-course-layout" "$root/$c" || rc=1; done
+  exit $rc
+fi
+
+cd "$1" || exit 1
+rc=0
+fail() { echo "FAIL $*"; rc=1; }
+
+tracked=$(git ls-files -- presentations notes exercises) || { echo "FAIL git ls-files failed (is the checkout trusted?)"; exit 1; }
+for d in $(printf '%s\n' "$tracked" | cut -d/ -f1-2 | sort -u); do
+  [ -d "$d" ] || continue
+  [ -f "$d/main.tex" ] || fail "$d has no main.tex"
+done
+
+if [ -f TOPICS.toml ]; then
+  for p in $(grep -o '"\(presentations\|notes\|exercises\)/[^"]*"' TOPICS.toml | tr -d '"' | sort -u); do
+    [ -e "$p" ] || fail "TOPICS.toml names missing path: $p"
+  done
+fi
+
+exit $rc

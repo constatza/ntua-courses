@@ -4,17 +4,45 @@ repos:
     hooks:
       - id: check-merge-conflict
       - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=2000]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.3
+    hooks:
+      - id: ruff-check
+        # real errors only (syntax, undefined names); style findings in the figure scripts are not gated
+        args: ["--select=E9,F63,F7,F82"]
   - repo: https://github.com/shellcheck-py/shellcheck-py
     rev: v0.11.0.1
     hooks:
       - id: shellcheck
+        files: ^(tools|tests)/
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: v4.5.0
     hooks:
       - id: conventional-pre-commit
         stages: [commit-msg]
         args: [feat, fix, docs, refactor, test, build, ci, chore, perf, style, revert]
-  - repo: https://github.com/constatza/beamer-ntua
-    rev: v0.3.1
+  - repo: local
     hooks:
+      - id: course-layout
+        name: course layout (main.tex per target, TOPICS.toml paths)
+        entry: tools/check-course-layout
+        language: script
+        pass_filenames: false
+        files: (TOPICS\.toml$|/(presentations|notes|exercises)/)
+      - id: no-built-artifacts
+        name: no built PDFs or build directories
+        entry: built artifacts must not be committed (tools/build-course writes them to .build/ and dist/)
+        language: fail
+        files: (^|/)(\.build|dist)/|^[^/]+/(presentations|notes|exercises)/[^/]+/(main|answers)\.pdf$|\.gif$
       - id: no-ai-attribution
+        name: no AI attribution in commit messages
+        entry: (?i)co-authored-by:.*(claude|anthropic|openai|codex|copilot|gemini)|generated (with|by) .*(claude|codex|copilot)|noreply@anthropic\.com
+        language: pygrep
+        stages: [commit-msg]

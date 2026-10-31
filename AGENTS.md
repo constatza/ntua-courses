@@ -1,9 +1,11 @@
-# Agent guidelines — ntua-courses (meta-repo)
+# Agent guidelines — ntua-courses
 
-This repo only pins `ml-course` and `stochastic-course` as submodules; `beamer-ntua` is an independent dependency the courses pin by tag. Each is independent with its own `AGENTS.md`, `README.md` and `ROADMAP.md`; work inside the child repo and follow its guidelines.
+One repository holds the courses (`ml-course/`, `stochastic-course/`), the shared tooling (`tools/`) and the `ntuabeamer` class (`beamer-ntua/`). Each course has its own `AGENTS.md`, `README.md` and `ROADMAP.md`; follow the guidelines of the course you are working in.
 
-- Edit and commit in the child repo first; commit here only to move submodule pointers or to change this README, `AGENTS.md` and `ROADMAP.md`.
-- Cross-repo work items live in `ROADMAP.md`. Course-specific items live in that course's `ROADMAP.md`; do not repeat them here.
-- `_archive/` (books, slides, datasets, assignments, grades, student submissions) is untracked and outside every repo. Never add it to git.
-- Do not assume a user wants every course: instructions must work for cloning a single repo.
+- Build and verify with `tools/build-course [course]`; every target must report `ok`. Run `prek run --all-files` before committing.
+- `beamer-ntua/` is a one-way copy of its public repository. Never edit it here and never `git subtree push`; fix the class in its own repository and `git subtree pull`.
+- Tooling changes in `tools/` affect every course; keep `tests/tools-smoke.sh` passing.
+- Releases are per-course tags: `<course>/vX.Y.Z`.
+- Cross-course work items live in `ROADMAP.md`; course-specific items live in that course's `ROADMAP.md`.
+- `_archive/` (books, slides, datasets, assignments, grades, student submissions) is untracked. Never add it to git.
 - Commits: Conventional Commit header, bulleted body, no AI attribution.

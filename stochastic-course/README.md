@@ -28,14 +28,10 @@ Requires TeX Live with `latexmk` and `lualatex` (sampling deck),
 and [`uv`](https://docs.astral.sh/uv/) for the Python demos.
 
 ```sh
-git clone <this-repo> && cd stochastic-course
-ref=$(sed -n 's/.*course-ci.yml@//p' .github/workflows/ci.yml)   # beamer-ntua tag this course is pinned to
-curl -fsSL -o /tmp/install-class.sh "https://raw.githubusercontent.com/constatza/beamer-ntua/$ref/scripts/install-class.sh"
-NTUA_BEAMER_REF=$ref sh /tmp/install-class.sh   # once: class -> TEXMFHOME, build-course/release-course -> ~/.local/bin
-build-course                                    # PDFs end up in dist/
+git clone <ntua-courses repo> && cd ntua-courses
+tools/build-course stochastic-course      # PDFs end up in stochastic-course/dist/
 ```
 
-CI runs the same `build-course` through the shared workflow in beamer-ntua, so a local `ok` means a CI `ok`.
-Pushing a `v*` tag publishes `dist/` as a GitHub release (answer PDFs are withheld).
+This course lives in the `ntua-courses` repository next to the shared `tools/` and the `ntuabeamer` class, so nothing needs installing. CI runs the same build in a pinned TeX Live image. Pushing the tag `stochastic-course/vX.Y.Z` publishes that course's PDFs as a GitHub release (answer PDFs are withheld). See the repository README for details.
 
 Each target builds into its own `.build/`. Built PDFs are not committed to git.

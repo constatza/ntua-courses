@@ -1,0 +1,10 @@
+#!/bin/sh
+# Print the course directories of this repository, one per line: every top-level directory
+# that holds a presentations/, notes/ or exercises/ directory.
+root=$(git rev-parse --show-toplevel) || exit 1
+for d in "$root"/*/; do
+  d=$(basename "$d")
+  if [ -d "$root/$d/presentations" ] || [ -d "$root/$d/notes" ] || [ -d "$root/$d/exercises" ]; then
+    echo "$d"
+  fi
+done

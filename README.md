@@ -1,40 +1,61 @@
 # ntua-courses
-Meta-repo that pins independent repos as submodules. Each one builds on its own; you do not need all of them.
 
-| Submodule | What | Use it alone |
-|---|---|---|
-| `ml-course` | decks, notes, exercises | its README → Setup |
-| `stochastic-course` | decks, notes, exercises | its README → Setup |
+All NTUA courses, their build tooling and CI in one repository. Each course is a directory of decks, notes and exercise sheets; the shared `tools/` and the `ntuabeamer` class (`beamer-ntua/`) live next to them, so every commit is a complete, buildable snapshot and tooling can never drift from content.
 
-## Everything together
-```sh
-git clone --recurse-submodules <this-repo> ntua-courses && cd ntua-courses
-sh scripts/bootstrap.sh                      # submodules, then the class and tools at the tag the courses pin
-(cd ml-course && build-course)
-(cd stochastic-course && build-course)
-```
+| Path | What |
+|---|---|
+| `ml-course/` | machine learning: decks, notes, exercises |
+| `stochastic-course/` | stochastic methods: decks, notes, exercises |
+| `tools/` | `build-course`, `release-course`, `check-course-layout`, `ci`, `courses` |
+| `beamer-ntua/` | the Beamer class, a one-way copy of [constatza/beamer-ntua](https://github.com/constatza/beamer-ntua) |
 
-## Just one course
+## Build
+Requires TeX Live with `latexmk` (and `lualatex` for the `sampling` deck) and [`uv`](https://docs.astral.sh/uv/) for the Python demos. Nothing is installed globally; the class is found through `TEXINPUTS` inside this repository.
 ```sh
 git clone <this-repo> ntua-courses && cd ntua-courses
-git submodule update --init ml-course   # only what you ask for
+tools/build-course                  # every course; PDFs end up in <course>/dist/
+tools/build-course ml-course        # one course
 ```
-or clone that course's repo directly and follow its Setup section.
+A failed target leaves no `dist/` and no stale PDF behind, and prints the tail of its LaTeX log.
 
-## Local checks
-Each repo has a `.pre-commit-config.yaml` for [prek](https://github.com/j178/prek). Run `prek install -t pre-commit -t commit-msg` once per clone. The course-specific hooks (layout, no built PDFs, no AI attribution) are defined once in `beamer-ntua` and referenced by tag, so all courses run the same ones.
+## Just one course
+`git sparse-checkout` gives a single-course view (it is a convenience, not an access boundary): `git clone --filter=blob:none --sparse <this-repo> && cd ntua-courses && git sparse-checkout set ml-course tools beamer-ntua`.
 
-`beamer-ntua` (the `ntuabeamer` class, build and release scripts, shared CI and hooks) is an independent repo that the courses consume by tag. It is not tracked here; see its [README](https://github.com/constatza/beamer-ntua). Course content tags are separate from its tags.
+## Checks
+`prek install -t pre-commit -t commit-msg` once per clone ([prek](https://github.com/j178/prek) runs the standard `.pre-commit-config.yaml`). Third-party hooks (ruff, shellcheck, actionlint, conventional commits) are remote; the course checks (layout, no built PDFs, no AI attribution) are local scripts. CI runs the same hooks plus the build.
 
-## Committing
-Child first, then parent. Where you run `git commit` decides which repo is committed.
+## Releases
+Content is versioned per course with path-prefixed tags: `git tag ml-course/v1.2.0 && git push origin ml-course/v1.2.0`. CI builds only that course and publishes its PDFs as a release (answer PDFs are withheld unless `RELEASE_ANSWERS=1`). `tools/release-course` is safe to re-run after a failure: a stale draft is replaced, an already-published tag is refused. Older per-repo releases (`v0.1.0-alpha.1`) stay in the archived `ml-course` and `stochastic-course` repositories.
+
+## Updating the class
+`beamer-ntua/` is ordinary files, synced one way from its public repository, which stays the source of truth:
 ```sh
-cd ml-course && build-course && git add <paths> && git commit   # work and commit in the course repo
-cd .. && git add ml-course && git commit -m "chore(repo): bump ml-course"   # optional snapshot in the parent
+git subtree pull --prefix=beamer-ntua git@github.com:constatza/beamer-ntua.git main --squash
 ```
-- The parent stores only a pointer to a commit of each child; bump it when you want a snapshot of versions that go together.
-- Push the child before the parent, or other clones will point at a commit that is not on GitHub.
-- `git submodule status` shows the pinned commits; a leading `+` means the child is ahead of the pin.
-- Commit messages: Conventional Commit header (`type(scope): summary`) with a bulleted body.
+Never `git subtree push`. Make class fixes in the class repository and pull them here.
 
-Non-source material (books, slides, datasets, grades) lives in an untracked `_archive/` and is not part of any repo.
+## TeX Live
+CI builds inside `texlive/texlive:latest@sha256:…` (full TeX Live 2026, pinned by digest in `.github/workflows/ci.yml`), so the build needs no network and cannot change under you. To move to a newer TeX Live: `docker pull texlive/texlive:latest`, copy the digest from `docker inspect`, update `ci.yml`, and run `tools/ci` in that image.
+
+## Another CI host
+The workflow only calls `tools/ci`, so porting is mechanical. A GitLab sketch (not run here):
+```yaml
+build:
+  image: texlive/texlive:latest@sha256:<digest from ci.yml>
+  script:
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
+    - tools/ci ${CI_COMMIT_TAG:+--tag "$CI_COMMIT_TAG"}
+  artifacts: {paths: ["*/dist/"]}
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^[^\/]+\/v/
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_PIPELINE_SOURCE == "merge_request_event"
+```
+Only the publish step is host specific: `tools/release-course` uses `gh`; on GitLab use `glab release create` or a `release:` job with `<course>/dist/`.
+
+## Adding a course
+Copy an existing course directory, rename it, adjust its `README.md`, `AGENTS.md`, `ROADMAP.md` and `TOPICS.toml`. `tools/courses` discovers it automatically (any top-level directory with `presentations/`, `notes/` or `exercises/`), and the `<course>/v*` tag convention works without editing CI.
+
+## Access and splitting
+Access is all-or-nothing for the whole repository. If a co-lecturer, TA or student needs only one course, or one course should become public, split it out with `git subtree split` or `git filter-repo`.
+
+Non-source material (books, slides, datasets, grades) lives in an untracked `_archive/` and is not part of the repository.

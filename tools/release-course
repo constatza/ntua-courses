@@ -1,0 +1,64 @@
+#!/bin/sh
+# Publish a course's dist/ (made by tools/build-course) as a GitHub release for an existing tag.
+#
+#   tools/release-course <course-dir> <tag>        e.g. tools/release-course ml-course ml-course/v1.2.0
+#
+# Builds nothing. Safe to run again after any failure: a stale draft for the tag is deleted,
+# then the release is created as a draft with all assets and only then published, so a failure
+# never leaves a half-filled public release. A tag that is already published is refused.
+# Answer PDFs (*_answers.pdf) are skipped unless RELEASE_ANSWERS=1.
+set -eu
+
+die() { echo "error: $*" >&2; exit 1; }
+
+course="${1:?usage: release-course <course-dir> <tag>}"
+tag="${2:?usage: release-course <course-dir> <tag>}"
+case "$tag" in "$course"/v[0-9]*) ;; *) die "tag must look like $course/vX.Y.Z" ;; esac
+
+command -v gh >/dev/null 2>&1 || die "gh not found"
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+[ -f "$course/dist/MANIFEST" ] || die "$course/dist/MANIFEST missing; run tools/build-course $course first"
+git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1 || die "tag $tag is not on origin; push it first"
+
+if state=$(gh release view "$tag" --json isDraft -q .isDraft 2>/dev/null); then
+  [ "$state" = true ] || die "release $tag is already published"
+  gh release delete "$tag" --yes >/dev/null
+fi
+
+list=$(mktemp "${TMPDIR:-/tmp}/release-files.XXXXXX")
+notes=$(mktemp "${TMPDIR:-/tmp}/release-notes.XXXXXX")
+created=0
+cleanup() {
+  rm -f "$list" "$notes"
+  if [ "$created" -eq 1 ]; then gh release delete "$tag" --yes >/dev/null 2>&1 || true; fi
+}
+trap cleanup EXIT
+
+while read -r f; do
+  case "$f" in
+    *_answers.pdf) [ "${RELEASE_ANSWERS:-0}" = 1 ] || continue ;;
+  esac
+  echo "$course/dist/$f" >>"$list"
+done <"$course/dist/MANIFEST"
+[ -s "$list" ] || die "nothing to release"
+
+{
+  echo "# $tag"
+  echo
+  echo "Built from \`$(git rev-parse --short "refs/tags/$tag^{commit}")\` with $( (latex --version 2>/dev/null || echo unknown TeX) | head -n 1)."
+  echo
+  sed 's|.*/|- |' "$list"
+} >"$notes"
+
+case "$tag" in
+  *-alpha*|*-beta*|*-rc*) pre=--prerelease ;;
+  *) pre= ;;
+esac
+
+# shellcheck disable=SC2046,SC2086
+gh release create "$tag" --draft --verify-tag --latest=false --title "$tag" --notes-file "$notes" $pre $(cat "$list")
+created=1
+gh release edit "$tag" --draft=false
+created=0
+echo "released $tag"

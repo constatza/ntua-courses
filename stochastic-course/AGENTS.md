@@ -14,6 +14,6 @@ Setup and build instructions are in `README.md`; do not duplicate them here. Rem
 - Do not change a deck's content while reorganizing; path-only edits unless the task says otherwise.
 
 ## Rules
-- Verify with `build-course` (see README); every target must report `ok`.
+- Verify with `tools/build-course stochastic-course` from the repository root; every target must report `ok`.
 - Never commit `.build/`, built PDFs, gifs, or anything from `../_archive` (books, lecture notes, Papadopoulos notes, assignments, grades, student work). Do not copy that material into the repo.
 - Commits: Conventional Commit header, bulleted body, no AI attribution.
