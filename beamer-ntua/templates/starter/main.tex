@@ -1,0 +1,87 @@
+\documentclass[10pt,aspectratio=169]{ntuabeamer}
+
+% ntua-beamer:new-title
+\title{NTUA Beamer Starter}
+\subtitle{Starter deck for the NTUA Beamer workflow}
+\author{NTUA School of Civil Engineering}
+\date{\today}
+
+% Optional logo customization:
+% \ntuabeamersetup{
+%   topleftlogo=assets/my-left-logo.pdf,
+%   toprightlogo=,
+%   bottomleftlogo=assets/my-bottom-left-logo.pdf,
+%   bottomrightlogo=assets/my-bottom-right-logo.pdf,
+%   headerleftlogo=assets/my-header-left-logo.pdf,
+%   headerrightlogo=assets/my-header-right-logo.pdf,
+%   headerrightlogomaxwidth=1.4cm,
+%   headerrightlogomaxheight=0.9cm,
+% }
+
+\framesource{goodfellow2014}{Goodfellow et al. \emph{Generative Adversarial Nets}. NeurIPS, 2014.}
+\framesource{vaswani2017}{Vaswani et al. \emph{Attention Is All You Need}. NeurIPS, 2017.}
+\framesource{he2016}{He et al. \emph{Deep Residual Learning for Image Recognition}. CVPR, 2016.}
+
+\begin{document}
+
+\begin{frame}[plain]
+  \makepresentationtitle
+\end{frame}
+
+\begin{frame}{Two-Column Layout\framecite{goodfellow2014}}
+  \twocols{%
+    \textcolor{ntuablue}{Left column}
+
+    \begin{itemize}
+      \item Start writing immediately after `ntua-beamer new`
+      \item Keep figures and logos in `assets/`
+      \item Preview and build from the same `.build/` folder
+    \end{itemize}
+  }{%
+    \textcolor{ntuablue}{Right column}
+
+    \[
+      \mathcal{L}_{\mathrm{GAN}}
+      =
+      \mathcal{L}_{\mathrm{real}} + \mathcal{L}_{\mathrm{fake}}
+    \]
+
+    The starter deck still demonstrates the shared layout helpers\framecite{goodfellow2014}.
+  }
+\end{frame}
+
+\sectiondivider{Overview}
+
+\begin{frame}{Compact Comparison}
+  \threecols[0.29\textwidth][0.29\textwidth][0.34\textwidth]{%
+    \textcolor{ntuablue}{Residuals}
+    \[
+      \mathbf{y} = F(\mathbf{x}) + \mathbf{x}
+    \]
+    \framecite{he2016}
+  }{%
+    \textcolor{ntuablue}{Attention}
+    \[
+      A = \operatorname{softmax}(S)V
+    \]
+    \framecite{vaswani2017}
+  }{%
+    \textcolor{ntuablue}{Workflow}
+    \begin{itemize}
+      \item Edit `main.tex`
+      \item Build in `.build/`
+      \item Export when needed
+    \end{itemize}
+  }
+\end{frame}
+
+\begin{frame}{Frame-Local Sources\framecite{he2016}}
+  \begin{itemize}
+    \item Frame references are local to each frame.
+    \item Reusing the same key keeps the same mark\framecite{he2016}.
+    \item Different keys get separate marks on the same frame\framecite{vaswani2017}.
+    \item No bibliography setup is required for this starter demo.
+  \end{itemize}
+\end{frame}
+
+\end{document}

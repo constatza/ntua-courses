@@ -1,0 +1,48 @@
+# LaTeX intermediate artifacts
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.fmt
+*.ilg
+*.ind
+*.idx
+*.lof
+*.log
+*.lot
+*.nav
+*.out
+*.run.xml
+*.snm
+*.synctex.gz
+*.toc
+*.vrb
+*.xdv
+
+# Local build directories
+**/.build/
+tmp/
+**/tmp/
+dist/
+.tmp-tests/
+
+# Editor / OS noise
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/settings.json
+*.swp
+*.swo
+*~
+
+# Ignore generated PDFs by default
+*.pdf
+
+# Keep framework assets, including PDF logos
+!packages/
+!packages/ntuabeamer-class/
+!packages/ntuabeamer-class/framework/
+!packages/ntuabeamer-class/framework/assets/
+!packages/ntuabeamer-class/framework/assets/**

@@ -1,0 +1,50 @@
+name: Compile Check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-documents:
+    runs-on: ubuntu-latest
+    env:
+      NTUA_SMOKE_ROOT: ${{ github.workspace }}/.tmp-tests/workflow
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install TeX tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            latexmk \
+            biber \
+            lmodern \
+            texlive-latex-base \
+            texlive-latex-recommended \
+            texlive-latex-extra \
+            texlive-fonts-recommended \
+            texlive-pictures
+
+      - name: Run workflow smoke test
+        run: sh tests/workflow-smoke.sh
+
+      - name: Upload starter PDF
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ntua-beamer-starter-pdf
+          path: ${{ env.NTUA_SMOKE_ROOT }}/demo/.build/main.pdf
+          if-no-files-found: error
+
+      - name: Upload LaTeX logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: latex-logs
+          path: |
+            ${{ env.NTUA_SMOKE_ROOT }}/demo/.build/*.log
+            ${{ env.NTUA_SMOKE_ROOT }}/external/.build/*.log
+            ${{ env.NTUA_SMOKE_ROOT }}/standalone/.build/*.log
+          if-no-files-found: ignore
