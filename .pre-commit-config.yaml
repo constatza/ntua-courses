@@ -25,4 +25,4 @@ repos:
         entry: scripts/beamer-pin
         language: script
         pass_filenames: false
-        files: ^(ml-course|stochastic-course|beamer-ntua)$
+        always_run: true
