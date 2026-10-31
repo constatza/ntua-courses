@@ -21,7 +21,7 @@ repos:
         args: [feat, fix, docs, refactor, test, build, ci, chore, perf, style, revert]
   # rev must equal the course-ci.yml tag in .github/workflows/ci.yml (course-layout checks it)
   - repo: https://github.com/constatza/beamer-ntua
-    rev: v0.3.0
+    rev: v0.3.1
     hooks:
       - id: course-layout
       - id: no-built-artifacts

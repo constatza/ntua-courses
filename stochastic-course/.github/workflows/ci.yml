@@ -9,6 +9,6 @@ on:
 
 jobs:
   ci:
-    uses: constatza/beamer-ntua/.github/workflows/course-ci.yml@v0.3.0
+    uses: constatza/beamer-ntua/.github/workflows/course-ci.yml@v0.3.1
     permissions:
       contents: write
