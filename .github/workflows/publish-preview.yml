@@ -1,0 +1,99 @@
+name: Publish Starter Preview
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publish-preview:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install TeX and rendering tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            latexmk \
+            biber \
+            lmodern \
+            poppler-utils \
+            texlive-latex-base \
+            texlive-latex-recommended \
+            texlive-latex-extra \
+            texlive-fonts-recommended \
+            texlive-pictures
+
+      - name: Install ntua-beamer tools
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          texlua scripts/ntua-beamer.lua setup --bin-dir "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Create temporary demo workspace
+        run: |
+          demo_root="$(mktemp -d)"
+          echo "NTUA_DEMO_ROOT=$demo_root" >> "$GITHUB_ENV"
+
+      - name: Generate starter demo
+        run: ntua-beamer new "$NTUA_DEMO_ROOT/demo"
+
+      - name: Build starter demo
+        run: ntua-beamer build "$NTUA_DEMO_ROOT/demo/main.tex"
+
+      - name: Render preview images
+        run: |
+          mkdir -p site
+          cp "$NTUA_DEMO_ROOT/demo/.build/main.pdf" site/starter-demo.pdf
+          pdftoppm -png -f 1 -l 2 "$NTUA_DEMO_ROOT/demo/.build/main.pdf" site/starter-preview
+          mv site/starter-preview-1.png site/starter-title.png
+          mv site/starter-preview-2.png site/starter-frame.png
+          printf '%s\n' \
+            '<!doctype html>' \
+            '<html lang="en">' \
+            '<head>' \
+            '  <meta charset="utf-8">' \
+            '  <meta name="viewport" content="width=device-width, initial-scale=1">' \
+            '  <title>NTUA Beamer Starter Preview</title>' \
+            '  <style>' \
+            '    body { font-family: system-ui, sans-serif; margin: 2rem; color: #222; }' \
+            '    img { width: 100%%; max-width: 1200px; display: block; margin: 0 auto 1.5rem auto; border: 1px solid #d8dde6; }' \
+            '    a { color: #0e254a; }' \
+            '  </style>' \
+            '</head>' \
+            '<body>' \
+            '  <h1>NTUA Beamer Starter Preview</h1>' \
+            '  <p><a href="starter-demo.pdf">Download the generated starter PDF</a></p>' \
+            '  <img src="starter-title.png" alt="NTUA Beamer title frame preview">' \
+            '  <img src="starter-frame.png" alt="NTUA Beamer regular frame preview">' \
+            '</body>' \
+            '</html>' \
+            > site/index.html
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

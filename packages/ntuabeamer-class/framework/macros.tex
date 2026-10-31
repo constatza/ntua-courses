@@ -1,0 +1,122 @@
+\newcommand{\bd}[1]{\mathbf{#1}}
+\newcommand{\Att}{\bd{A}_{\alpha}}
+\newcommand{\ntuafootnotemarknum}[1]{%
+  \textsuperscript{\textcolor{ntuablue}{#1}}%
+}
+\ExplSyntaxOn
+\prop_new:N \g_ntua_frame_source_prop
+\prop_new:N \g_ntua_frame_refnum_prop
+\seq_new:N \g_ntua_frame_reflines_seq
+\msg_new:nnn {ntua-beamer}{undefined-frame-source}
+  { Frame~source~'#1'~is~undefined. }
+\cs_new_protected:Npn \ntua_frame_refs_reset:
+  {
+    \prop_gclear:N \g_ntua_frame_refnum_prop
+    \seq_gclear:N \g_ntua_frame_reflines_seq
+    \setcounter{footnote}{0}
+  }
+\cs_new_protected:Npn \ntua_define_frame_source:nn #1#2
+  {
+    \prop_gput:Nnn \g_ntua_frame_source_prop {#1} {#2}
+  }
+\cs_new_protected:Npn \ntua_frame_cite:n #1
+  {
+    \prop_if_in:NnTF \g_ntua_frame_refnum_prop {#1}
+      {
+        \prop_get:NnN \g_ntua_frame_refnum_prop {#1} \l_tmpa_tl
+        \ntuafootnotemarknum{\l_tmpa_tl}
+      }
+      {
+        \prop_get:NnNTF \g_ntua_frame_source_prop {#1} \l_tmpa_tl
+          {
+            \ntua_frame_ref_store:nn {#1} { \exp_not:V \l_tmpa_tl }
+          }
+          {
+            \cs_if_exist:NTF \fullcite
+              {
+                \ntua_frame_ref_store:nn {#1} { \exp_not:n { \fullcite{#1} } }
+              }
+              {
+                \msg_error:nnn {ntua-beamer}{undefined-frame-source}{#1}
+              }
+          }
+      }
+  }
+\cs_new_protected:Npn \ntua_frame_ref_store:nn #1#2
+  {
+    \stepcounter{footnote}
+    \tl_set:Ne \l_tmpb_tl { \int_eval:n { \value{footnote} } }
+    \prop_gput:NnV \g_ntua_frame_refnum_prop {#1} \l_tmpb_tl
+    \seq_gput_right:Ne \g_ntua_frame_reflines_seq
+      {
+        \exp_not:N \ntuafootnotemarknum { \tl_use:N \l_tmpb_tl }
+        ~
+        #2
+      }
+    \ntuafootnotemarknum{\l_tmpb_tl}
+  }
+\cs_new:Npn \ntua_frame_ref_lines:
+  {
+    \seq_use:Nn \g_ntua_frame_reflines_seq { \enspace \textbar \enspace }
+  }
+\prg_new_conditional:Npnn \ntua_frame_refs_if_empty: { T, F, TF }
+  {
+    \seq_if_empty:NTF \g_ntua_frame_reflines_seq
+      { \prg_return_true: }
+      { \prg_return_false: }
+  }
+\cs_new_protected:Npn \ntuaPublicFrameSource #1#2
+  {
+    \ntua_define_frame_source:nn {#1} {#2}
+  }
+\cs_new_protected:Npn \ntuaPublicFrameCite #1
+  {
+    \ntua_frame_cite:n {#1}
+  }
+\cs_new_protected:Npn \ntuaPublicResetFrameRefs
+  {
+    \ntua_frame_refs_reset:
+  }
+\cs_new:Npn \ntuaPublicFrameRefLines
+  {
+    \ntua_frame_ref_lines:
+  }
+\cs_new:Npn \ntuaPublicIfFrameRefsEmptyTF #1#2
+  {
+    \ntua_frame_refs_if_empty:TF {#1} {#2}
+  }
+\ExplSyntaxOff
+\NewDocumentCommand{\framesource}{m m}{%
+  \ntuaPublicFrameSource {#1} {#2}%
+}
+\NewDocumentCommand{\framecite}{m}{%
+  \ntuaPublicFrameCite {#1}%
+}
+\AtBeginEnvironment{frame}{\ntuaPublicResetFrameRefs}
+\pdfstringdefDisableCommands{%
+  \def\framecite#1{}%
+}
+\newcommand{\insertframefootrefs}{%
+  \ntuaPublicFrameRefLines
+}
+\newcommand{\ifframefootrefsemptyTF}[2]{%
+  \ntuaPublicIfFrameRefsEmptyTF{#1}{#2}%
+}
+\NewDocumentCommand{\twocols}{O{0.48\textwidth} O{0.48\textwidth} +m +m}{%
+  \begin{columns}[T,onlytextwidth]
+    \column{#1}
+    #3
+    \column{#2}
+    #4
+  \end{columns}%
+}
+\NewDocumentCommand{\threecols}{O{0.31\textwidth} O{0.31\textwidth} O{0.31\textwidth} +m +m +m}{%
+  \begin{columns}[T,onlytextwidth]
+    \column{#1}
+    #4
+    \column{#2}
+    #5
+    \column{#3}
+    #6
+  \end{columns}%
+}
