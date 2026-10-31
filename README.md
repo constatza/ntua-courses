@@ -3,14 +3,13 @@ Meta-repo that pins independent repos as submodules. Each one builds on its own;
 
 | Submodule | What | Use it alone |
 |---|---|---|
-| `beamer-ntua` | Beamer class `ntuabeamer` (own repo) | its README |
 | `ml-course` | decks, notes, exercises | its README → Setup |
 | `stochastic-course` | decks, notes, exercises | its README → Setup |
 
 ## Everything together
 ```sh
 git clone --recurse-submodules <this-repo> ntua-courses && cd ntua-courses
-sh scripts/bootstrap.sh                      # submodules + class + build-course (or: sh beamer-ntua/scripts/install-class.sh)
+sh scripts/bootstrap.sh                      # submodules, then the class and tools at the tag the courses pin
 (cd ml-course && build-course)
 (cd stochastic-course && build-course)
 ```
@@ -25,9 +24,7 @@ or clone that course's repo directly and follow its Setup section.
 ## Local checks
 Each repo has a `.pre-commit-config.yaml` for [prek](https://github.com/j178/prek). Run `prek install -t pre-commit -t commit-msg` once per clone. The course-specific hooks (layout, no built PDFs, no AI attribution) are defined once in `beamer-ntua` and referenced by tag, so all courses run the same ones.
 
-Both courses use the same `beamer-ntua` tag (course content versions are separate). `scripts/beamer-pin` checks that, and `scripts/beamer-pin set vX.Y.Z` bumps both; commit the result in each course, child first.
-
-`scripts/release-beamer X.Y.Z` does the whole move in one go: it checks that all repos are clean and in sync, builds both courses against the new `beamer-ntua`, and only then releases it, pins both courses, and bumps the pointers. `scripts/release-beamer --check` runs just the verification. Course content tags are separate and stay manual.
+`beamer-ntua` (the `ntuabeamer` class, build and release scripts, shared CI and hooks) is an independent repo that the courses consume by tag. It is not tracked here; see its [README](https://github.com/constatza/beamer-ntua). Course content tags are separate from its tags.
 
 ## Committing
 Child first, then parent. Where you run `git commit` decides which repo is committed.

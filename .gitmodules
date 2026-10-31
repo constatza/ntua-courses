@@ -4,6 +4,3 @@
 [submodule "stochastic-methods"]
 	path = stochastic-course
 	url = git@github.com:constatza/stochastic-course.git
-[submodule "beamer-ntua"]
-	path = beamer-ntua
-	url = https://github.com/constatza/beamer-ntua.git

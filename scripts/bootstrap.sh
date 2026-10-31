@@ -3,9 +3,9 @@
 #
 #   git clone <repo> ntua-courses && cd ntua-courses && sh scripts/bootstrap.sh
 #
-# Initializes submodules at their pinned commits and installs the
-# ntuabeamer beamer class (to TEXMFHOME) and build-course/release-course
-# (to ~/.local/bin) from the pinned beamer-ntua checkout, so every deck builds.
+# Initializes the course submodules at their pinned commits, then installs the ntuabeamer
+# class (to TEXMFHOME) and build-course/release-course (to ~/.local/bin) at the beamer-ntua
+# tag the courses pin, the same way CI does. beamer-ntua is an independent repo, not a submodule.
 set -eu
 
 echo "==> syncing submodule URLs"
@@ -14,9 +14,14 @@ git submodule sync
 echo "==> initializing submodules"
 git submodule update --init --recursive
 
-echo "==> installing ntuabeamer beamer class (to TEXMFHOME)"
-# Install from the pinned checkout, not from main, so the class and the tools match the pin.
-NTUA_BEAMER_BASE_URL="file://$PWD/beamer-ntua" sh beamer-ntua/scripts/install-class.sh
+ref=$(awk '/constatza\/beamer-ntua/ {f=1; next} f && /rev:/ {print $2; exit}' ml-course/.pre-commit-config.yaml)
+[ -n "$ref" ] || { echo "error: no beamer-ntua rev in ml-course/.pre-commit-config.yaml" >&2; exit 1; }
+
+echo "==> installing ntuabeamer $ref (class to TEXMFHOME, tools to ~/.local/bin)"
+installer=$(mktemp)
+trap 'rm -f "$installer"' EXIT
+curl -fsSL -o "$installer" "https://raw.githubusercontent.com/constatza/beamer-ntua/$ref/scripts/install-class.sh"
+NTUA_BEAMER_REF="$ref" sh "$installer"
 
 echo "==> done. Make sure ~/.local/bin is on PATH, then build a course with:"
 echo "    cd ml-course && build-course"

@@ -1,11 +1,11 @@
 # Roadmap — cross-repo
 
-Done: course repos with shared build/release/CI tooling and prek hooks in `beamer-ntua`, topics mapped, meta-repo with submodules, setup docs.
+Done: course repos with shared build/release/CI tooling and prek hooks in the independent `beamer-ntua`, topics mapped, meta-repo with the two course submodules, setup docs.
 
 ## Next
 1. Test the documented setup from a clean machine or container: clone with `--recurse-submodules`, run `scripts/bootstrap.sh`, run `build-course` in each course.
 2. Review `_archive/_pre-reorg/` (old trees kept for safety), then delete it. Extend `_archive/MANIFEST.sha256` to cover the `admin/` folder if wanted.
-3. Refresh the pinned `texlive/texlive:latest-medium` digest in `beamer-ntua/.github/workflows/course-ci.yml` when a course needs a newer TeX Live (`docker pull`, then `docker inspect`), and tag a new `beamer-ntua` release. Then bump the tag in each course's `ci.yml` and `.pre-commit-config.yaml` together (`course-layout` fails if they differ).
+3. Refresh the pinned `texlive/texlive:latest-medium` digest in `beamer-ntua/.github/workflows/course-ci.yml` when a course needs a newer TeX Live (`docker pull`, then `docker inspect`), and tag a new `beamer-ntua` release (`git tag -a vX.Y.Z && git push origin main vX.Y.Z`). Then bump the tag in each course's `ci.yml` and `.pre-commit-config.yaml` together (`build-course` fails if they differ); Renovate can open that PR.
 4. When a third course exists, extract a `course-template` GitHub template repo (thin `ci.yml`, `.gitignore`, `AGENTS.md`, one sample deck).
 
 ## Open questions

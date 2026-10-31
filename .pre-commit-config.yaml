@@ -15,14 +15,6 @@ repos:
         stages: [commit-msg]
         args: [feat, fix, docs, refactor, test, build, ci, chore, perf, style, revert]
   - repo: https://github.com/constatza/beamer-ntua
-    rev: v0.3.0
+    rev: v0.3.1
     hooks:
       - id: no-ai-attribution
-  - repo: local
-    hooks:
-      - id: beamer-pin
-        name: courses pin the same beamer-ntua tag
-        entry: scripts/beamer-pin
-        language: script
-        pass_filenames: false
-        always_run: true
