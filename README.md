@@ -1,5 +1,7 @@
 # ntua-courses
 
+**This README is for maintainers.** Readers: open a course directory ([`ml-course/`](ml-course/README.md), [`stochastic-course/`](stochastic-course/README.md)) and follow its README to the PDFs.
+
 All NTUA courses, their build tooling and CI in one repository. Each course is a directory of decks, notes and exercise sheets; the shared `tools/` and the `ntuabeamer` class (`beamer-ntua/`) live next to them, so every commit is a complete, buildable snapshot and tooling can never drift from content.
 
 | Path | What |
@@ -25,7 +27,7 @@ A failed target leaves no `dist/` and no stale PDF behind, and prints the tail o
 `prek install -t pre-commit -t commit-msg` once per clone ([prek](https://github.com/j178/prek) runs the standard `.pre-commit-config.yaml`). Third-party hooks (ruff, shellcheck, actionlint, conventional commits) are remote; the course checks (layout, no built PDFs, no AI attribution) are local scripts. CI runs the same hooks plus the build.
 
 ## Releases
-Content is versioned per course with path-prefixed tags: `git tag ml-course/v1.2.0 && git push origin ml-course/v1.2.0`. CI builds only that course and publishes its PDFs as a release (answer PDFs are withheld unless `RELEASE_ANSWERS=1`). `tools/release-course` is safe to re-run after a failure: a stale draft is replaced, an already-published tag is refused. Older per-repo releases (`v0.1.0-alpha.1`) stay in the archived `ml-course` and `stochastic-course` repositories.
+Content is versioned per course with path-prefixed tags: `git tag ml-course/v1.2.0 && git push origin ml-course/v1.2.0`. CI builds only that course and publishes its PDFs as a release (answer PDFs are withheld unless `RELEASE_ANSWERS=1`). `tools/release-course` is safe to re-run after a failure: a stale draft is replaced, an already-published tag is refused. Readers get the PDFs from each course's README, which links to this repository's releases page. The earlier per-repo `v0.1.0-alpha.1` releases were removed with the old repositories; copies are kept in `_archive/old-releases/`.
 
 ## Updating the class
 `beamer-ntua/` is ordinary files, synced one way from its public repository, which stays the source of truth:
