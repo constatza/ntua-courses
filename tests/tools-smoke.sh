@@ -32,6 +32,8 @@ exercise_e_answers.pdf
 presentation_a.pdf"
 [ "$(sort c/dist/MANIFEST)" = "$(echo "$want" | sort)" ] || fail "manifest: $(cat c/dist/MANIFEST)"
 
+[ -s c/dist/TEXLIVE ] || fail "TeX Live version not recorded in dist/"
+
 # 2. a broken source leaves no dist/ and no stale .build PDF
 printf '\\documentclass{article}\\begin{document}\\undefinedcommand\\end{document}\n' >c/presentations/a/main.tex
 tools/build-course c >/dev/null && fail "broken build reported success"

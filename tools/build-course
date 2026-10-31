@@ -76,6 +76,7 @@ build_one() { # <course-dir>; run from the repo root
     fi
     (cd dist.tmp && ls -1 -- *.pdf >../dist.manifest)
     mv dist.manifest dist.tmp/MANIFEST
+    (latex --version 2>/dev/null | head -n 1) >dist.tmp/TEXLIVE || true
     mv dist.tmp dist
     echo "$course/dist ready: $built PDFs"
   )

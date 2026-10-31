@@ -50,6 +50,7 @@ jobs:
           path: |
             */dist/*.pdf
             */dist/MANIFEST
+            */dist/TEXLIVE
           if-no-files-found: error
 
   release:

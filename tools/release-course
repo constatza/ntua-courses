@@ -46,7 +46,7 @@ done <"$course/dist/MANIFEST"
 {
   echo "# $tag"
   echo
-  echo "Built from \`$(git rev-parse --short "refs/tags/$tag^{commit}")\` with $( (latex --version 2>/dev/null || echo unknown TeX) | head -n 1)."
+  echo "Built from \`$(git rev-parse --short "refs/tags/$tag^{commit}")\` with $(cat "$course/dist/TEXLIVE" 2>/dev/null || echo "an unrecorded TeX Live")."
   echo
   sed 's|.*/|- |' "$list"
 } >"$notes"
