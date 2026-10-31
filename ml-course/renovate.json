@@ -1,0 +1,4 @@
+{
+  "extends": ["config:recommended"],
+  "packageRules": [{"matchPackageNames": ["constatza/beamer-ntua"], "groupName": "beamer-ntua"}]
+}

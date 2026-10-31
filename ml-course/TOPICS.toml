@@ -1,0 +1,59 @@
+# Single registry: one owner per topic; other decks only cross-reference it.
+[topics.supervised-learning]
+owner = "presentations/supervised-learning"
+mentioned_in = ["presentations/neural-nets", "presentations/regularization"]
+
+[topics.first-order-optimization]
+owner = "presentations/optimization"
+mentioned_in = ["presentations/neural-nets", "presentations/pinns-neural-operators"]
+
+[topics.dense-neural-networks]
+owner = "presentations/neural-nets"
+mentioned_in = ["presentations/cnns", "presentations/rnns", "presentations/gnns"]
+
+[topics.generalization-regularization]
+owner = "presentations/regularization"
+mentioned_in = ["presentations/neural-nets", "presentations/cnns"]
+
+[topics.geometric-deep-learning]
+owner = "presentations/geometric-deep-learning"
+mentioned_in = ["presentations/cnns", "presentations/transformers", "presentations/gnns"]
+
+[topics.convolutional-networks]
+owner = "presentations/cnns"
+mentioned_in = ["presentations/geometric-deep-learning"]
+
+[topics.recurrent-networks]
+owner = "presentations/rnns"
+mentioned_in = ["presentations/transformers"]
+
+[topics.transformers]
+owner = "presentations/transformers"
+mentioned_in = ["presentations/geometric-deep-learning"]
+
+[topics.graph-networks]
+owner = "presentations/gnns"
+mentioned_in = ["presentations/geometric-deep-learning"]
+
+[topics.pinns-neural-operators]
+owner = "presentations/pinns-neural-operators"
+
+[topics.diffusion-models]
+owner = "presentations/diffusion-models"
+mentioned_in = ["presentations/flow-matching"]
+exercises = ["exercises/toy-diffusion-flow"]
+
+[topics.flow-matching]
+owner = "presentations/flow-matching"
+mentioned_in = ["presentations/diffusion-models"]
+exercises = ["exercises/toy-diffusion-flow"]
+
+[topics.pca-pod-rom]
+owner = "presentations/pca-rom"
+
+[topics.density-estimation-distances]
+owner = "presentations/pdf-distances"
+mentioned_in = ["presentations/diffusion-models", "presentations/flow-matching"]
+
+[topics.lstm-mechanical-systems]
+owner = "presentations/rnns"

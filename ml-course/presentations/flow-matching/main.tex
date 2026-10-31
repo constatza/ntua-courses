@@ -1,0 +1,366 @@
+\documentclass{ntuabeamer}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb,graphicx,tikz}
+\usetikzlibrary{arrows.meta,positioning}
+\graphicspath{{assets/generated/}}
+
+\framesource{lipman2023}{Lipman et al. \emph{Flow Matching for Generative Modeling}. ICLR, 2023.}
+\framesource{liu2023}{Liu, Gong, Liu. \emph{Flow Straight and Fast: Learning to Generate and Transfer Data with Rectified Flow}. ICLR, 2023.}
+
+\title{Flow Matching}
+\author{}
+\date{}
+\definecolor{courseblue}{HTML}{3F7CAC}
+\definecolor{courseorange}{HTML}{D97706}
+\definecolor{coursegreen}{HTML}{27864A}
+\definecolor{coursegray}{HTML}{667085}
+\definecolor{coursepurple}{HTML}{7656A3}
+\definecolor{coursered}{HTML}{B5473C}
+\definecolor{courselightblue}{HTML}{DCE9F5}
+\definecolor{courselightorange}{HTML}{F9E4C8}
+\tikzset{flow/.style={-{Latex[length=3mm]},very thick,courseblue},
+box/.style={draw,rounded corners,very thick,align=center,minimum width=1.7cm,minimum height=0.85cm}}
+
+\begin{document}
+\begin{frame}[plain]\makepresentationtitle\end{frame}
+
+\begin{frame}{Generation Can Be Viewed as Transport}
+  Start with a tractable base distribution and transport it to data:
+  \[
+    \mathbf x_0\sim p_0
+    \quad\longrightarrow\quad
+    \mathbf x_1\sim p_1=p_{\mathrm{data}}.
+  \]
+  \centering
+  \begin{tikzpicture}[node distance=0.9cm]
+    \node[box,fill=courselightblue] (base) {base\\\(p_0\)};
+    \node[box,fill=courselightorange,right=of base] (field) {time-dependent\\velocity field};
+    \node[box,fill=coursegreen!18,right=of field] (data) {data\\\(p_1\)};
+    \draw[flow] (base)--(field)--(data);
+  \end{tikzpicture}
+  \vspace{0.5cm}
+  \begin{itemize}
+    \item The model specifies how every current point should move.
+    \item Generation follows this motion from \(t=0\) to \(t=1\).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{A Velocity Field Defines ODE Dynamics}
+  \[
+    \boxed{\frac{d\mathbf x_t}{dt}
+      =\mathbf v_t(\mathbf x_t)},
+    \qquad t\in[0,1].
+  \]
+  Given an initial point \(\mathbf x_0\), the ODE solution defines a flow map
+  \[
+    \mathbf x_t=\phi_t(\mathbf x_0).
+  \]
+  \begin{itemize}
+    \item Direction tells the sample where to move.
+    \item Magnitude tells the sample how fast to move.
+    \item Existence and uniqueness require regularity of \(\mathbf v_t\).
+    \item A neural field \(\mathbf v_\theta(\mathbf x,t)\) approximates the velocity.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Probability Is Conserved by the Continuity Equation}
+  If particles follow \(\mathbf v_t\), their density satisfies
+  \[
+    \boxed{
+    \partial_t p_t(\mathbf x)
+      +\nabla_{\mathbf x}\cdot
+       \big(p_t(\mathbf x)\mathbf v_t(\mathbf x)\big)=0}.
+  \]
+  \begin{itemize}
+    \item Probability moves; it is not created or destroyed.
+    \item Positive divergence locally expands volume and lowers density.
+    \item Negative divergence locally contracts volume and raises density.
+    \item Boundary flux must be consistent with the modeled domain.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{A Continuous Normalizing Flow Is an ODE Pushforward}
+  The flow map transports the base measure:
+  \[
+    \boxed{p_t=(\phi_t)_\#p_0}.
+  \]
+  Equivalently, for measurable \(A\),
+  \[
+    p_t(A)=p_0(\phi_t^{-1}(A)).
+  \]
+  \begin{itemize}
+    \item Sampling: draw \(\mathbf x_0\), then solve the ODE forward.
+    \item Density evaluation: track how the flow changes local volume.
+    \item A nonsingular ODE flow is invertible under standard regularity conditions.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Log Density Changes Through Velocity Divergence}
+  Along one trajectory,
+  \[
+    \boxed{
+    \frac{d}{dt}\log p_t(\mathbf x_t)
+      =-\nabla_{\mathbf x}\cdot\mathbf v_t(\mathbf x_t)}.
+  \]
+  Therefore,
+  \[
+    \log p_1(\mathbf x_1)
+      =\log p_0(\mathbf x_0)
+       -\int_0^1\nabla\cdot\mathbf v_t(\mathbf x_t)\,dt.
+  \]
+  \begin{itemize}
+    \item Exact divergence is a Jacobian trace and can be expensive in high dimension.
+    \item Stochastic trace estimators trade computation for variance.
+    \item Flow matching can train velocities without evaluating this likelihood term.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Flow Matching Regresses a Target Velocity}
+  Suppose a chosen probability path \(p_t\) has velocity \(\mathbf u_t\). Train
+  \[
+    \boxed{
+    L_{\mathrm{FM}}(\theta)
+      =\mathbb E_{t,\mathbf x_t\sim p_t}
+        \left\|
+          \mathbf v_\theta(\mathbf x_t,t)
+          -\mathbf u_t(\mathbf x_t)
+        \right\|_2^2}.
+  \]
+  \begin{itemize}
+    \item The target is a vector, not a noise sample or final data point.
+    \item The chosen path determines the regression problem.
+    \item Sampling still requires solving the learned ODE.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Conditional Paths Make Targets Tractable}
+  Introduce a conditioning variable \(Z\), often a data endpoint. Choose
+  \[
+    p_t(\mathbf x\mid Z),
+    \qquad
+    \mathbf u_t(\mathbf x\mid Z)
+  \]
+  with a known conditional velocity. The marginal path is
+  \[
+    p_t(\mathbf x)=\int p_t(\mathbf x\mid z)p(z)\,dz.
+  \]
+  Train with samples \(z\sim p(z)\) and \(\mathbf x_t\sim p_t(\cdot\mid z)\):
+  \[
+    L_{\mathrm{CFM}}
+      =\mathbb E\|
+        \mathbf v_\theta(\mathbf x_t,t)
+        -\mathbf u_t(\mathbf x_t\mid z)\|^2.
+  \]
+\end{frame}
+
+\begin{frame}{Conditional Regression Recovers the Marginal Field}
+  The MSE minimizer is
+  \[
+    \mathbf v_\star(\mathbf x,t)
+      =\mathbb E[\mathbf u_t(\mathbf x_t\mid Z)
+        \mid\mathbf x_t=\mathbf x].
+  \]
+  Bayes' rule gives
+  \[
+    \boxed{
+    \mathbf v_\star(\mathbf x,t)
+      =\frac{\int \mathbf u_t(\mathbf x\mid z)
+        p_t(\mathbf x\mid z)p(z)\,dz}
+       {p_t(\mathbf x)}}.
+  \]
+  \begin{itemize}
+    \item This is the marginal velocity satisfying the marginal continuity equation.
+    \item Conditional targets may disagree where different paths meet; regression averages them.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{A Gaussian Conditional Path Has an Explicit Velocity}
+  Let a data endpoint be \(\mathbf x_1\), and define
+  \[
+    \mathbf x_t=\alpha_t\mathbf x_1+\sigma_t\boldsymbol\epsilon,
+    \qquad \boldsymbol\epsilon\sim\mathcal N(\mathbf0,\mathbf I).
+  \]
+  Differentiating the same coupled sample gives
+  \[
+    \mathbf u_t
+      =\dot\alpha_t\mathbf x_1+\dot\sigma_t\boldsymbol\epsilon.
+  \]
+  Since \(\boldsymbol\epsilon=(\mathbf x_t-\alpha_t\mathbf x_1)/\sigma_t\),
+  \[
+    \boxed{
+    \mathbf u_t(\mathbf x_t\mid\mathbf x_1)
+      =\dot\alpha_t\mathbf x_1
+       +\frac{\dot\sigma_t}{\sigma_t}
+        (\mathbf x_t-\alpha_t\mathbf x_1)}.
+  \]
+\end{frame}
+
+\begin{frame}{Rectified Flow Uses Straight Endpoint Interpolation\framecite{liu2023}}
+  Sample a coupling pair \((\mathbf x_0,\mathbf x_1)\) and define
+  \[
+    \boxed{\mathbf x_t=(1-t)\mathbf x_0+t\mathbf x_1}.
+  \]
+  Its pairwise velocity is constant:
+  \[
+    \boxed{\frac{d\mathbf x_t}{dt}=\mathbf x_1-\mathbf x_0}.
+  \]
+  The regression objective is
+  \[
+    \mathbb E\|
+      \mathbf v_\theta(\mathbf x_t,t)
+      -(\mathbf x_1-\mathbf x_0)\|^2.
+  \]
+  \begin{itemize}
+    \item The learned marginal field need not be constant or globally straight.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The Endpoint Coupling Changes the Transport Problem}
+  Two couplings can share the same marginals \(p_0,p_1\) but pair endpoints differently.
+  \[
+    \pi(\mathbf x_0,\mathbf x_1)
+    \quad\text{with marginals}\quad p_0,\ p_1.
+  \]
+  \begin{itemize}
+    \item Independent coupling is easy to sample but may create crossing paths.
+    \item Correlated or optimal-transport couplings can shorten displacement.
+    \item At crossings, conditional velocities average into the marginal field.
+    \item Coupling choice affects curvature and regression difficulty.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{A One-Dimensional Field Averages Pairwise Velocities}
+  \centering
+  \includegraphics[width=0.92\textwidth]{flow_matching_1d_transport_field.png}
+  \begin{itemize}
+    \item The field is \(\mathbb E[x_1-x_0\mid x_t=x]\), not one pair's displacement.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Sampling Integrates the Learned ODE}
+  Start with \(\mathbf x_0\sim p_0\), then solve
+  \[
+    \frac{d\mathbf x_t}{dt}
+      =\mathbf v_\theta(\mathbf x_t,t),
+    \qquad t:0\to1.
+  \]
+  Euler uses
+  \[
+    \mathbf x_{n+1}
+      =\mathbf x_n+\Delta t\,
+        \mathbf v_\theta(\mathbf x_n,t_n).
+  \]
+  Midpoint uses
+  \[
+    \mathbf k_1=\mathbf v_\theta(\mathbf x_n,t_n),\qquad
+    \mathbf x_{n+1}=\mathbf x_n+\Delta t\,
+      \mathbf v_\theta(\mathbf x_n+\tfrac{\Delta t}{2}\mathbf k_1,
+        t_n+\tfrac{\Delta t}{2}).
+  \]
+\end{frame}
+
+\begin{frame}{Model Error and Solver Error Are Different}
+  Let \(\mathbf u_t\) be the desired field. Then generation error has two sources:
+  \[
+    \underbrace{\mathbf v_\theta-\mathbf u_t}_{\text{field approximation}}
+    \qquad\text{and}\qquad
+    \underbrace{\widehat\phi_1-\phi_1^\theta}_{\text{numerical integration}}.
+  \]
+  \begin{itemize}
+    \item Smaller solver steps reduce discretization error, not model error.
+    \item Better regression does not fix an unstable or inaccurate solver.
+    \item Evaluate convergence by tightening solver tolerances or step size.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Straighter Paths Can Require Fewer Solver Steps}
+  ODE discretization error grows with variation of the velocity along trajectories:
+  \[
+    \frac{d}{dt}\mathbf v_t(\mathbf x_t)
+      =\partial_t\mathbf v_t
+       +(\nabla_{\mathbf x}\mathbf v_t)\mathbf v_t.
+  \]
+  \begin{itemize}
+    \item Constant pairwise velocity gives a straight conditional path.
+    \item The marginal field may still curve because many paths interact.
+    \item Lower curvature often permits larger steps at matched error.
+    \item Straightness alone does not guarantee a well-learned field.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Flow Matching and Diffusion Use Different Targets}
+  \scriptsize
+  \begin{center}
+  \begin{tabular}{lcc}
+    \hline
+      & Diffusion & Flow matching\\
+    \hline
+    Training target & noise or score & velocity\\
+    Path & Gaussian corruption & chosen probability path\\
+    Dynamics & reverse SDE or ODE & ODE\\
+    Sampling & denoise or solve & solve ODE\\
+    Stochasticity & optional at sampling & base sample; deterministic ODE\\
+    \hline
+  \end{tabular}
+  \end{center}
+  \begin{itemize}
+    \item Both learn time-dependent vector fields over noisy or intermediate states.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Diffusion Provides a Probability-Flow Bridge}
+  A forward SDE
+  \[
+    d\mathbf x=\mathbf f\,dt+g\,d\mathbf W_t
+  \]
+  induces the probability-flow velocity
+  \[
+    \boxed{
+    \mathbf v_t(\mathbf x)
+      =\mathbf f(\mathbf x,t)
+       -\frac12g(t)^2\nabla_{\mathbf x}\log p_t(\mathbf x)}.
+  \]
+  \begin{itemize}
+    \item Its ODE has the same marginal densities as the SDE.
+    \item Score estimation therefore defines a deterministic transport.
+    \item Flow matching instead regresses a velocity for a chosen path directly.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Flow Matching Supports Many Data Domains}
+  \begin{itemize}
+    \item images, audio, and video,
+    \item molecular and geometric structures,
+    \item physical fields and spatiotemporal ensembles,
+    \item conditional inverse problems,
+    \item latent-space generation.
+  \end{itemize}
+  \begin{itemize}
+    \item Architecture and base distribution must match the representation.
+    \item Constraints may require equivariant fields, projection, or conditioning.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Limitations Come From Paths, Models, and Solvers}
+  \begin{itemize}
+    \item Poor couplings can create high-variance or curved targets.
+    \item Finite data and capacity bias the learned vector field.
+    \item Distribution shift invalidates learned transport outside training support.
+    \item Numerical trajectories can be sensitive to solver settings.
+    \item Likelihood evaluation still requires divergence integration.
+    \item Fast sampling claims require matched quality and evaluation counts.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Flow Matching Directly Learns Continuous Transport}
+  \begin{itemize}
+    \item A velocity field transports probability through an ODE.
+    \item The continuity equation formalizes conservation of probability.
+    \item Conditional paths provide tractable velocity targets.
+    \item MSE regression recovers the corresponding marginal field.
+    \item Coupling and path design determine curvature and difficulty.
+    \item Sampling quality depends on both field approximation and ODE integration.
+  \end{itemize}
+\end{frame}
+
+\end{document}

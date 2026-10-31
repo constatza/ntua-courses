@@ -1,0 +1,28 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=2000]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.3
+    hooks:
+      - id: ruff-check
+        # real errors only (syntax, undefined names); style findings in the figure scripts are not gated
+        args: ["--select=E9,F63,F7,F82"]
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.5.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: [feat, fix, docs, refactor, test, build, ci, chore, perf, style, revert]
+  # rev must equal the course-ci.yml tag in .github/workflows/ci.yml (course-layout checks it)
+  - repo: https://github.com/constatza/beamer-ntua
+    rev: v0.3.1
+    hooks:
+      - id: course-layout
+      - id: no-built-artifacts
+      - id: no-ai-attribution

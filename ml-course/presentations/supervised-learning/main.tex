@@ -1,0 +1,440 @@
+\documentclass{ntuabeamer}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning}
+
+\title{Supervised Learning Fundamentals}
+\author{}
+\date{}
+
+\graphicspath{{assets/}{assets/generated/}}
+
+\definecolor{courseblue}{HTML}{3F7CAC}
+\definecolor{courseorange}{HTML}{D97706}
+\definecolor{coursegreen}{HTML}{27864A}
+\definecolor{coursegray}{HTML}{667085}
+\definecolor{courselightblue}{HTML}{DCE9F5}
+\definecolor{courselightorange}{HTML}{F9E4C8}
+
+\begin{document}
+
+\begin{frame}[plain]
+  \makepresentationtitle
+\end{frame}
+
+\begin{frame}{A Supervised-Learning Problem}
+  \[
+    \mathcal{D}=\{(\mathbf{x}_i,y_i)\}_{i=1}^{n},
+    \qquad \mathbf{x}_i\in\mathbb{R}^{d}
+  \]
+  \begin{itemize}
+    \item \textbf{Input} $\mathbf{x}_i$: measured features.
+    \item \textbf{Target} $y_i$: desired answer.
+    \item \textbf{Model} $f_{\boldsymbol{\theta}}$: parametrized prediction rule.
+    \item \textbf{Prediction} $\hat y_i=f_{\boldsymbol{\theta}}(\mathbf{x}_i)$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Learning Connects Data to an Objective}
+  \centering
+  \begin{tikzpicture}[
+    node distance=1.25cm,
+    box/.style={draw, rounded corners, minimum width=2.25cm, minimum height=1.15cm, align=center, very thick},
+    flow/.style={-{Latex[length=3mm]}, very thick, courseblue}
+  ]
+    \node[box, fill=courselightblue] (data) {training pairs\\$(\mathbf{x}_i,y_i)$};
+    \node[box, fill=white, right=of data] (model) {model\\$f_{\boldsymbol{\theta}}$};
+    \node[box, fill=courselightorange, right=of model] (prediction) {prediction\\$\hat y_i$};
+    \node[box, fill=white, below=1.4cm of prediction] (loss) {loss\\$\ell(\hat y_i,y_i)$};
+    \node[box, fill=white, below=1.4cm of model] (adjust) {adjust\\$\boldsymbol{\theta}$};
+    \draw[flow] (data) -- (model);
+    \draw[flow] (model) -- (prediction);
+    \draw[flow] (prediction) -- (loss);
+    \draw[flow] (data.south) |- (loss.west);
+    \draw[flow] (loss) -- (adjust);
+    \draw[flow] (adjust) -- (model);
+  \end{tikzpicture}
+  \vspace{0.35cm}
+  \[
+    L(\boldsymbol{\theta})
+    =\frac{1}{n}\sum_{i=1}^{n}
+    \ell\!\left(f_{\boldsymbol{\theta}}(\mathbf{x}_i),y_i\right)
+  \]
+\end{frame}
+
+\begin{frame}{Learning Paradigms Differ by the Available Signal}
+  \centering
+  \begin{tikzpicture}[
+    node distance=0.75cm and 0.7cm,
+    box/.style={draw,rounded corners,minimum width=3.2cm,minimum height=1.0cm,align=center,very thick}
+  ]
+    \node[box,fill=courselightblue] (supervised) {supervised\\paired $(\mathbf x,y)$};
+    \node[box,fill=white,right=of supervised] (unsupervised) {unsupervised\\structure in $\mathbf x$};
+    \node[box,fill=white,below=of supervised] (self) {self-supervised\\targets derived from $\mathbf x$};
+    \node[box,fill=courselightorange,right=of self] (reinforcement) {reinforcement\\actions and rewards};
+  \end{tikzpicture}
+
+  \vspace{0.45cm}
+  This lecture studies paired examples. The distinction is the training signal,
+  not the architecture used to process it.
+\end{frame}
+
+\begin{frame}{Generalization, Not Memorization, Is the Goal}
+  Let $(X,Y)\sim p_{\mathrm{data}}$ be a future example. We want small
+  \[
+    R(\boldsymbol\theta)
+    =\mathbb E_{(X,Y)\sim p_{\mathrm{data}}}
+      [\ell(f_{\boldsymbol\theta}(X),Y)],
+  \]
+  but training provides only the empirical estimate
+  \[
+    L(\boldsymbol\theta)
+    =\frac1n\sum_{i=1}^n\ell(f_{\boldsymbol\theta}(\mathbf x_i),y_i).
+  \]
+  A model can reduce $L$ by learning genuine structure or by fitting accidental details.
+  Held-out data distinguish the two.
+\end{frame}
+
+\begin{frame}{Each Data Split Has One Role}
+  \centering
+  \begin{tikzpicture}[x=0.09\textwidth,y=1cm]
+    \fill[courseblue] (0,0) rectangle (6.5,1.2);
+    \fill[courseorange] (6.5,0) rectangle (8.5,1.2);
+    \fill[coursegreen] (8.5,0) rectangle (10,1.2);
+    \draw[white,very thick] (6.5,0) -- (6.5,1.2);
+    \draw[white,very thick] (8.5,0) -- (8.5,1.2);
+    \node[white,font=\bfseries] at (3.25,0.6) {training};
+    \node[white,font=\bfseries] at (7.5,0.6) {validation};
+    \node[white,font=\bfseries] at (9.25,0.6) {test};
+    \node[align=center,font=\small] at (3.25,-0.85) {fit parameters and preprocessing};
+    \node[align=center,font=\small] at (7.5,-0.72) {select models};
+    \node[align=center,font=\small] at (9.25,-1.12) {evaluate once};
+  \end{tikzpicture}
+
+  Repeated decisions on the test set turn it into validation data.
+  Grouped or time-ordered samples require a split that respects that dependence.
+\end{frame}
+
+\begin{frame}{Leakage Makes Evaluation Optimistic}
+  \centering
+  \begin{tikzpicture}[
+    node distance=1.25cm,
+    box/.style={draw, rounded corners, minimum width=2.4cm, minimum height=1.0cm, align=center, very thick},
+    good/.style={-{Latex[length=3mm]}, very thick, coursegreen},
+    bad/.style={-{Latex[length=3mm]}, very thick, courseorange, dashed}
+  ]
+    \node[box,fill=courselightblue] (train) {training data};
+    \node[box,fill=white,right=of train] (fit) {fit model and\\preprocessing};
+    \node[box,fill=courselightorange,right=of fit] (evaluate) {final evaluation};
+    \node[box,fill=white,below=1.4cm of evaluate] (test) {test data};
+    \draw[good] (train) -- (fit);
+    \draw[good] (fit) -- (evaluate);
+    \draw[good] (test) -- (evaluate);
+    \draw[bad] (test.west) -| (fit.south);
+    \node[courseorange,font=\bfseries,below=0.2cm of fit] {test information must not affect fitting};
+  \end{tikzpicture}
+\end{frame}
+
+\begin{frame}{A Simple Baseline Is a Diagnostic Tool}
+  \begin{itemize}
+    \item Regression baseline: predict the training-target mean.
+    \item Classification baseline: predict the majority class or class frequency.
+    \item A learned model must improve on a rule that ignores the features.
+  \end{itemize}
+  \[
+    \hat y_{\mathrm{mean}}=\frac1{n_{\mathrm{train}}}
+      \sum_{i\in\mathrm{train}}y_i.
+  \]
+  A baseline catches broken preprocessing, leakage, weak signal, and misleading metrics
+  before model complexity hides the problem.
+\end{frame}
+
+\begin{frame}{Regression Predicts a Numerical Value}
+  \[
+    y_i\in\mathbb{R},
+    \qquad
+    \hat y_i=\mathbf{w}^{\top}\mathbf{x}_i+b
+  \]
+  \begin{itemize}
+    \item The weights $\mathbf{w}\in\mathbb{R}^{d}$ set feature contributions.
+    \item The bias $b\in\mathbb{R}$ shifts every prediction.
+    \item Examples include price, temperature, displacement, and stress.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Linear Regression Fits a Trend}
+  \centering
+  \includegraphics[width=0.94\linewidth,height=0.76\textheight,keepaspectratio]{linear-regression.png}
+\end{frame}
+
+\begin{frame}{Mean-Squared Error Penalizes Residuals}
+  \[
+    r_i=y_i-\hat y_i,
+    \qquad
+    L_{\mathrm{MSE}}(\mathbf{w},b)
+    =\frac{1}{n}\sum_{i=1}^{n}r_i^2
+  \]
+  \begin{itemize}
+    \item A residual is the vertical prediction error.
+    \item Squaring makes large errors more influential.
+    \item MSE has squared target units; $\mathrm{RMSE}=\sqrt{L_{\mathrm{MSE}}}$ has target units.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Gaussian Observation Noise Leads to Squared Error}
+  Assume independent observations
+  \[
+    y_i=\mathbf w^\top\mathbf x_i+b+\varepsilon_i,
+    \qquad \varepsilon_i\sim\mathcal N(0,\sigma^2).
+  \]
+  Then the negative log-likelihood is
+  \[
+    -\log p(\mathbf y\mid\mathbf X,\mathbf w,b)
+    =\frac{1}{2\sigma^2}\sum_{i=1}^n(y_i-\hat y_i)^2
+      +\frac n2\log(2\pi\sigma^2).
+  \]
+  For fixed $\sigma^2$, maximum likelihood and least squares have the same minimizer.
+  The derivation also states the model assumption behind MSE.
+\end{frame}
+
+\begin{frame}{Matrix Form Makes the Linear Problem Explicit}
+  Add a column of ones for the intercept:
+  \[
+    \widetilde{\mathbf X}
+    =\begin{bmatrix}\mathbf x_1^\top&1\\[-1mm]\vdots&\vdots\\\mathbf x_n^\top&1\end{bmatrix},
+    \qquad
+    \boldsymbol\beta=\begin{bmatrix}\mathbf w\\b\end{bmatrix}.
+  \]
+  The least-squares objective becomes
+  \[
+    L(\boldsymbol\beta)
+    =\frac1n\|\widetilde{\mathbf X}\boldsymbol\beta-\mathbf y\|_2^2.
+  \]
+  This is convex; every stationary point is a global minimizer.
+\end{frame}
+
+\begin{frame}{The Normal Equations Characterize Least Squares}
+  \begin{align*}
+    \nabla_{\boldsymbol\beta}L
+      &=\frac2n\widetilde{\mathbf X}^\top
+        (\widetilde{\mathbf X}\boldsymbol\beta-\mathbf y),\\
+    \nabla_{\boldsymbol\beta}L=\mathbf0
+      &\Longleftrightarrow
+        \widetilde{\mathbf X}^\top\widetilde{\mathbf X}\boldsymbol\beta
+        =\widetilde{\mathbf X}^\top\mathbf y.
+  \end{align*}
+  If $\widetilde{\mathbf X}$ has full column rank,
+  \[
+    \boldsymbol\beta^\star
+    =(\widetilde{\mathbf X}^\top\widetilde{\mathbf X})^{-1}
+      \widetilde{\mathbf X}^\top\mathbf y.
+  \]
+  The formula proves uniqueness; it is not the preferred numerical algorithm.
+\end{frame}
+
+\begin{frame}{Solve Least Squares Without Forming an Inverse}
+  \begin{itemize}
+    \item Solve the normal equations directly only when conditioning is acceptable.
+    \item QR factorization avoids squaring the condition number.
+    \item SVD reveals rank deficiency and gives the minimum-norm solution.
+  \end{itemize}
+  \[
+    \widetilde{\mathbf X}=\mathbf Q\mathbf R
+    \quad\Longrightarrow\quad
+    \mathbf R\boldsymbol\beta^\star=\mathbf Q^\top\mathbf y.
+  \]
+  Iterative optimization becomes essential when the model or dataset makes a direct solve impractical.
+\end{frame}
+
+\begin{frame}{Binary Classification Predicts a Probability}
+  \[
+    y_i\in\{0,1\},
+    \qquad
+    \hat p_i=P(y_i=1\mid\mathbf{x}_i)
+  \]
+  \[
+    \hat p_i=\sigma(z_i),
+    \qquad
+    z_i=\mathbf{w}^{\top}\mathbf{x}_i+b,
+    \qquad
+    \sigma(z)=\frac{1}{1+e^{-z}}
+  \]
+  \begin{itemize}
+    \item The threshold $\hat p_i\geq 0.5$ corresponds to $z_i\geq 0$.
+    \item The threshold may change when error costs are unequal.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Logistic Regression Is Linear in the Log-Odds}
+  The sigmoid maps any score to $(0,1)$, and its inverse is the logit:
+  \[
+    \hat p=\sigma(z)
+    \quad\Longleftrightarrow\quad
+    \log\frac{\hat p}{1-\hat p}=z=\mathbf w^\top\mathbf x+b.
+  \]
+  Therefore each constant-probability set satisfies
+  \[
+    \mathbf w^\top\mathbf x+b
+    =\log\frac{c}{1-c}.
+  \]
+  Logistic regression is nonlinear as a probability map but retains parallel linear
+  decision contours in feature space.
+\end{frame}
+
+\begin{frame}{Logistic Regression Learns a Decision Boundary}
+  \centering
+  \includegraphics[width=0.95\linewidth,height=0.78\textheight,keepaspectratio]{logistic-regression.png}
+\end{frame}
+
+\begin{frame}{Bernoulli Likelihood Leads to Cross-Entropy}
+  For $Y_i\mid\mathbf x_i\sim\operatorname{Bernoulli}(\hat p_i)$,
+  \[
+    p(y_i\mid\mathbf x_i)
+    =\hat p_i^{y_i}(1-\hat p_i)^{1-y_i}.
+  \]
+  Its negative log-likelihood is
+  \[
+    \ell_{\mathrm{BCE}}(\hat p_i,y_i)
+    =-y_i\log\hat p_i-(1-y_i)\log(1-\hat p_i)
+  \]
+  \[
+    L_{\mathrm{BCE}}(\mathbf{w},b)
+    =\frac{1}{n}\sum_{i=1}^{n}
+    \ell_{\mathrm{BCE}}(\hat p_i,y_i)
+  \]
+  \begin{itemize}
+    \item A confident wrong probability receives an unbounded penalty.
+    \item The loss evaluates probability quality before any decision threshold is chosen.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{A Decision Threshold Encodes Error Costs}
+  Predict class $1$ when $\hat p\geq\tau$. With false-positive cost $C_{\mathrm{FP}}$
+  and false-negative cost $C_{\mathrm{FN}}$, choose class $1$ when
+  \[
+    C_{\mathrm{FP}}(1-\hat p)
+    \leq C_{\mathrm{FN}}\hat p
+    \quad\Longleftrightarrow\quad
+    \boxed{\hat p\geq
+      \frac{C_{\mathrm{FP}}}{C_{\mathrm{FP}}+C_{\mathrm{FN}}}}.
+  \]
+  The familiar threshold $0.5$ assumes equal costs and calibrated probabilities.
+\end{frame}
+
+\begin{frame}{The Confusion Matrix Separates Error Types}
+  \centering
+  \begin{tabular}{c|cc}
+    & \textbf{Predicted 1} & \textbf{Predicted 0} \\
+    \hline
+    \textbf{Actual 1} & TP & FN \\
+    \textbf{Actual 0} & FP & TN
+  \end{tabular}
+  \vspace{0.45cm}
+  \[
+    \mathrm{precision}=\frac{TP}{TP+FP},
+    \qquad
+    \mathrm{recall}=\frac{TP}{TP+FN},
+  \]
+  \[
+    \mathrm{specificity}=\frac{TN}{TN+FP},
+    \qquad
+    \mathrm{accuracy}=\frac{TP+TN}{TP+TN+FP+FN}.
+  \]
+  Class imbalance and application costs determine which summary is informative.
+\end{frame}
+
+\begin{frame}{Loss Trains; Metrics Communicate}
+  \centering
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Task} & \textbf{Training loss} & \textbf{Evaluation metrics} \\
+    \midrule
+    Regression & MSE & MAE, RMSE, $R^2$ \\
+    Binary classification & Cross-entropy & Accuracy, precision, recall \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.6cm}
+  \begin{itemize}
+    \item A loss must support parameter optimization.
+    \item A metric should answer the application question.
+    \item Report more than one metric when error types differ.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Normalize With Training Statistics Only}
+  \[
+    \mu_j^{\mathrm{train}}
+    =\frac{1}{n_{\mathrm{train}}}\sum_{i\in\mathrm{train}}x_{ij},
+    \qquad
+    \sigma_j^{\mathrm{train}}
+    =\sqrt{\frac{1}{n_{\mathrm{train}}}
+      \sum_{i\in\mathrm{train}}(x_{ij}-\mu_j^{\mathrm{train}})^2}
+  \]
+  \[
+    \tilde x_{ij}
+    =\frac{x_{ij}-\mu_j^{\mathrm{train}}}{\sigma_j^{\mathrm{train}}}
+  \]
+  \begin{itemize}
+    \item Apply the same $\mu_j^{\mathrm{train}}$ and $\sigma_j^{\mathrm{train}}$ to every split.
+    \item Never recompute preprocessing from validation or test data.
+    \item A constant training feature has $\sigma_j^{\mathrm{train}}=0$ and must be handled separately.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Normalization Places Features on Comparable Scales}
+  \centering
+  \includegraphics[width=0.97\linewidth,height=0.78\textheight,keepaspectratio]{normalization.png}
+\end{frame}
+
+\begin{frame}{Scaling Changes Optimization Geometry}
+  If $\tilde x_j=(x_j-\mu_j)/\sigma_j$, then an affine model can represent the same map
+  after transforming its coefficients:
+  \[
+    \mathbf w^\top\mathbf x+b
+    =\widetilde{\mathbf w}^{\top}\widetilde{\mathbf x}+\tilde b.
+  \]
+  \begin{itemize}
+    \item The model class is unchanged when every $\sigma_j>0$.
+    \item The objective contours in parameter space can become less elongated.
+    \item First-order optimization can then use a useful step size in more directions.
+  \end{itemize}
+  The optimization lecture formalizes this through conditioning.
+\end{frame}
+
+\begin{frame}{One Notation Across the Course}
+  \[
+    \hat y_i=f_{\boldsymbol{\theta}}(\mathbf{x}_i),
+    \qquad
+    L(\boldsymbol{\theta})
+    =\frac{1}{n}\sum_{i=1}^{n}\ell(\hat y_i,y_i)
+  \]
+  \begin{itemize}
+    \item $\mathbf{x}_i$: input features.
+    \item $y_i$: observed target.
+    \item $\hat y_i$: model prediction.
+    \item $\boldsymbol{\theta}$: all learnable parameters.
+    \item $L$: empirical training objective.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Next: How Do Parameters Learn?}
+  \centering
+  \begin{tikzpicture}[
+    node distance=0.8cm,
+    box/.style={draw, rounded corners, minimum width=3.2cm, minimum height=0.9cm, align=center, very thick},
+    flow/.style={-{Latex[length=3mm]}, very thick, courseblue}
+  ]
+    \node[box,fill=courselightblue] (objective) {objective\\$L(\boldsymbol{\theta})$};
+    \node[box,fill=white,below=of objective] (gradient) {gradient\\$\nabla_{\boldsymbol{\theta}}L$};
+    \node[box,fill=courselightorange,below=of gradient] (optimizer) {optimizer\\GD $\rightarrow$ Adam};
+    \draw[flow] (objective) -- (gradient);
+    \draw[flow] (gradient) -- (optimizer);
+  \end{tikzpicture}
+\end{frame}
+
+\end{document}

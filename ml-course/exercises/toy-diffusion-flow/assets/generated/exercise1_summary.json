@@ -1,0 +1,40 @@
+{
+  "config": {
+    "seed": 20260404,
+    "train_size": 2048,
+    "val_size": 1024,
+    "test_size": 2048,
+    "train_pairs": 8192,
+    "val_pairs": 4096,
+    "sample_count": 3000,
+    "epochs": 500,
+    "hidden_layers": [
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16
+    ],
+    "diffusion_steps": 40,
+    "diffusion_beta_start": 0.0001,
+    "diffusion_beta_end": 0.02,
+    "flow_steps": 60,
+    "score_timesteps": [
+      5,
+      20,
+      40
+    ]
+  },
+  "diffusion": {
+    "wasserstein_test": 0.3261586954102056,
+    "train_loss_final": 0.6713859666483203,
+    "validation_loss_final": 0.6426458717018098
+  },
+  "flow_matching": {
+    "wasserstein_test": 0.06854864109283444,
+    "train_loss_final": 2.2966131888895935,
+    "validation_loss_final": 2.4242367395171858
+  }
+}
