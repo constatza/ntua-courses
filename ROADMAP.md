@@ -1,14 +1,15 @@
 # Roadmap — cross-repo
 
-Done: course repos created, topics mapped, `ntuabeamer` consumed as an installed class, meta-repo with submodules, setup docs.
+Done: course repos with shared build/release/CI tooling in `beamer-ntua`, topics mapped, meta-repo with submodules, setup docs.
 
 ## Next
-1. Create GitHub repos `ntua-courses`, `machine-learning`, `stochastic-methods`; push each course first, then the parent.
-2. Point the course submodules at their GitHub URLs (`git submodule set-url`); today `.gitmodules` uses local `./` paths and a fresh clone cannot resolve them.
-3. Tag a release of `beamer-ntua`, then note the tag in each course README that uses the class (`NTUA_BEAMER_REF=<tag>`).
-4. Test the documented setup from a clean machine or container: clone, run `install-class.sh`, run `tools/build-all`. The installer and the tag pinning have not been tested.
+1. Push `beamer-ntua` (`main` and tag `v0.2.0`) so the course CI can resolve the reusable workflow; push each course next, then this repo.
+2. Rename the GitHub repos `machine-learning` → `ml-course` and `stochastic-methods` → `stochastic-course`; add the topics `course`, `ntua` and pin them on the profile. `.gitmodules` already points at the new names.
+3. Test the documented setup from a clean machine or container: clone with `--recurse-submodules`, run `scripts/bootstrap.sh`, run `build-course` in each course.
+4. Push a `v0.1.0` tag in one course on a fork and confirm the draft-then-publish release (see `beamer-ntua/scripts/release-course`).
 5. Review `_archive/_pre-reorg/` (old trees kept for safety), then delete it. Extend `_archive/MANIFEST.sha256` to cover the `admin/` folder if wanted.
-6. Decide where publishable PDFs go (GitHub Releases or Pages); built PDFs are ignored in git.
+6. When a third course exists, extract a `course-template` GitHub template repo (thin `ci.yml`, `.gitignore`, `AGENTS.md`, one sample deck).
 
 ## Open questions
-- `pdf-distances` is in `machine-learning` (ML-engineering applications) but could belong in `stochastic-methods` (KDE, optimal transport are statistics); changing it means moving the directory and updating both `TOPICS.toml` files.
+- `pdf-distances` is in `ml-course` (ML-engineering applications) but could belong in `stochastic-course` (KDE, optimal transport are statistics); changing it means moving the directory and updating both `TOPICS.toml` files.
+- `beamer-ntua/scripts/install-class.ps1` does not install the course tools yet (Windows).

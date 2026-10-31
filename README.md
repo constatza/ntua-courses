@@ -4,29 +4,29 @@ Meta-repo that pins independent repos as submodules. Each one builds on its own;
 | Submodule | What | Use it alone |
 |---|---|---|
 | `beamer-ntua` | Beamer class `ntuabeamer` (own repo) | its README |
-| `machine-learning` | decks, notes, exercises | its README → Setup |
-| `stochastic-methods` | decks, notes | its README → Setup |
+| `ml-course` | decks, notes, exercises | its README → Setup |
+| `stochastic-course` | decks, notes, exercises | its README → Setup |
 
 ## Everything together
 ```sh
 git clone --recurse-submodules <this-repo> ntua-courses && cd ntua-courses
-sh beamer-ntua/scripts/install-class.sh      # once; writes to TEXMFHOME
-machine-learning/tools/build-all
-stochastic-methods/tools/build-all
+sh scripts/bootstrap.sh                      # submodules + class + build-course (or: sh beamer-ntua/scripts/install-class.sh)
+(cd ml-course && build-course)
+(cd stochastic-course && build-course)
 ```
 
 ## Just one course
 ```sh
 git clone <this-repo> ntua-courses && cd ntua-courses
-git submodule update --init machine-learning   # only what you ask for
+git submodule update --init ml-course   # only what you ask for
 ```
 or clone that course's repo directly and follow its Setup section.
 
 ## Committing
 Child first, then parent. Where you run `git commit` decides which repo is committed.
 ```sh
-cd machine-learning && tools/build-all && git add <paths> && git commit   # work and commit in the course repo
-cd .. && git add machine-learning && git commit -m "chore(repo): bump machine-learning"   # optional snapshot in the parent
+cd ml-course && build-course && git add <paths> && git commit   # work and commit in the course repo
+cd .. && git add ml-course && git commit -m "chore(repo): bump ml-course"   # optional snapshot in the parent
 ```
 - The parent stores only a pointer to a commit of each child; bump it when you want a snapshot of versions that go together.
 - Push the child before the parent, or other clones will point at a commit that is not on GitHub.

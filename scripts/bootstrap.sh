@@ -4,7 +4,8 @@
 #   git clone <repo> ntua-courses && cd ntua-courses && sh scripts/bootstrap.sh
 #
 # Initializes submodules at their pinned commits and installs the
-# ntuabeamer beamer class (once, to TEXMFHOME) so every deck builds.
+# ntuabeamer beamer class (to TEXMFHOME) and build-course/release-course
+# (to ~/.local/bin) from the pinned beamer-ntua checkout, so every deck builds.
 set -eu
 
 echo "==> syncing submodule URLs"
@@ -14,8 +15,9 @@ echo "==> initializing submodules"
 git submodule update --init --recursive
 
 echo "==> installing ntuabeamer beamer class (to TEXMFHOME)"
-sh beamer-ntua/scripts/install-class.sh
+# Install from the pinned checkout, not from main, so the class and the tools match the pin.
+NTUA_BEAMER_BASE_URL="file://$PWD/beamer-ntua" sh beamer-ntua/scripts/install-class.sh
 
-echo "==> done. Build a course with:"
-echo "    cd machine-learning && sh tools/build-all"
-echo "    cd stochastic-methods && sh tools/build-all"
+echo "==> done. Make sure ~/.local/bin is on PATH, then build a course with:"
+echo "    cd ml-course && build-course"
+echo "    cd stochastic-course && build-course"
