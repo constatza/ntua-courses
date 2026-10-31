@@ -27,6 +27,8 @@ Each repo has a `.pre-commit-config.yaml` for [prek](https://github.com/j178/pre
 
 Both courses use the same `beamer-ntua` tag (course content versions are separate). `scripts/beamer-pin` checks that, and `scripts/beamer-pin set vX.Y.Z` bumps both; commit the result in each course, child first.
 
+`scripts/release-beamer X.Y.Z` does the whole move in one go: it checks that all repos are clean and in sync, builds both courses against the new `beamer-ntua`, and only then releases it, pins both courses, and bumps the pointers. `scripts/release-beamer --check` runs just the verification. Course content tags are separate and stay manual.
+
 ## Committing
 Child first, then parent. Where you run `git commit` decides which repo is committed.
 ```sh

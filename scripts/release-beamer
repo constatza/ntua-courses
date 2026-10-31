@@ -1,0 +1,71 @@
+#!/bin/sh
+# Release beamer-ntua and move both courses and the meta pointers onto it, in one go.
+#
+#   scripts/release-beamer 0.4.0            full release
+#   scripts/release-beamer --check          only verify: clean repos, in sync, both courses build
+#
+# Order matters: the courses are built against the working-tree beamer-ntua BEFORE anything is
+# tagged, so a release the courses cannot build is never published. After that: tag and push
+# beamer-ntua, rewrite the pins, commit and push each course, then the meta repo (children first).
+# Course content tags are not touched; those stay a deliberate per-course decision.
+set -eu
+
+die() { echo "error: $*" >&2; exit 1; }
+step() { echo "==> $*"; }
+
+cd "$(git rev-parse --show-toplevel)"
+courses="ml-course stochastic-course"
+repos=". beamer-ntua $courses"
+
+arg="${1:?usage: scripts/release-beamer X.Y.Z | --check}"
+check_only=0
+if [ "$arg" = --check ]; then check_only=1; else
+  case "$arg" in [0-9]*.[0-9]*.[0-9]*) ;; *) die "version must look like 1.2.3" ;; esac
+  tag="v$arg"
+fi
+
+step "checking repositories"
+for r in $repos; do
+  (
+    cd "$r"
+    [ "$(git branch --show-current)" = main ] || die "$r: not on main"
+    [ -z "$(git status --porcelain)" ] || die "$r: working tree is not clean"
+    git fetch -q origin
+    [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || die "$r: main is not in sync with origin/main"
+  )
+done
+scripts/beamer-pin >/dev/null || die "courses already disagree on the beamer-ntua pin"
+
+step "building both courses against the working-tree beamer-ntua"
+NTUA_BEAMER_BASE_URL="file://$PWD/beamer-ntua" sh beamer-ntua/scripts/install-class.sh >/dev/null
+for c in $courses; do
+  (cd "$c" && sh ../beamer-ntua/scripts/build-course) || die "$c does not build"
+done
+
+if [ "$check_only" -eq 1 ]; then echo "ok   ready to release"; exit 0; fi
+
+step "releasing beamer-ntua $tag"
+(cd beamer-ntua && sh scripts/release "$arg")
+
+step "moving the courses to $tag"
+scripts/beamer-pin set "$tag" >/dev/null
+for c in $courses; do
+  (
+    cd "$c"
+    git add .github/workflows/ci.yml .pre-commit-config.yaml
+    git commit -q -m "build(deps): bump beamer-ntua to $tag
+
+- Pin course-ci.yml and the hook repo to $tag"
+    git push -q origin main
+  )
+  echo "     pushed $c"
+done
+
+step "bumping the meta pointers"
+git add beamer-ntua ml-course stochastic-course
+git commit -q -m "chore(repo): bump beamer-ntua and courses to $tag
+
+- Move beamer-ntua to $tag
+- Move both courses onto their $tag pin commits"
+git push -q origin main
+echo "released $tag"
