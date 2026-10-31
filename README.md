@@ -37,21 +37,6 @@ Never `git subtree push`. Make class fixes in the class repository and pull them
 ## TeX Live
 CI builds inside `texlive/texlive:latest@sha256:…` (full TeX Live 2026, pinned by digest in `.github/workflows/ci.yml`), so the build needs no network and cannot change under you. To move to a newer TeX Live: `docker pull texlive/texlive:latest`, copy the digest from `docker inspect`, update `ci.yml`, and run `tools/ci` in that image.
 
-## Another CI host
-The workflow only calls `tools/ci`, so porting is mechanical. A GitLab sketch (not run here):
-```yaml
-build:
-  image: texlive/texlive:latest@sha256:<digest from ci.yml>
-  script:
-    - git config --global --add safe.directory "$CI_PROJECT_DIR"
-    - tools/ci ${CI_COMMIT_TAG:+--tag "$CI_COMMIT_TAG"}
-  artifacts: {paths: ["*/dist/"]}
-  rules:
-    - if: $CI_COMMIT_TAG =~ /^[^\/]+\/v/
-    - if: $CI_COMMIT_BRANCH == "main" || $CI_PIPELINE_SOURCE == "merge_request_event"
-```
-Only the publish step is host specific: `tools/release-course` uses `gh`; on GitLab use `glab release create` or a `release:` job with `<course>/dist/`.
-
 ## Adding a course
 Copy an existing course directory, rename it, adjust its `README.md`, `AGENTS.md`, `ROADMAP.md` and `TOPICS.toml`. `tools/courses` discovers it automatically (any top-level directory with `presentations/`, `notes/` or `exercises/`), and the `<course>/v*` tag convention works without editing CI.
 

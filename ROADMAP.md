@@ -10,4 +10,3 @@ Done: courses, tooling and CI in one repository; the class is a one-way subtree 
 
 ## Open questions
 - `pdf-distances` is in `ml-course` (ML-engineering applications) but could belong in `stochastic-course` (KDE, optimal transport are statistics); changing it means moving the directory and updating both `TOPICS.toml` files.
-- Whether a GitLab pipeline is ever needed; the README sketch is untested.
