@@ -1,4 +1,2 @@
 _archive/
 
-# local standalone checkout of the independent beamer-ntua repo (a dependency, not a submodule)
-/beamer-ntua/
