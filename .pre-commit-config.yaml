@@ -1,0 +1,28 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-yaml
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.5.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: [feat, fix, docs, refactor, test, build, ci, chore, perf, style, revert]
+  - repo: https://github.com/constatza/beamer-ntua
+    rev: v0.3.0
+    hooks:
+      - id: no-ai-attribution
+  - repo: local
+    hooks:
+      - id: beamer-pin
+        name: courses pin the same beamer-ntua tag
+        entry: scripts/beamer-pin
+        language: script
+        pass_filenames: false
+        files: ^(ml-course|stochastic-course|beamer-ntua)$
