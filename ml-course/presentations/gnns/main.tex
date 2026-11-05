@@ -1,7 +1,10 @@
 \documentclass{ntuabeamer}
+\usepackage{appendixnumberbeamer}
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath,amssymb,tikz}
 \usetikzlibrary{arrows.meta,calc,positioning}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
 
 \framesource{kipf2017}{Kipf, Welling. \emph{Semi-Supervised Classification with Graph Convolutional Networks}. ICLR, 2017.}
 \framesource{hamilton2017}{Hamilton, Ying, Leskovec. \emph{Inductive Representation Learning on Large Graphs}. NeurIPS, 2017.}
@@ -20,6 +23,8 @@
 \definecolor{coursered}{HTML}{B5473C}
 \definecolor{courselightblue}{HTML}{DCE9F5}
 \definecolor{courselightorange}{HTML}{F9E4C8}
+\newcommand{\takeaway}[1]{\par\medskip{\raggedright\color{courseblue}\bfseries #1\par}}
+
 \tikzset{
   flow/.style={-{Latex[length=3mm]},very thick,courseblue},
   edge/.style={very thick,coursegray},
@@ -28,68 +33,98 @@
   box/.style={draw,rounded corners,very thick,align=center,minimum width=1.7cm,minimum height=0.85cm}
 }
 
+% The five-node example graph used throughout: #1 styles node 1; #2..#6 are the node contents.
+\newcommand{\examplegraph}[6][]{%
+  \node[vertex,font=\footnotesize,#1] (a) at (0,0) {#2};
+  \node[vertex,font=\footnotesize] (b) at (2,1.4) {#3};
+  \node[vertex,font=\footnotesize] (c) at (4.3,0.5) {#4};
+  \node[vertex,font=\footnotesize] (d) at (1.6,-1.5) {#5};
+  \node[vertex,font=\footnotesize] (e) at (4.5,-1.6) {#6};
+  \draw[edge] (a)--(b)--(c)--(e)--(d)--(a);
+  \draw[edge] (b)--(d); \draw[edge] (c)--(d);%
+}
+
 \begin{document}
 \begin{frame}[plain]\makepresentationtitle\end{frame}
 
-\begin{frame}{Graphs Represent Irregular Relations}
-  \centering
-  \begin{tikzpicture}[scale=0.95]
-    \node[vertex] (a) at (0,0) {$1$};
-    \node[vertex] (b) at (2,1.4) {$2$};
-    \node[vertex,fill=courselightorange] (c) at (4.3,0.5) {$3$};
-    \node[vertex] (d) at (1.6,-1.5) {$4$};
-    \node[vertex] (e) at (4.5,-1.6) {$5$};
-    \draw[edge] (a)--(b)--(c)--(e)--(d)--(a);
-    \draw[edge] (b)--(d); \draw[edge] (c)--(d);
-    \node[right=1.0cm of c,align=left] {variable degree\\no regular grid\\relational structure};
-  \end{tikzpicture}
-  \vspace{0.4cm}
-  \begin{itemize}
-    \item Nodes represent entities; edges represent relations.
-    \item Examples: structures, meshes, molecules, roads, and social networks.
-    \item A useful model must not depend on arbitrary node numbering.
-  \end{itemize}
+\begin{frame}{Roadmap}
+  Some data is a network of things and relations, not a table or an image.
+  \medskip
+  \tableofcontents
+  \takeaway{So: first what a graph is, then why labels must not matter, then message passing, the three classic layers, building full models, and limits.}
 \end{frame}
 
-\begin{frame}{Graph Data Has Node, Edge, and Global Features}
-  \[
-    G=(V,E),\quad |V|=N,\qquad
-    \mathbf X=[\mathbf x_1^{\mathsf T};\ldots;\mathbf x_N^{\mathsf T}]
-      \in\mathbb R^{N\times d_x},
-  \]
-  \[
-    \mathbf e_{uv}\in\mathbb R^{d_e},
-    \qquad \mathbf u\in\mathbb R^{d_u}.
-  \]
+\section{Graphs and Their Data}
+\sectiondivider{Graphs and Their Data}
+
+\begin{frame}{Graphs Represent Irregular Relations}
+  Images live on a regular grid and sequences on a line. Many engineering objects do not:
+  structures, meshes, molecules, road networks, social networks.
+  \begin{center}
+  \begin{tikzpicture}[scale=0.95]
+    \examplegraph[fill=courselightorange]{$1$}{$2$}{$3$}{$4$}{$5$}
+    \node[right=1.0cm of c,align=left] {variable degree\\no regular grid\\relations matter};
+  \end{tikzpicture}
+  \end{center}
+  Nodes represent entities and edges represent relations.
+  \takeaway{So a graph is the natural container when the number of neighbors varies and the structure itself carries information.}
+\end{frame}
+
+\begin{frame}{Graph Data: Nodes, Edges, Features}
+  A graph $G=(V,E)$ has a set $V$ of $N$ nodes and a set $E$ of edges.
+  Information is attached at three levels:
   \begin{itemize}
-    \item $\mathcal N(v)=\{u:(u,v)\in E\}$ is the incoming neighborhood of $v$.
-    \item $\mathbf A\in\{0,1\}^{N\times N}$ stores adjacency.
-    \item Undirected graphs have $\mathbf A=\mathbf A^{\mathsf T}$.
-    \item Directed and weighted graphs require the relation convention to be stated.
+    \item node features $\mathbf x_v\in\mathbb R^{d_x}$ (for example a load or a material),
+    \item edge features $\mathbf e_{uv}\in\mathbb R^{d_e}$ (for example a length),
+    \item global features $\mathbf u\in\mathbb R^{d_u}$ (for example temperature).
   \end{itemize}
+  Stacking the node features as rows gives $\mathbf X\in\mathbb R^{N\times d_x}$.
+  The \emph{neighborhood} $\mathcal N(v)$ is the set of nodes with an edge into $v$.
+  \takeaway{So a graph dataset is: who is connected to whom, plus feature vectors on nodes, edges and the whole graph.}
+\end{frame}
+
+\begin{frame}{The Adjacency Matrix Stores Who Is Connected}
+  The \emph{adjacency matrix} $\mathbf A\in\{0,1\}^{N\times N}$ has $A_{vu}=1$ when there is an edge between $v$ and $u$.
+  For the five-node graph (rows and columns in order $1,\dots,5$):
+  \[
+    \mathbf A=\begin{bmatrix}
+      0&1&0&1&0\\
+      1&0&1&1&0\\
+      0&1&0&1&1\\
+      1&1&1&0&1\\
+      0&0&1&1&0
+    \end{bmatrix}
+  \]
+  Row 1 reads: node 1 is connected to nodes 2 and 4, so $\mathcal N(1)=\{2,4\}$.
+  This graph is undirected, so $\mathbf A=\mathbf A^{\mathsf T}$.
+  \takeaway{So $\mathbf A$ is the graph written as a table, and each row lists one node's neighbors.}
 \end{frame}
 
 \begin{frame}{Predictions Can Live at Three Levels}
-  \centering
+  \begin{center}
   \begin{tikzpicture}[node distance=0.65cm]
     \node[box,fill=courselightblue] (node) {node\\traffic at one road};
     \node[box,fill=courselightorange,right=of node] (edgepred) {edge\\missing relation};
     \node[box,fill=coursegreen!18,right=of edgepred] (graph) {graph\\structural response};
     \draw[flow] (node)--(edgepred)--(graph);
   \end{tikzpicture}
-  \vspace{0.6cm}
-  \[
-    \widehat{\mathbf y}_v=g_V(\mathbf h_v^{(L)}),\qquad
-    \widehat{\mathbf y}_{uv}=g_E(\mathbf h_u^{(L)},\mathbf h_v^{(L)},\mathbf e_{uv}),
-  \]
-  \[
-    \widehat{\mathbf y}_G=g_G\!\left(\operatorname{READOUT}
-      (\{\mathbf h_v^{(L)}:v\in V\})\right).
-  \]
+  \end{center}
+  The model first produces a state vector $\mathbf h_v^{(L)}$ for each node (after $L$ layers, defined below).
+  A small head $g_V$ turns one node's state into a node prediction, $g_E$ combines two node states (and the edge feature)
+  into an edge prediction, and $g_G$ turns one pooled vector into a graph prediction.
+  \takeaway{So the same node states can answer node, edge, or whole-graph questions; only the final head changes.}
 \end{frame}
 
+\begin{frame}{Recap: Graph Data}
+  A graph is nodes plus edges, with features at three levels, and it can be stored as a feature table $\mathbf X$ and an adjacency matrix $\mathbf A$.
+  Next: the key requirement that the numbering of nodes must not change the answer.
+\end{frame}
+
+\section{Node Labels Must Not Matter}
+\sectiondivider{Node Labels Must Not Matter}
+
 \begin{frame}{Node Labels Are Arbitrary}
-  \centering
+  \begin{center}
   \begin{tikzpicture}[scale=0.9]
     \node[vertex] (a1) at (0,0) {$1$}; \node[vertex] (a2) at (1.8,1.2) {$2$};
     \node[vertex] (a3) at (3.3,-0.2) {$3$}; \node[vertex] (a4) at (1.4,-1.5) {$4$};
@@ -99,95 +134,127 @@
     \node[vertex] (b3) at (10,-0.2) {$4$}; \node[vertex] (b4) at (8.1,-1.5) {$2$};
     \draw[edge] (b1)--(b2)--(b3)--(b4)--(b1); \draw[edge] (b2)--(b4);
   \end{tikzpicture}
-  \vspace{0.3cm}
-  \[
-    \mathbf X'=\mathbf P\mathbf X,\qquad
-    \mathbf A'=\mathbf P\mathbf A\mathbf P^{\mathsf T}.
-  \]
-  \begin{itemize}
-    \item The two arrays describe the same attributed graph.
-    \item Predictions must transform consistently under relabeling.
-  \end{itemize}
+  \end{center}
+  Both drawings are the same graph with the nodes numbered differently. In arrays, renumbering
+  reorders the rows of $\mathbf X$ and the rows and columns of $\mathbf A$:
+  $\mathbf X'=\mathbf P\mathbf X$, $\mathbf A'=\mathbf P\mathbf A\mathbf P^{\mathsf T}$,
+  where $\mathbf P$ is a permutation matrix (it encodes the new numbering).
+  \takeaway{So the numbering is a storage accident, and a sensible model must not depend on it.}
 \end{frame}
 
-\begin{frame}{Node Outputs Are Equivariant; Graph Outputs Are Invariant}
-  A node-wise model $F$ should satisfy
+\begin{frame}{Equivariance: Node Outputs Follow the Relabeling}
+  A node-level model $F$ outputs one vector per node. Renumbering the input should renumber the output in the same way:
   \[
     \boxed{F(\mathbf P\mathbf X,\mathbf P\mathbf A\mathbf P^{\mathsf T})
       =\mathbf P F(\mathbf X,\mathbf A)}.
   \]
-  A graph-level model $f$ should satisfy
+  \begin{itemize}
+    \item Example: if the model predicts a load of $0.7$ at the node you called $3$, it must predict $0.7$ at that same node after you rename it $1$.
+    \item This property is called \emph{permutation equivariance}.
+  \end{itemize}
+  \takeaway{So each node keeps its own prediction, wherever it is listed.}
+\end{frame}
+
+\begin{frame}{Invariance: Graph Outputs Ignore the Relabeling}
+  A graph-level model $f$ outputs one answer for the whole graph, so renumbering should change nothing:
   \[
     \boxed{f(\mathbf P\mathbf X,\mathbf P\mathbf A\mathbf P^{\mathsf T})
       =f(\mathbf X,\mathbf A)}.
   \]
   \begin{itemize}
-    \item Equivariance relabels node outputs with node inputs.
-    \item Invariance removes node order after a symmetric readout.
-    \item This is a required symmetry, not optional augmentation.
+    \item Example: the sum of the node values $3,1,-1,2,-3$ is $2$ in any numbering.
+    \item This property is called \emph{permutation invariance}.
+    \item It is a required symmetry of the problem, not an optional data augmentation.
   \end{itemize}
+  The geometric deep-learning lecture treats these symmetries in general.
+  \takeaway{So graph predictions must be built from symmetric operations such as sums, means and maxima.}
 \end{frame}
 
-\begin{frame}{Message Passing Repeats Three Operations}
-  \[
-    \mathbf m_{uv}^{(k)}=M^{(k)}(\mathbf h_u^{(k)},\mathbf h_v^{(k)},\mathbf e_{uv}),
-  \]
-  \[
-    \mathbf m_v^{(k)}=\operatorname{AGG}\!\left(
-      \{\mathbf m_{uv}^{(k)}:u\in\mathcal N(v)\}\right),
-  \]
-  \[
-    \boxed{\mathbf h_v^{(k+1)}=U^{(k)}(\mathbf h_v^{(k)},\mathbf m_v^{(k)})}.
-  \]
-  \begin{itemize}
-    \item Message: compute information sent along each edge.
-    \item Aggregate: combine an unordered neighbor multiset.
-    \item Update: mix the old state with the aggregate.
-  \end{itemize}
+\begin{frame}{Recap: Symmetry}
+  Node outputs must be equivariant and graph outputs invariant to renumbering the nodes.
+  Next: message passing, a way of building layers that has this property automatically.
 \end{frame}
 
-\begin{frame}{Symmetric Aggregation Cannot See Neighbor Order}
-  \[
-    \sum_{u\in\mathcal N(v)}\mathbf m_{uv}
-      =\sum_{u\in\mathcal N(v)}\mathbf m_{\pi(u)v}.
-  \]
-  \centering
+\section{Message Passing}
+\sectiondivider{Message Passing}
+
+\begin{frame}{Idea: Each Node Listens to Its Neighbors}
+  A node knows only its own features. To understand its role it needs context, and its context is its neighbors.
+  \emph{Message passing}: every node collects what its neighbors say and updates its own state.
+  \begin{center}
   \begin{tikzpicture}[scale=0.85]
     \node[vertex,fill=courselightorange] (v) at (5,0) {$v$};
     \foreach \i/\ang in {1/150,2/210,3/30,4/-30}{
       \node[vertex] (n\i) at ($(v)+(\ang:2.1cm)$) {$u_{\i}$};
       \draw[flow] (n\i)--(v);
     }
-    \node[below=1.15cm of v] {sum, mean, or max};
   \end{tikzpicture}
-  \begin{itemize}
-    \item Concatenating neighbors in stored order would violate relabeling symmetry.
-  \end{itemize}
+  \end{center}
+  \takeaway{So a node's new state is computed from its own state and from what its neighbors send.}
+\end{frame}
+
+\begin{frame}{Message Passing Repeats Three Operations}
+  In layer $k$ each node $v$ has a state vector $\mathbf h_v^{(k)}$ (the superscript counts layers):
+  \begin{enumerate}
+    \item \textbf{Message} $M$: for each neighbor $u$, compute $\mathbf m_{uv}=M(\mathbf h_u,\mathbf h_v,\mathbf e_{uv})$, what $u$ sends to $v$ along the edge.
+    \item \textbf{Aggregate} $\operatorname{AGG}$: combine all incoming messages into one vector $\mathbf m_v$ (sum, mean or max).
+    \item \textbf{Update} $U$: new state $\mathbf h_v^{(k+1)}=U(\mathbf h_v^{(k)},\mathbf m_v)$.
+  \end{enumerate}
+  $M$ and $U$ are small learned networks, shared by all nodes.
+  \takeaway{So one layer is: send messages, combine them, update the state.}
+\end{frame}
+
+\begin{frame}{Worked Example: One Layer on the Five-Node Graph}
+  Start with one number per node, $\mathbf h^{(0)}=(3,\,1,\,-1,\,2,\,-3)$.
+  Choose $M$ = send the value unchanged, $\operatorname{AGG}$ = sum,
+  $U$ = (own value $+$ sum) divided by the number of values counted.
+  \begin{center}
+  \begin{tikzpicture}[scale=0.75]
+    \examplegraph[fill=courselightorange]{$3$}{$1$}{$-1$}{$2$}{$-3$}
+    \node at (7.5,0) {$\Rightarrow$};
+    \begin{scope}[xshift=9.5cm]
+      \examplegraph[fill=courselightorange]{$2$}{$1.25$}{$-0.25$}{$0.4$}{$-0.67$}
+    \end{scope}
+  \end{tikzpicture}
+  \end{center}
+  Node 1: neighbors $2,4$ send $1$ and $2$; sum $3$; update $(3+3)/3=2$.
+  \takeaway{So after one layer each node's value already mixes in its neighbors' values.}
+\end{frame}
+
+\begin{frame}{Aggregation Must Ignore Neighbor Order}
+  Neighbors are an unordered set, so $\operatorname{AGG}$ must give the same answer in any order.
+  Neighbor values $1,3,5$ in any order give:
+  \[
+    \text{sum}=9,\qquad \text{mean}=3,\qquad \text{max}=5.
+  \]
+  \begin{center}
+  \begin{tikzpicture}[scale=0.85]
+    \node[vertex,fill=courselightorange] (v) at (5,0) {$v$};
+    \foreach \i/\ang in {1/150,2/210,3/30,4/-30}{
+      \node[vertex] (n\i) at ($(v)+(\ang:2.1cm)$) {$u_{\i}$};
+      \draw[flow] (n\i)--(v);
+    }
+  \end{tikzpicture}
+  \end{center}
+  Concatenating neighbors in the order they happen to be stored would break the relabeling symmetry.
+  \takeaway{So sums, means and maxima are safe aggregators because they cannot see the numbering.}
 \end{frame}
 
 \begin{frame}{One Message-Passing Layer Is Permutation Equivariant}
-  Relabel nodes by a bijection $\pi$. Then
-  \[
-    \mathcal N'(\pi(v))=\{\pi(u):u\in\mathcal N(v)\}.
-  \]
-  Shared messages and symmetric aggregation give
-  \[
-    \mathbf m'_{\pi(v)}
-    =\operatorname{AGG}\{\mathbf m'_{\pi(u)\pi(v)}\}
-    =\operatorname{AGG}\{\mathbf m_{uv}\}=\mathbf m_v.
-  \]
-  Therefore, the shared update gives
-  \[
-    \boxed{\mathbf h'^{(k+1)}_{\pi(v)}=\mathbf h^{(k+1)}_v}.
-  \]
+  Let $\pi$ be a renumbering of the nodes (node $v$ becomes node $\pi(v)$). The statement:
+  applying a layer and then renumbering gives the same result as renumbering and then applying the layer.
   \begin{itemize}
-    \item Composing equivariant layers preserves equivariance.
+    \item Why: messages depend only on features, never on node numbers.
+    \item Aggregation ignores neighbor order, so the renumbered neighborhood gives the same aggregate.
+    \item Stacking several such layers keeps the property.
   \end{itemize}
+  The short proof is in the appendix; the geometric deep-learning lecture proves equivariance in general.
+  \takeaway{So message passing is equivariant by construction, with no extra training needed to learn it.}
 \end{frame}
 
 \begin{frame}{Depth Expands the Receptive Field by Graph Hops}
-  \centering
-  \begin{tikzpicture}[scale=0.68]
+  \begin{center}
+  \begin{tikzpicture}[scale=0.5,vertex/.append style={minimum size=0.55cm}]
     \node[vertex,fill=courseorange!35] (v) at (0,0) {$v$};
     \foreach \i/\ang in {1/0,2/120,3/240}{
       \node[vertex,fill=courseblue!28] (a\i) at ($(v)+(\ang:1.8cm)$) {};
@@ -197,142 +264,156 @@
     }
     \draw[courseblue,very thick,dashed] (v) circle (2.25cm);
     \draw[coursegreen,very thick,dashed] (v) circle (3.95cm);
-    \node[right] at (4.2,1.0) {one layer: 1-hop};
-    \node[right] at (4.2,0.2) {two layers: 2-hop};
+    \node[right] at (4.4,0.8) {one layer: 1-hop};
+    \node[right] at (4.4,0) {two layers: 2-hop};
   \end{tikzpicture}
-  \begin{itemize}
-    \item After $k$ layers, $\mathbf h_v^{(k)}$ depends on at most $k$-hop inputs.
-    \item Greater depth increases range but also creates information bottlenecks.
-  \end{itemize}
+  \end{center}
+  After $k$ layers the state $\mathbf h_v^{(k)}$ depends on nodes at most $k$ hops (edges) away.
+  In the five-node example, node 1 hears from nodes $2,4$ after one layer and from all five after two.
+  \takeaway{So depth sets how far information travels: one hop per layer.}
 \end{frame}
 
-\begin{frame}{GCN Uses Degree-Normalized Propagation\framecite{kipf2017}}
-  \[
-    \widetilde{\mathbf A}=\mathbf A+\mathbf I,\qquad
-    \widetilde{\mathbf D}_{vv}=\sum_u\widetilde A_{vu}.
-  \]
-  \[
-    \boxed{\mathbf H^{(k+1)}=\sigma\!\left(
-      \widetilde{\mathbf D}^{-1/2}\widetilde{\mathbf A}
-      \widetilde{\mathbf D}^{-1/2}\mathbf H^{(k)}\mathbf W^{(k)}
-    \right)}.
-  \]
-  \begin{itemize}
-    \item Self-loops retain each node's current state.
-    \item This form assumes an undirected graph.
-    \item The same $\mathbf W^{(k)}$ is shared across all nodes.
-  \end{itemize}
+\begin{frame}{Recap: Message Passing}
+  Message passing builds a node's new state from its neighbors with a shared message, a symmetric aggregation and an update; it is equivariant and reaches one hop further per layer.
+  Next: three concrete choices of these operations, GCN, GraphSAGE and GAT.
 \end{frame}
 
-\begin{frame}{Degree Normalization Controls Neighbor Scale}
-  \[
-    \mathbf h_v^{(k+1)}=\sigma\!\left(
-      \sum_{u\in\widetilde{\mathcal N}(v)}
-      \frac{1}{\sqrt{\widetilde d_v\widetilde d_u}}
-      \mathbf h_u^{(k)}\mathbf W^{(k)}\right).
-  \]
-  \centering
-  \begin{tikzpicture}[scale=0.78]
-    \node[vertex,fill=courselightorange] (v) at (5,0) {$v$};
-    \foreach \i/\ang in {1/160,2/200,3/20,4/-20,5/90}{
-      \node[vertex] (n\i) at ($(v)+(\ang:2.0cm)$) {$u_{\i}$};
-      \draw[flow] (n\i)--(v);
-    }
-    \node[right=1.0cm of v,align=left] {source degree\\target degree};
-  \end{tikzpicture}
+\section{Three Classic Layers: GCN, GraphSAGE, GAT}
+\sectiondivider{Three Classic Layers: GCN, GraphSAGE, GAT}
+
+\begin{frame}{GCN Idea: Average Neighbors, Corrected for Degree\framecite{kipf2017}}
+  A plain sum over neighbors gives hub nodes (many neighbors) much larger values than leaves.
+  The graph convolutional network (GCN) fixes this with a degree-aware average:
   \begin{itemize}
-    \item High-degree nodes do not simply accumulate proportionally larger sums.
+    \item add a \emph{self-loop} so the node keeps its own state: $\widetilde{\mathcal N}(v)=\mathcal N(v)\cup\{v\}$;
+    \item let $\widetilde d_v=|\widetilde{\mathcal N}(v)|$ be the node's degree counting the self-loop;
+    \item weight each incoming state by $1/\sqrt{\widetilde d_v\widetilde d_u}$, small when either end has many neighbors.
   \end{itemize}
+  \takeaway{So busy nodes do not dominate: each contribution is scaled down by how many neighbors both ends have.}
 \end{frame}
 
-\begin{frame}{GraphSAGE Separates Self and Neighbor Summaries\framecite{hamilton2017}}
-  \[
-    \mathbf m_v^{(k)}=\frac{1}{|\mathcal N(v)|}
-      \sum_{u\in\mathcal N(v)}\mathbf h_u^{(k)},
-  \]
+\begin{frame}{GCN Layer and a Numeric Example\framecite{kipf2017}}
   \[
     \boxed{\mathbf h_v^{(k+1)}=\sigma\!\left(
-      \mathbf W^{(k)}[\mathbf h_v^{(k)}\,\|\,\mathbf m_v^{(k)}]
-    \right)}.
+      \sum_{u\in\widetilde{\mathcal N}(v)}
+      \frac{1}{\sqrt{\widetilde d_v\widetilde d_u}}\,
+      \mathbf W^{(k)}\mathbf h_u^{(k)}\right)}
   \]
-  \begin{itemize}
-    \item Learned functions act on features, not stored node identities.
-    \item The same rule can embed previously unseen nodes or graphs.
-    \item Neighbor sampling trades variance for scalable computation.
-  \end{itemize}
+  $\mathbf W^{(k)}$: learned weight matrix, the same for all nodes. $\sigma$: nonlinearity (for example ReLU).
+
+  \smallskip
+  Five-node graph, node 1: degrees with self-loops $\widetilde d_1=3$, $\widetilde d_2=4$, $\widetilde d_4=5$. Weights:
+  \[
+    \text{self: }\tfrac13\approx0.33,\quad
+    \text{from }2:\tfrac1{\sqrt{12}}\approx0.29,\quad
+    \text{from }4:\tfrac1{\sqrt{15}}\approx0.26.
+  \]
+  \takeaway{So GCN has fixed weights set by the graph's degrees; only $\mathbf W$ is learned. (Matrix form: appendix.)}
 \end{frame}
 
-\begin{frame}{Graph Attention Learns Neighbor Weights\framecite{velickovic2018}}
+\begin{frame}{GraphSAGE: Keep Self and Neighbors Separate\framecite{hamilton2017}}
+  GraphSAGE averages the neighbors, then stacks the result next to the node's own state:
+  \[
+    \mathbf m_v=\frac{1}{|\mathcal N(v)|}\sum_{u\in\mathcal N(v)}\mathbf h_u,
+    \qquad
+    \boxed{\mathbf h_v^{(k+1)}=\sigma\!\left(\mathbf W^{(k)}[\mathbf h_v\,\|\,\mathbf m_v]\right)}.
+  \]
+  $[\cdot\,\|\,\cdot]$ is \emph{concatenation}: put two vectors one after the other.
+  Example: $\mathbf h_v=(1,0)$ and $\mathbf m_v=(3,2)$ give $[\mathbf h_v\,\|\,\mathbf m_v]=(1,0,3,2)$, which $\mathbf W$ then mixes.
+  \takeaway{So the layer can weigh ``what I am'' and ``what my neighbors look like'' differently.}
+\end{frame}
+
+\begin{frame}{GraphSAGE Works on Unseen Nodes\framecite{hamilton2017}}
+  \begin{itemize}
+    \item The learned weights act on features, not on stored node identities.
+    \item So the same layer can embed a node, or even a whole graph, that was not in the training set (\emph{inductive} learning).
+    \item For huge graphs one \emph{samples} a fixed number of neighbors per node, which saves computation at the cost of a noisier average.
+  \end{itemize}
+  \takeaway{So GraphSAGE suits graphs that grow or change, and large graphs where full neighborhoods are too costly.}
+\end{frame}
+
+\begin{frame}{Graph Attention: Learn the Neighbor Weights\framecite{velickovic2018}}
+  GCN weights come from degrees. A \emph{graph attention network} (GAT) lets the model score each neighbor from the features:
   \[
     e_{vu}=a(\mathbf W\mathbf h_v,\mathbf W\mathbf h_u),\qquad
-    \alpha_{vu}=\frac{\exp(e_{vu})}
-      {\sum_{j\in\widetilde{\mathcal N}(v)}\exp(e_{vj})},
+    \alpha_{vu}=\frac{\exp(e_{vu})}{\sum_{j\in\widetilde{\mathcal N}(v)}\exp(e_{vj})},
   \]
   \[
-    \boxed{\mathbf h'_v=\sigma\!\left(
-      \sum_{u\in\widetilde{\mathcal N}(v)}
-      \alpha_{vu}\mathbf W\mathbf h_u\right)}.
+    \boxed{\mathbf h'_v=\sigma\!\Bigl(\sum_{u\in\widetilde{\mathcal N}(v)}\alpha_{vu}\mathbf W\mathbf h_u\Bigr)}.
   \]
-  \begin{itemize}
-    \item Softmax normalization is local to receiving node $v$.
-    \item Weights depend on features, unlike fixed GCN coefficients.
-    \item Attention weights are not automatically causal explanations.
-  \end{itemize}
+  $a$ is a small learned scoring function, $e_{vu}$ the score of neighbor $u$ for node $v$,
+  and softmax turns $v$'s scores into weights $\alpha_{vu}$ that add up to 1.
+  Example: scores $(2,1,0)$ give weights $(0.67,\,0.24,\,0.09)$.
+  \takeaway{So GAT decides from the features how much each neighbor counts, node by node.}
 \end{frame}
+
+\begin{frame}{Comparing the Three Layers}
+  \begin{center}
+  \footnotesize
+  \begin{tabular}{@{}lll@{}}
+    \textbf{Layer} & \textbf{How neighbors are weighted} & \textbf{Notable property}\\\hline
+    GCN & fixed, from degrees & simple; undirected graphs\\
+    GraphSAGE & plain mean, self kept apart & works on unseen nodes\\
+    GAT & learned from features & weights depend on content
+  \end{tabular}
+  \end{center}
+  Attention weights are a learned score, not automatically a causal explanation.
+  \takeaway{So the three layers differ only in how they weight and combine neighbors; the message-passing skeleton is the same.}
+\end{frame}
+
+\begin{frame}{Recap: Classic Layers}
+  GCN weights neighbors by degree, GraphSAGE averages them and keeps the node's own state separate, and GAT learns the weights.
+  Next: the extra ingredients of a full model: edge features, global context, readout, batching and graph construction.
+\end{frame}
+
+\section{Building Graph Models}
+\sectiondivider{Building Graph Models}
 
 \begin{frame}{Edge Features Belong Inside the Message}
   \[
     \boxed{\mathbf m_{uv}=M(\mathbf h_u,\mathbf h_v,\mathbf e_{uv})}.
   \]
-  \centering
+  \begin{center}
   \begin{tikzpicture}[scale=0.95]
     \node[vertex] (u) at (1,0) {$u$};
     \node[vertex,fill=courselightorange] (v) at (7,0) {$v$};
     \draw[flow] (u)--node[above] {length, direction, type}node[below] {$\mathbf e_{uv}$}(v);
   \end{tikzpicture}
-  \vspace{0.4cm}
-  \begin{itemize}
-    \item A relation can change what information should be transmitted.
-    \item Mechanics often uses displacement, distance, or interface data.
-    \item Ignoring informative edge attributes discards part of the problem definition.
-  \end{itemize}
+  \end{center}
+  A relation can change what should be transmitted: a short stiff member and a long flexible one pass different information.
+  In mechanics edge features are often a displacement, a distance or interface data.
+  \takeaway{So whenever edges carry information, feed it into the message instead of discarding it.}
 \end{frame}
 
 \begin{frame}{A Global State or Virtual Node Shares Long-Range Context}
-  \centering
-  \begin{tikzpicture}[scale=0.78]
+  \begin{center}
+  \begin{tikzpicture}[scale=0.6]
     \node[vertex,fill=coursepurple!28,minimum size=1.0cm] (g) at (5,0) {$g$};
     \foreach \i/\ang in {1/0,2/72,3/144,4/216,5/288}{
       \node[vertex] (n\i) at ($(g)+(\ang:2.7cm)$) {$v_{\i}$};
       \draw[flow] (n\i)--(g); \draw[flow] (g)--(n\i);
     }
   \end{tikzpicture}
-  \begin{itemize}
-    \item The virtual node aggregates from and broadcasts to all nodes.
-    \item A global feature can represent loading, temperature, or graph context.
-    \item Global shortcuts improve communication but can weaken locality bias.
-  \end{itemize}
+  \end{center}
+  A virtual node $g$ is connected to every node: it gathers from all of them and broadcasts back. A global feature (loading, temperature) can live there.
+  \takeaway{So one extra node gives every node a shortcut to all others, at the price of a weaker locality bias.}
 \end{frame}
 
 \begin{frame}{Graph Readout Must Be Permutation Invariant}
+  To predict for the whole graph, combine all node states $\mathbf h_v$ into one vector with a
+  \emph{readout}: $\mathbf h_G=\operatorname{READOUT}(\{\mathbf h_v:v\in V\})$.
+  Node states $(1,3),(2,0),(3,3)$ give:
   \[
-    \mathbf h_G=\operatorname{READOUT}(\{\mathbf h_v:v\in V\}),
-  \]
-  \[
-    \mathbf h_G=\sum_{v\in V}\mathbf h_v,\qquad
-    \mathbf h_G=\frac1N\sum_{v\in V}\mathbf h_v,\qquad
-    \mathbf h_G=\max_{v\in V}\mathbf h_v.
+    \text{sum}=(6,6),\qquad \text{mean}=(2,2),\qquad \text{max}=(3,3).
   \]
   \begin{itemize}
-    \item Sum retains multiplicity and graph-size information.
-    \item Mean removes global scale associated with node count.
-    \item Max records whether a strong feature occurs, not how often.
-    \item The choice encodes an assumption about the target.
+    \item Sum keeps counts and graph size; mean removes the effect of node count; max records whether a strong feature occurs anywhere.
   \end{itemize}
+  \takeaway{So the readout choice encodes an assumption about the target, and all three ignore the node order.}
 \end{frame}
 
 \begin{frame}{A Batch Is a Disconnected Union of Graphs}
-  \centering
+  \begin{center}
   \begin{tikzpicture}[scale=0.8]
     \node[vertex] (a1) at (0,0) {}; \node[vertex] (a2) at (1.5,1) {};
     \node[vertex] (a3) at (2.4,-0.5) {};
@@ -345,73 +426,15 @@
     \node at (4.2,0) {$\oplus$};
     \node[right=1.0cm of b2,align=left] {no edges\\between graphs};
   \end{tikzpicture}
-  \[
-    \mathbf A_{\text{batch}}=\operatorname{blockdiag}
-      (\mathbf A_1,\ldots,\mathbf A_B).
-  \]
-  \begin{itemize}
-    \item A graph-membership vector keeps readout results separate.
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Repeated Smoothing Can Make Nodes Indistinguishable}
-  For the propagation-only linearized case,
-  \[
-    \mathbf H^{(K)}=\mathbf S^K\mathbf H^{(0)},\qquad
-    \mathbf S=\widetilde{\mathbf D}^{-1/2}
-      \widetilde{\mathbf A}\widetilde{\mathbf D}^{-1/2}.
-  \]
-  \centering
-  \begin{tikzpicture}[node distance=0.55cm]
-    \node[box,fill=coursered!18] (a) {distinct\\node states};
-    \node[box,fill=courselightorange,right=of a] (b) {local\\averaging};
-    \node[box,fill=coursegreen!18,right=of b] (c) {similar\\node states};
-    \draw[flow] (a)--(b)--(c);
-  \end{tikzpicture}
-  \begin{itemize}
-    \item Dominant low-frequency graph modes can overwhelm distinctions.
-    \item Residuals and shallow or local architectures can reduce this effect.
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Message Passing Has a Weisfeiler--Lehman Limit\framecite{xu2019}}
-  \[
-    c_v^{(k+1)}=\operatorname{HASH}\!\left(
-      c_v^{(k)},\{c_u^{(k)}:u\in\mathcal N(v)\}\right).
-  \]
-  \[
-    \mathbf h_v^{(k+1)}=U\!\left(\mathbf h_v^{(k)},
-      \operatorname{AGG}\{\mathbf h_u^{(k)}:u\in\mathcal N(v)\}\right).
-  \]
-  \begin{itemize}
-    \item Standard message-passing GNNs cannot distinguish graphs that 1-WL cannot.
-    \item Injective multiset aggregation can match 1-WL distinguishing power.
-    \item Mean or max aggregation may merge different multisets earlier.
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Oversquashing Compresses Too Many Distant Signals}
-  \centering
-  \begin{tikzpicture}[scale=0.72]
-    \node[vertex,fill=courselightorange] (v) at (7,0) {$v$};
-    \node[vertex] (a) at (5,0) {}; \draw[focus] (a)--(v);
-    \foreach \i/\y in {1/2.5,2/1.25,3/0,4/-1.25,5/-2.5}{
-      \node[vertex,fill=coursegreen!18] (b\i) at (2.8,\y) {};
-      \draw[edge] (b\i)--(a);
-      \node[vertex,fill=courselightblue] (c\i) at (0.6,\y) {};
-      \draw[edge] (c\i)--(b\i);
-    }
-    \node[right=0.6cm of v,align=left] {fixed-width\\state};
-  \end{tikzpicture}
-  \begin{itemize}
-    \item Distant sources may grow faster than the state dimension.
-    \item Narrow graph bottlenecks force many signals through few edges.
-    \item More layers increase reach but do not remove compression.
-  \end{itemize}
+  \end{center}
+  Graphs have different sizes, so we train on several at once by placing them in one big graph with no edges between them:
+  $\mathbf A_{\text{batch}}=\operatorname{blockdiag}(\mathbf A_1,\ldots,\mathbf A_B)$.
+  A graph-membership vector tells the readout which nodes belong together.
+  \takeaway{So message passing never mixes graphs, and the readout stays separate for each graph.}
 \end{frame}
 
 \begin{frame}{Meshes Need Geometrically Meaningful Relations}
-  \centering
+  \begin{center}
   \begin{tikzpicture}[scale=0.62]
     \foreach \i in {0,...,4}{\foreach \j in {0,...,3}{
       \node[circle,fill=courseblue,inner sep=2.2pt] (n\i\j) at (1.5*\i+0.25*\j,1.25*\j) {};
@@ -422,14 +445,13 @@
     \foreach \i in {0,...,4}{\foreach \j in {0,...,2}{
       \pgfmathtruncatemacro{\next}{\j+1}\draw[edge] (n\i\j)--(n\i\next);
     }}
-    \draw[flow] (n22)--node[above] {$\mathbf r_{uv}=\mathbf p_u-\mathbf p_v$}(n32);
+    \draw[flow] (n22)--node[above,fill=white,inner sep=1pt] {$\mathbf r_{uv}=\mathbf p_u-\mathbf p_v$}(n32);
     \node[right=1.0cm of n43,align=left] {nodes: points or elements\\edges: adjacency or interaction};
   \end{tikzpicture}
-  \begin{itemize}
-    \item Relative positions preserve translation invariance.
-    \item Distances are rotation invariant; vectors transform under rotation.
-    \item Features must match the intended physical symmetry.
-  \end{itemize}
+  \end{center}
+  The edge feature $\mathbf r_{uv}$ is the relative position of two nodes ($\mathbf p_u$ is the position of node $u$).
+  Relative positions do not change if the whole mesh is shifted; distances also survive rotations, while vectors rotate with the mesh.
+  \takeaway{So choose edge features that carry the symmetry the physics has, such as shift or rotation invariance.}
 \end{frame}
 
 \begin{frame}{Graph Construction Is Part of the Model}
@@ -439,7 +461,7 @@
     \item Are edges directed, weighted, typed, or time dependent?
     \item Which attributes belong on nodes, edges, or the whole graph?
   \end{itemize}
-  \centering
+  \begin{center}
   \begin{tikzpicture}[node distance=0.55cm,scale=0.9,transform shape]
     \node[box,fill=courselightblue] (system) {physical or\\relational system};
     \node[box,fill=courselightorange,right=of system] (graph) {graph\\construction};
@@ -447,9 +469,60 @@
     \node[box,fill=coursegreen!18,right=of gnn] (prediction) {prediction};
     \draw[flow] (system)--(graph)--(gnn)--(prediction);
   \end{tikzpicture}
+  \end{center}
+  \takeaway{So a GNN cannot recover relations that the graph construction removed; design the graph deliberately.}
+\end{frame}
+
+\begin{frame}{Recap: Building Models}
+  A full model adds edge features, optional global context, an invariant readout, batching of disconnected graphs and a deliberate graph construction.
+  Next: what repeated message passing cannot do.
+\end{frame}
+
+\section{Limits of Message Passing}
+\sectiondivider{Limits of Message Passing}
+
+\begin{frame}{Oversmoothing: Repeated Averaging Blurs the Nodes}
+  Each layer averages a node with its neighbors, which is a smoothing step. What happens after many layers?
+  We test it on the five-node graph with starting values $(3,1,-1,2,-3)$ and pure averaging
+  (each step: replace a value by the mean of itself and its neighbors; no learning, no nonlinearity).
+  \begin{center}
+  \begin{tikzpicture}[scale=0.6]
+    \examplegraph{$3$}{$1$}{$-1$}{$2$}{$-3$}
+  \end{tikzpicture}
+  \end{center}
+  \takeaway{So the question is whether the nodes stay distinguishable after many averaging steps.}
+\end{frame}
+
+\begin{frame}{Oversmoothing: The Computed Result}
+  \begin{center}
+  \begin{tikzpicture}
+    \begin{axis}[width=0.9\textwidth,height=5.2cm,xlabel={averaging steps $k$},ylabel={node value},
+      xmin=0,xmax=10,legend style={font=\scriptsize,at={(1.02,0.5)},anchor=west},
+      tick label style={font=\scriptsize},label style={font=\small},grid=major,grid style={gray!20}]
+      \addplot[very thick,color=courseblue] table[x=k,y=n1] {assets/generated/oversmoothing.dat};
+      \addlegendentry{node 1}
+      \addplot[very thick,color=courseorange] table[x=k,y=n2] {assets/generated/oversmoothing.dat};
+      \addlegendentry{node 2}
+      \addplot[very thick,color=coursegreen] table[x=k,y=n3] {assets/generated/oversmoothing.dat};
+      \addlegendentry{node 3}
+      \addplot[very thick,color=coursepurple] table[x=k,y=n4] {assets/generated/oversmoothing.dat};
+      \addlegendentry{node 4}
+      \addplot[very thick,color=coursered] table[x=k,y=n5] {assets/generated/oversmoothing.dat};
+      \addlegendentry{node 5}
+    \end{axis}
+  \end{tikzpicture}
+  \end{center}
+  Spread (max minus min): $6.0$ at $k=0$, $0.34$ at $k=4$, $0.005$ at $k=10$.
+  \takeaway{So with averaging alone all nodes converge to nearly the same value; deep stacks risk losing the differences between nodes.}
+\end{frame}
+
+\begin{frame}{Two More Limits}
   \begin{itemize}
-    \item A GNN cannot reliably recover relations that construction removed.
+    \item \textbf{Oversquashing}: information from many distant nodes must be squeezed through fixed-size vectors and few edges, so far-away signals get lost.
+    \item \textbf{Expressiveness (Weisfeiler--Lehman)\framecite{xu2019}}: standard message passing cannot tell apart some different graphs that look locally identical.
   \end{itemize}
+  Residual connections, shallow models, virtual nodes and richer features can reduce these effects; details are in the appendix.
+  \takeaway{So message passing is powerful but not unlimited: depth helps reach, but it also smooths and squashes information.}
 \end{frame}
 
 \begin{frame}{Graph Learning Balances Symmetry, Locality, and Capacity}
@@ -462,6 +535,79 @@
     \item Oversmoothing, oversquashing, and 1-WL limit standard models.
     \item Graph construction and geometric features encode essential assumptions.
   \end{itemize}
+  \takeaway{So graph neural networks respect the symmetry of graphs by design; the work lies in choosing the graph, the features and the depth. The appendix holds the proofs.}
+\end{frame}
+
+\appendix
+\sectiondivider{Appendix: optional depth}
+
+\begin{frame}{Appendix: Message Passing Is Permutation Equivariant}
+  Relabel nodes by a bijection $\pi$. The neighborhoods become
+  $\mathcal N'(\pi(v))=\{\pi(u):u\in\mathcal N(v)\}$.
+  Shared messages and symmetric aggregation give
+  \[
+    \mathbf m'_{\pi(v)}
+    =\operatorname{AGG}\{\mathbf m'_{\pi(u)\pi(v)}\}
+    =\operatorname{AGG}\{\mathbf m_{uv}\}=\mathbf m_v .
+  \]
+  Therefore the shared update gives
+  \[
+    \boxed{\mathbf h'^{(k+1)}_{\pi(v)}=\mathbf h^{(k+1)}_v}.
+  \]
+  Composing equivariant layers preserves equivariance.
+\end{frame}
+
+\begin{frame}{Appendix: The Weisfeiler--Lehman Limit\framecite{xu2019}}
+  The 1-WL test colors each node $v$ with $c_v$ and refreshes the colors repeatedly,
+  where $\operatorname{HASH}$ maps its input to a new color (same input, same color):
+  \[
+    c_v^{(k+1)}=\operatorname{HASH}\!\left(
+      c_v^{(k)},\{c_u^{(k)}:u\in\mathcal N(v)\}\right),
+  \]
+  \[
+    \mathbf h_v^{(k+1)}=U\!\left(\mathbf h_v^{(k)},
+      \operatorname{AGG}\{\mathbf h_u^{(k)}:u\in\mathcal N(v)\}\right).
+  \]
+  \begin{itemize}
+    \item Standard message-passing GNNs cannot distinguish graphs that 1-WL cannot.
+    \item Injective multiset aggregation can match 1-WL distinguishing power.
+    \item Mean or max aggregation may merge different multisets earlier.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Appendix: Oversquashing}
+  \begin{center}
+  \begin{tikzpicture}[scale=0.72]
+    \node[vertex,fill=courselightorange] (v) at (7,0) {$v$};
+    \node[vertex] (a) at (5,0) {}; \draw[focus] (a)--(v);
+    \foreach \i/\y in {1/2.5,2/1.25,3/0,4/-1.25,5/-2.5}{
+      \node[vertex,fill=coursegreen!18] (b\i) at (2.8,\y) {};
+      \draw[edge] (b\i)--(a);
+      \node[vertex,fill=courselightblue] (c\i) at (0.6,\y) {};
+      \draw[edge] (c\i)--(b\i);
+    }
+    \node[right=0.6cm of v,align=left] {fixed-width\\state};
+  \end{tikzpicture}
+  \end{center}
+  \begin{itemize}
+    \item The number of distant sources can grow faster than the state dimension.
+    \item A narrow bottleneck forces many signals through few edges.
+    \item More layers increase reach but do not remove the compression.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Appendix: GCN in Matrix Form and Linear Smoothing}
+  With adjacency $\mathbf A$, $\widetilde{\mathbf A}=\mathbf A+\mathbf I$ and the diagonal degree matrix
+  $\widetilde{\mathbf D}_{vv}=\sum_u\widetilde A_{vu}$, one GCN layer for all nodes at once is
+  \[
+    \mathbf H^{(k+1)}=\sigma\!\left(
+      \widetilde{\mathbf D}^{-1/2}\widetilde{\mathbf A}\widetilde{\mathbf D}^{-1/2}
+      \mathbf H^{(k)}\mathbf W^{(k)}\right),
+  \]
+  where row $v$ of $\mathbf H^{(k)}$ is $\mathbf h_v^{(k)}$. This form assumes an undirected graph.
+  Dropping $\sigma$ and $\mathbf W$, $K$ layers apply $\mathbf S^K$ with
+  $\mathbf S=\widetilde{\mathbf D}^{-1/2}\widetilde{\mathbf A}\widetilde{\mathbf D}^{-1/2}$,
+  whose repeated powers are dominated by low-frequency graph modes: the linear picture of oversmoothing.
 \end{frame}
 
 \end{document}
