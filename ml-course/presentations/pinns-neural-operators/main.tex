@@ -1,7 +1,9 @@
 \documentclass{ntuabeamer}
 \usepackage[utf8]{inputenc}
-\usepackage{amsmath,amssymb,tikz}
-\usetikzlibrary{arrows.meta,positioning}
+\usepackage{amsmath,amssymb,graphicx,tikz}
+\usepackage{appendixnumberbeamer}
+\graphicspath{{assets/generated/}}
+\usetikzlibrary{arrows.meta,positioning,calc}
 
 \title{Physics-Informed Neural Networks and Neural Operators}
 \author{}
@@ -23,442 +25,501 @@
 \begin{document}
 \begin{frame}[plain]\makepresentationtitle\end{frame}
 
-\begin{frame}{A PDE Problem Includes More Than an Equation}
-  Find a field \(u:\Omega\to\mathbb R\) such that
-  \[
-    \mathcal N[u](\mathbf x)=f(\mathbf x),
-    \qquad \mathbf x\in\Omega,
-  \]
-  with boundary and initial conditions
-  \[
-    \mathcal B[u](\mathbf x)=g(\mathbf x),
-    \quad \mathbf x\in\partial\Omega,
-    \qquad
-    u(\mathbf x,0)=u_0(\mathbf x).
-  \]
-  \begin{itemize}
-    \item \(\mathcal N\) may contain spatial and temporal derivatives.
-    \item Coefficients, geometry, forcing, and conditions define the instance.
-    \item A small residual does not by itself imply a useful solution.
-  \end{itemize}
+\begin{frame}{Roadmap}
+  \tableofcontents
+  \vspace{0.3cm}
+
+  \textbf{Note:} Parts 1 and 2 are two different tools for PDE problems and can be read independently.
+  Part 3 compares them.
 \end{frame}
 
-\begin{frame}{A PINN Represents One Solution Field}
+\section{PINNs: One Solution From the Equation}
+\sectiondivider{Part 1: PINNs\\[0.2cm]\normalsize Physics-informed neural networks solve \emph{one} PDE problem}
+
+\begin{frame}{A PDE Problem Is More Than an Equation}
+  We look for an unknown field \(u\) (temperature, displacement, \dots) over a region \(\Omega\) that satisfies
+  \begin{itemize}
+    \item the \textbf{equation} \(\mathcal N[u](\mathbf x)=f(\mathbf x)\) inside \(\Omega\);
+      \(\mathcal N\) combines derivatives of \(u\), \(f\) is a known source;
+    \item the \textbf{boundary condition} \(\mathcal B[u](\mathbf x)=g(\mathbf x)\) on the edge \(\partial\Omega\);
+      \(\mathcal B\) says what is imposed there (for example \(\mathcal B[u]=u\): the value is prescribed);
+    \item for time-dependent problems, an \textbf{initial condition} \(u(\mathbf x,0)=u_0(\mathbf x)\).
+  \end{itemize}
+  Geometry, coefficients, forcing and conditions together define one \emph{instance}.
+
+  \medskip
+  \textbf{So:} a solution must satisfy the equation, the boundary and the start, all at once.
+\end{frame}
+
+\begin{frame}{The PINN Idea: Let a Network Be the Solution}
   \[
     u_\theta(\mathbf x,t)\approx u(\mathbf x,t).
   \]
   \centering
   \begin{tikzpicture}[node distance=0.8cm]
     \node[box,fill=courselightblue] (x) {coordinates\\\((\mathbf x,t)\)};
-    \node[box,fill=courselightorange,right=of x] (net) {neural field\\\(u_\theta\)};
+    \node[box,fill=courselightorange,right=of x] (net) {neural net\\\(u_\theta\)};
     \node[box,fill=coursegreen!18,right=of net] (u) {solution value\\\(u_\theta(\mathbf x,t)\)};
     \draw[flow] (x)--(net)--(u);
   \end{tikzpicture}
-  \vspace{0.6cm}
+
+  \raggedright
+  \vspace{0.3cm}
   \begin{itemize}
-    \item Inputs are coordinates, not a fixed mesh index.
-    \item Parameters \(\theta\) are optimized for this PDE instance.
-    \item The differential equation supplies training constraints.
+    \item Input: a point in space and time. Output: the field value there. No mesh.
+    \item The weights \(\theta\) are tuned so that the network obeys the physics.
   \end{itemize}
+  \textbf{So:} the physics becomes the training signal; no solved examples are required.
 \end{frame}
 
-\begin{frame}{Automatic Differentiation Produces PDE Derivatives}
-  If \(u_\theta(x,t)\) is differentiable,
-  \[
-    \partial_t u_\theta,\qquad
-    \nabla u_\theta,\qquad
-    \nabla^2u_\theta
-  \]
-  follow by repeated chain rule through the network.
-  \[
-    u_\theta(x)=W_2\phi(W_1x+b_1)+b_2
-    \quad\Longrightarrow\quad
-    \frac{du_\theta}{dx}
-      =W_2\operatorname{diag}(\phi')W_1.
-  \]
+\begin{frame}{Derivatives Come From Automatic Differentiation}
+  The equation needs \(\partial_tu\), \(\nabla u\), \(\nabla^2u\). For a network these are computed by the chain rule, exactly as backpropagation does.
   \begin{itemize}
-    \item Derivatives are exact for the represented computation up to floating-point error.
-    \item They are not exact derivatives of the unknown physical solution.
-    \item Smooth activations are needed when the residual uses higher derivatives.
+    \item The result is the exact derivative \emph{of the network}, up to rounding.
+    \item It is not the derivative of the unknown true solution; it is only good if the network is.
+    \item Second derivatives need a smooth activation (tanh, not ReLU).
   \end{itemize}
+  \textbf{So:} we can evaluate the left-hand side \(\mathcal N[u_\theta]\) of the equation at any point.
 \end{frame}
 
-\begin{frame}{Collocation Converts the PDE Into Residual Samples}
-  Define the interior residual
+\begin{frame}{The Residual Measures How Badly the Equation Fails}
   \[
-    r_\theta(\mathbf x,t)
-      =\mathcal N[u_\theta](\mathbf x,t)-f(\mathbf x,t).
+    r_\theta(\mathbf x,t)=\mathcal N[u_\theta](\mathbf x,t)-f(\mathbf x,t).
   \]
-  At collocation points \(\{(\mathbf x_i,t_i)\}_{i=1}^{N_r}\),
-  \[
-    L_{\mathrm{PDE}}(\theta)
-      =\frac1{N_r}\sum_{i=1}^{N_r}
-       |r_\theta(\mathbf x_i,t_i)|^2.
-  \]
-  \begin{itemize}
-    \item Collocation points need no observed solution values.
-    \item Sampling determines where the equation is enforced.
-    \item Zero sampled residual does not guarantee zero residual between points.
-  \end{itemize}
+  If \(r_\theta=0\) everywhere, \(u_\theta\) satisfies the equation.
+
+  \textbf{Example:} \(-u''=\pi^2\sin(\pi x)\) and the guess \(u_\theta=4x(1-x)\).
+  Then \(u_\theta''=-8\), so \(r_\theta(x)=8-\pi^2\sin(\pi x)\). At \(x=0.5\): \(r=8-9.87=-1.87\).
+
+  \medskip
+  \textbf{So:} the residual is a signed error we can compute without knowing the true solution.
 \end{frame}
 
-\begin{frame}{The Objective Combines Distinct Constraints}
+\begin{frame}{Collocation: Checking the Equation at Chosen Points}
+  We cannot check every point, so pick \(N_r\) \textbf{collocation points} \((\mathbf x_i,t_i)\) in the domain and average the squared residual there:
   \[
-    \boxed{
-    L=\lambda_rL_{\mathrm{PDE}}
-      +\lambda_bL_{\mathrm{BC}}
-      +\lambda_0L_{\mathrm{IC}}
-      +\lambda_dL_{\mathrm{data}} }.
-  \]
-  \[
-    L_{\mathrm{BC}}
-      =\frac1{N_b}\sum_i
-        |\mathcal B[u_\theta](\mathbf x_i)-g(\mathbf x_i)|^2,
-    \qquad
-    L_{\mathrm{data}}
-      =\frac1{N_d}\sum_i|u_\theta(\mathbf x_i)-y_i|^2.
+    L_{\mathrm{PDE}}(\theta)=\frac1{N_r}\sum_{i=1}^{N_r}\big|r_\theta(\mathbf x_i,t_i)\big|^2.
   \]
   \begin{itemize}
-    \item The terms have different units, scales, and gradient magnitudes.
-    \item Weights change the optimization problem, not only presentation.
+    \item Collocation points are just locations; they need no measured solution values.
+    \item Where the points lie decides where the equation is enforced.
+    \item A zero residual at the points does not guarantee zero residual between them.
   \end{itemize}
+  \textbf{So:} too few or badly placed points can let the network cheat between them.
 \end{frame}
 
-\begin{frame}{Nondimensionalization Makes Scales Comparable}
-  Choose characteristic scales \(x=L\widehat x\), \(t=T\widehat t\), \(u=U\widehat u\).
-  For
+\begin{frame}{The Full Objective Adds Boundary, Start and Data Terms}
   \[
-    \partial_tu-\nu\,\partial_{xx}u=0,
-  \]
-  substitution gives
-  \[
-    \partial_{\widehat t}\widehat u
-      -\underbrace{\frac{\nu T}{L^2}}_{\text{dimensionless group}}
-       \partial_{\widehat x\widehat x}\widehat u=0.
+    \boxed{L=\lambda_rL_{\mathrm{PDE}}+\lambda_bL_{\mathrm{BC}}+\lambda_0L_{\mathrm{IC}}+\lambda_dL_{\mathrm{data}}}
   \]
   \begin{itemize}
-    \item Coordinate scales affect derivatives and gradients.
-    \item Dimensionless variables expose the relevant physical ratios.
-    \item Loss weights still require monitoring after nondimensionalization.
+    \item \(L_{\mathrm{BC}}\): mean squared mismatch \(\mathcal B[u_\theta]-g\) at boundary points.
+    \item \(L_{\mathrm{IC}}\): mismatch with the initial condition \(u_0\).
+    \item \(L_{\mathrm{data}}\): mismatch with measurements \(y_i\) of \(u\), if available.
+    \item \(\lambda_r,\lambda_b,\lambda_0,\lambda_d\ge0\): \textbf{weights} that set how much each term counts.
   \end{itemize}
+  \textbf{So:} a PINN is trained to satisfy the equation, the boundary, the start and the data at the same time.
 \end{frame}
 
-\begin{frame}{Worked Example: A One-Dimensional Boundary Problem}
+\begin{frame}{The Weights \(\lambda\) Change the Problem}
+  \begin{itemize}
+    \item The terms have different units, scales and gradient sizes (a residual with second derivatives can be far larger than a boundary error).
+    \item A term with a tiny weight is practically ignored; an enormous weight can make training badly balanced.
+    \item Nondimensionalizing the variables (appendix) helps make scales comparable, but the weights still need monitoring.
+  \end{itemize}
+  \textbf{So:} the \(\lambda\)'s are modeling choices, not cosmetic constants.
+\end{frame}
+
+\begin{frame}{A Worked Problem: One-Dimensional Boundary Value Problem}
   \[
-    -u''(x)=\pi^2\sin(\pi x),
-    \qquad x\in(0,1),
+    -u''(x)=\pi^2\sin(\pi x),\quad x\in(0,1),\qquad u(0)=u(1)=0.
   \]
+  The exact solution is \(\boxed{u(x)=\sin(\pi x)}\), since \(-\tfrac{d^2}{dx^2}\sin(\pi x)=\pi^2\sin(\pi x)\).
+  \begin{itemize}
+    \item Because we know the answer, we can measure how good a trained network is.
+    \item Residual is \(r_\theta(x)=-u_\theta''(x)-\pi^2\sin(\pi x)\).
+  \end{itemize}
+  \textbf{So:} a small problem where both the training signal and the true error are available.
+\end{frame}
+
+\begin{frame}{Soft Constraints: Penalize Boundary Error}
   \[
-    u(0)=u(1)=0.
-  \]
-  The exact solution is
-  \[
-    \boxed{u(x)=\sin(\pi x)}
-  \]
-  because
-  \[
-    -\frac{d^2}{dx^2}\sin(\pi x)=\pi^2\sin(\pi x).
+    L(\theta)=\frac1{N_r}\sum_i r_\theta(x_i)^2+\lambda_b\big(u_\theta(0)^2+u_\theta(1)^2\big).
   \]
   \begin{itemize}
-    \item This example separates residual enforcement from boundary enforcement.
+    \item The network may output anything; boundary violations are only penalized.
+    \item A finite \(\lambda_b\) leaves some boundary error; a huge \(\lambda_b\) unbalances training.
   \end{itemize}
+  \textbf{So:} soft constraints are simple but only approximately satisfied.
 \end{frame}
 
-\begin{frame}{Soft Constraints Penalize Boundary Error}
-  For the boundary-value example,
-  \[
-    r_\theta(x)=-u_\theta''(x)-\pi^2\sin(\pi x),
-  \]
-  \[
-    L(\theta)
-      =\frac1{N_r}\sum_i r_\theta(x_i)^2
-       +\lambda_b\big(u_\theta(0)^2+u_\theta(1)^2\big).
-  \]
-  \begin{itemize}
-    \item Any network output is admissible during optimization.
-    \item Finite \(\lambda_b\) permits boundary error.
-    \item Very large \(\lambda_b\) can make the optimization poorly balanced.
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Hard Constraints Satisfy Boundaries by Construction}
+\begin{frame}{Hard Constraints: Boundaries Satisfied by Construction}
   Use the trial solution
   \[
-    \boxed{u_\theta(x)=x(1-x)N_\theta(x)}.
+    \boxed{u_\theta(x)=x(1-x)\,N_\theta(x)},
   \]
-  Then
-  \[
-    u_\theta(0)=u_\theta(1)=0
-  \]
-  for every \(\theta\).
+  where \(N_\theta\) is the neural network. At \(x=0\) and \(x=1\) the factor \(x(1-x)\) is zero, so \(u_\theta(0)=u_\theta(1)=0\) for every \(\theta\).
   \begin{itemize}
-    \item Only the interior residual needs optimization.
-    \item The construction must match the exact boundary form.
-    \item Complex geometry or mixed conditions can make hard constraints difficult.
+    \item Only the interior residual remains to be trained.
+    \item The factor must match the boundary conditions; for complicated geometry or mixed conditions this is hard.
   \end{itemize}
+  \textbf{So:} we trade generality for exact boundary values.
 \end{frame}
 
-\begin{frame}{Inverse Problems Treat Physical Parameters as Unknowns}
-  Suppose
-  \[
-    -\kappa u''(x)=f(x)
-  \]
-  and sparse measurements of \(u\) are available. Optimize
-  \[
-    L(\theta,\kappa)
-      =L_{\mathrm{PDE}}(\theta,\kappa)
-       +\lambda_dL_{\mathrm{data}}(\theta).
-  \]
-  Enforce positivity structurally:
-  \[
-    \kappa=\operatorname{softplus}(\rho)>0.
-  \]
-  \begin{itemize}
-    \item Jointly fitting \(u_\theta\) and \(\kappa\) does not ensure identifiability.
-    \item Measurements and excitation must contain information about \(\kappa\).
-  \end{itemize}
+\begin{frame}{Training a PINN on the Worked Problem}
+  \centering
+  \includegraphics[width=0.98\textwidth]{pinn_training.png}
+
+  \raggedright
+  \small Hard-constrained network with 2 hidden layers of 24 tanh units, 64 equally spaced collocation points, 5000 full-batch Adam steps, one random seed.
+
+  \textbf{So:} from an almost flat start, the network reaches the exact solution without any solution data.
 \end{frame}
 
-\begin{frame}{PINNs Can Fail Even When the Formulation Is Correct}
+\begin{frame}{Reading the Training Curves}
   \begin{itemize}
-    \item Stiff equations create widely separated derivative scales.
-    \item Spectral bias makes high-frequency components difficult to fit.
-    \item Composite loss terms can produce conflicting gradients.
-    \item Sparse collocation can miss localized residuals or shocks.
-    \item Nonconvex optimization may settle at a poor residual balance.
-    \item Discontinuous solutions conflict with smooth network assumptions.
+    \item After 100 steps the curve is already close to \(\sin(\pi x)\); the relative error (distance to the exact solution) ends near \(10^{-5}\).
+    \item The residual loss and the true error fall together here, so the residual was a good training signal.
+    \item The spikes are the optimizer briefly jumping out of a good region (a large learning rate \(10^{-2}\)) and recovering.
   \end{itemize}
-  \[
-    \text{physical constraint}\neq\text{automatic numerical reliability}.
-  \]
+  Scope: one equation, one smooth solution, one seed, 64 collocation points.
+
+  \medskip
+  \textbf{So:} on an easy problem a PINN works, but this is one small case, not a general guarantee.
 \end{frame}
 
-\begin{frame}{Validation Must Be Independent of the Training Residual}
-  Evaluate on new points and physical quantities:
+\begin{frame}{Inverse Problems: Unknown Physical Parameters}
+  Suppose \(-\kappa\,u''(x)=f(x)\) with an unknown coefficient \(\kappa\) (for example conductivity) and sparse measurements of \(u\). Train \(\theta\) and \(\kappa\) together:
   \[
-    E_u=\left(
-      \frac{\sum_j|u_\theta(\mathbf x_j)-u_{\mathrm{ref}}(\mathbf x_j)|^2}
-           {\sum_j|u_{\mathrm{ref}}(\mathbf x_j)|^2}
-    \right)^{1/2},
-  \]
-  \[
-    E_r=\left(\frac1{N_{\mathrm{val}}}
-      \sum_j|r_\theta(\mathbf x_j)|^2\right)^{1/2}.
+    L(\theta,\kappa)=L_{\mathrm{PDE}}(\theta,\kappa)+\lambda_dL_{\mathrm{data}}(\theta).
   \]
   \begin{itemize}
-    \item Use collocation points not seen during training.
-    \item Check boundary error, conservation, and convergence under denser sampling.
-    \item Compare with an established numerical reference when available.
+    \item Keep \(\kappa>0\) by writing \(\kappa=\operatorname{softplus}(\rho)=\ln(1+e^{\rho})\) and training the free number \(\rho\).
+    \item The data must actually contain information about \(\kappa\); otherwise many values fit equally well.
   \end{itemize}
+  \textbf{So:} the same machinery fits unknown parameters, if the measurements are informative.
 \end{frame}
 
-\begin{frame}{A Neural Operator Learns a Family of Solution Maps}
-  A PDE solution operator maps an input function to an output function:
-  \[
-    \boxed{\mathcal G:a(\cdot)\mapsto u(\cdot)}.
-  \]
-  Examples of \(a\):
+\begin{frame}{PINNs Get Harder When the Solution Oscillates Faster}
+  Same problem with \(-u''=(k\pi)^2\sin(k\pi x)\), exact solution \(\sin(k\pi x)\), \(k=1,\dots,4\). Same network, same 5000 steps.
+  \centering
+  \includegraphics[width=0.98\textwidth]{pinn_frequencies.png}
+
+  \raggedright
+  \small Red: network output after training (seed 0). Black: exact solution. Titles give the relative error.
+
+  \textbf{So:} in this run the faster the wiggles, the larger the error, and \(k=4\) fails outright.
+\end{frame}
+
+\begin{frame}{How Consistent Is That? Three Random Seeds}
+  Final relative error over 3 seeds, same settings:
+  \begin{center}
+  \input{assets/generated/pinn_error_table.tex}
+  \end{center}
   \begin{itemize}
-    \item forcing \(f(\mathbf x)\),
-    \item coefficient field \(a(\mathbf x)\),
-    \item initial condition \(u_0(\mathbf x)\),
-    \item boundary data or geometry description.
+    \item The trend repeats across seeds; at \(k=4\) the outcome depends strongly on the seed.
+    \item Scope: this small network and these training settings only. We did not tune them per \(k\).
   \end{itemize}
-  \[
-    \mathcal G_\theta(a)\approx\mathcal G(a)
-    \quad\text{over a distribution of inputs}.
-  \]
+  \textbf{So:} high-frequency solutions are a real difficulty, but it is evidence from one setup, not a law.
 \end{frame}
 
-\begin{frame}{Operator Learning Amortizes Repeated Solves}
+\begin{frame}{Two Terms Often Used to Explain PINN Failures}
+  \begin{itemize}
+    \item \textbf{Spectral bias:} networks trained by gradient descent tend to fit smooth, slowly varying (low-frequency) parts first and the fast wiggles later or not at all.
+      It is a common explanation for the \(k\) experiment, but our run does not prove it was the cause.
+    \item \textbf{Stiff equation:} one with processes at very different speeds or scales (for example a fast decay plus a slow drift), which makes it hard for numerical methods and for the loss landscape.
+      We do not show a stiff example here.
+  \end{itemize}
+  \textbf{So:} these are named difficulties from the literature; only the frequency effect is shown in this deck.
+\end{frame}
+
+\begin{frame}{Other Ways PINNs Can Fail}
+  Reported in practice (not demonstrated here):
+  \begin{itemize}
+    \item The loss terms pull the weights in conflicting directions.
+    \item Too few collocation points miss a localized feature or a shock.
+    \item The non-convex optimization settles at a poor balance between the terms.
+    \item Discontinuous solutions conflict with the smooth network.
+  \end{itemize}
+  \textbf{So:} satisfying the physics in the loss does not automatically give a reliable answer.
+\end{frame}
+
+\begin{frame}{Validation: Check on Points the Training Never Used}
+  \begin{itemize}
+    \item \(E_u\): relative error of \(u_\theta\) against a trusted reference solution on new points (formula in the appendix).
+    \item \(E_r\): size of the residual on new points, a check that does not need a reference.
+    \item Also check the boundary error, conservation laws, and that results hold with denser collocation points.
+    \item Compare with an established numerical solver when one is available.
+  \end{itemize}
+  \textbf{Example:} the \(k=1\) run above has \(E_u\approx10^{-5}\) on 400 test points.
+
+  \medskip
+  \textbf{So:} a small training loss is not proof; test on new points and against a reference.
+\end{frame}
+
+\begin{frame}{Recap of Part 1}
+  \begin{itemize}
+    \item A PINN is a network for \emph{one} PDE instance, trained on the residual, boundary, start and data.
+    \item It worked on an easy example and degraded as the solution oscillated faster.
+    \item Always validate on new points.
+  \end{itemize}
+  \textbf{Next (Part 2):} a different tool, neural operators, that learn solutions for \emph{many} problem instances.
+\end{frame}
+
+\section{Neural Operators: A Whole Family of Solutions}
+\sectiondivider{Part 2: Neural Operators\\[0.2cm]\normalsize Learn the map from a problem \emph{to} its solution}
+
+\begin{frame}{Why Another Tool? Repeated Solves}
+  A design study may need the PDE solved for thousands of different forcings, coefficients or shapes.
+  \begin{itemize}
+    \item A PINN solves one instance; a new instance means training again.
+    \item A classical solver is accurate but each solve costs time.
+  \end{itemize}
+  A neural operator is trained once on many solved instances and then answers new ones with a single forward pass.
+
+  \medskip
+  \textbf{So:} operators target workloads with many related solves.
+\end{frame}
+
+\begin{frame}{A Neural Operator Maps a Function to a Function}
+  A PDE \textbf{solution operator} \(\mathcal G\) takes an input function \(a\) and returns the solution \(u\):
+  \[
+    \boxed{\mathcal G:\ a(\cdot)\ \longmapsto\ u(\cdot)}.
+  \]
+  The input \(a\) can be
+  \begin{itemize}
+    \item a forcing \(f(\mathbf x)\), or a coefficient field (for example a material property),
+    \item an initial condition \(u_0(\mathbf x)\), or boundary data / a geometry description.
+  \end{itemize}
+  The network \(\mathcal G_\theta\) is trained so that \(\mathcal G_\theta(a)\approx\mathcal G(a)\) for typical inputs.
+
+  \medskip
+  \textbf{So:} the object being learned is the whole solution rule, not one solution.
+\end{frame}
+
+\begin{frame}{Operator Learning Amortizes the Cost}
   \centering
   \begin{tikzpicture}[node distance=0.75cm]
     \node[box,fill=courselightblue] (inputs) {many input\\functions \(a\)};
     \node[box,fill=courselightorange,right=of inputs] (train) {expensive\\training};
     \node[box,fill=coursepurple!18,right=of train] (operator) {learned\\operator};
-    \node[box,fill=coursegreen!18,right=of operator] (outputs) {rapid new\\predictions};
+    \node[box,fill=coursegreen!18,right=of operator] (outputs) {fast new\\predictions};
     \draw[flow] (inputs)--(train)--(operator)--(outputs);
   \end{tikzpicture}
-  \vspace{0.7cm}
+
+  \raggedright
+  \vspace{0.3cm}
   \begin{itemize}
-    \item Training requires many solved instances or physics-based constraints.
-    \item Inference can be fast for new inputs from the trained distribution.
-    \item Amortization helps only when repeated related solves are needed.
+    \item Training needs many solved examples (or physics-based constraints), so creating them costs time.
+    \item Afterwards each new input is fast, but only for inputs similar to the training ones.
   \end{itemize}
+  \textbf{So:} the up-front cost pays off only if many related solves follow.
 \end{frame}
 
-\begin{frame}{Resolution Independence Requires More Than New Grid Size}
-  A continuous operator acts between function spaces:
+\begin{frame}{Inputs and Outputs Are Sampled Functions}
+  In practice the model sees the input function at \(N\) points and predicts the solution at \(M\) points:
   \[
-    \mathcal G:\mathcal A\to\mathcal U.
-  \]
-  Its implementation observes finite samples
-  \[
-    \{a(\mathbf x_i)\}_{i=1}^{N}
-    \quad\longmapsto\quad
-    \{\widehat u(\mathbf y_j)\}_{j=1}^{M}.
+    \{a(\mathbf x_i)\}_{i=1}^{N}\ \longmapsto\ \{\widehat u(\mathbf y_j)\}_{j=1}^{M}.
   \]
   \begin{itemize}
-    \item Training on arrays alone does not guarantee discretization invariance.
-    \item Coordinates, quadrature, interpolation, and aliasing still matter.
-    \item Test error should be measured across both inputs and resolutions.
+    \item Ideally the answer should not depend on the grid used (resolution independence).
+    \item A network trained on arrays does not get this for free: interpolation and aliasing matter.
+    \item Measure error across both new inputs and new resolutions.
   \end{itemize}
+  \textbf{So:} claims of resolution independence must be tested, not assumed.
 \end{frame}
 
-\begin{frame}{DeepONet Factorizes Input and Query Dependence}
-  Observe the input function at sensors:
-  \[
-    \mathbf a=[a(\mathbf x_1),\ldots,a(\mathbf x_m)].
-  \]
-  A branch network produces \(b_k(\mathbf a)\); a trunk network produces \(t_k(\mathbf y)\):
-  \[
-    \boxed{
-      \mathcal G_\theta(a)(\mathbf y)
-      =\sum_{k=1}^{p}b_k(\mathbf a)t_k(\mathbf y)+b_0 }.
-  \]
-  \begin{itemize}
-    \item Branch: which input function was supplied?
-    \item Trunk: at which output coordinate is the solution queried?
-    \item Sensor placement limits information available to the branch.
-  \end{itemize}
+\begin{frame}{DeepONet: Split ``Which Input?'' From ``Where to Evaluate?''}
+  \centering
+  \begin{tikzpicture}[node distance=0.9cm]
+    \node[box,fill=courselightblue] (a) {sensor values\\\(\mathbf a=a(\mathbf x_1..\mathbf x_m)\)};
+    \node[box,fill=courselightorange,below=0.6cm of a] (y) {query point\\\(\mathbf y\)};
+    \node[box,fill=coursepurple!18,right=of a] (branch) {branch net\\\(b_1..b_p\)};
+    \node[box,fill=coursepurple!18,right=of y] (trunk) {trunk net\\\(t_1..t_p\)};
+    \node[box,fill=coursegreen!18] (out) at ($(branch)!0.5!(trunk)+(2.9,0)$) {\(\sum_k b_kt_k\)\\\(+\,b_0\)};
+    \draw[flow] (a)--(branch); \draw[flow] (y)--(trunk);
+    \draw[flow] (branch)--(out); \draw[flow] (trunk)--(out);
+  \end{tikzpicture}
+
+  \raggedright
+  \vspace{0.2cm}
+  \small
+  \(\mathcal G_\theta(a)(\mathbf y)=\sum_{k=1}^{p}b_k(\mathbf a)\,t_k(\mathbf y)+b_0\). The branch reads the input function at \(m\) fixed sensors; the trunk reads the output coordinate; \(p\) is the number of shared features and \(b_0\) a learned constant.
+  Sensor placement limits what the branch can know.
+
+  \textbf{So:} the output at \(\mathbf y\) is a mix of input-dependent weights and location-dependent basis functions.
 \end{frame}
 
-\begin{frame}{Fourier Neural Operators Mix Global Spatial Modes}
+\begin{frame}{Fourier Neural Operators: Mix Information Globally}
   \centering
   \begin{tikzpicture}[node distance=0.55cm,scale=0.82,transform shape]
     \node[box,fill=courselightblue] (v) {field\\\(v_k(\mathbf x)\)};
     \node[box,fill=courselightorange,right=of v] (fft) {Fourier\\transform};
-    \node[box,fill=coursepurple!18,right=of fft] (mix) {mix retained\\modes};
+    \node[box,fill=coursepurple!18,right=of fft] (mix) {mix kept\\modes};
     \node[box,fill=courselightorange,right=of mix] (ifft) {inverse\\transform};
     \node[box,fill=coursegreen!18,right=of ifft] (out) {updated\\field};
     \draw[flow] (v)--(fft)--(mix)--(ifft)--(out);
   \end{tikzpicture}
-  \vspace{0.6cm}
+
+  \raggedright
+  \vspace{0.3cm}
   \begin{itemize}
-    \item Fourier modes provide global receptive fields in one layer.
-    \item Learned spectral weights act on feature channels mode by mode.
-    \item A regular grid and periodic transform assumptions enter the implementation.
+    \item The Fourier transform rewrites a field as a sum of waves; each wave is a \textbf{mode} with its own frequency.
+    \item Learned weights mix the strengths of the modes; the inverse transform returns to space.
+    \item One layer already links every point to every other point.
   \end{itemize}
+  \textbf{So:} an FNO layer acts on whole waves, giving fast global communication.
 \end{frame}
 
-\begin{frame}{An FNO Layer Combines Spectral and Local Paths}
-  \[
-    \boxed{
-    v_{k+1}(\mathbf x)
-      =\sigma\!\left(
-        W_kv_k(\mathbf x)
-        +\mathcal F^{-1}\!\left(
-          R_k(\boldsymbol\xi)\,\mathcal F[v_k](\boldsymbol\xi)
-        \right)(\mathbf x)
-      \right)}.
-  \]
+\begin{frame}{One FNO Layer: Local Path Plus Wave Path}
   \begin{itemize}
-    \item \(W_k\): pointwise channel mixing.
-    \item \(R_k(\boldsymbol\xi)\): learned matrix for retained mode \(\boldsymbol\xi\).
-    \item \(\mathcal F^{-1}R_k\mathcal F\): nonlocal spectral convolution.
-    \item Lifting and projection layers connect physical and hidden channels.
+    \item \textbf{Local path:} a pointwise linear map \(W_k\) mixes the feature channels at each location.
+    \item \textbf{Wave path:} Fourier transform \(\mathcal F\) (to frequencies \(\boldsymbol\xi\)), multiplication by learned weights \(R_k(\boldsymbol\xi)\), inverse transform.
+    \item The two paths are added and passed through a nonlinearity \(\sigma\).
+    \item Lifting and projection layers convert between physical and hidden channels.
   \end{itemize}
+  The formula is in the appendix. Assumptions: a regular grid and periodic wave structure.
+
+  \medskip
+  \textbf{So:} each layer combines a local update with a global wave update.
 \end{frame}
 
-\begin{frame}{Mode Truncation Trades Detail for Efficiency}
-  Retain only \(|\xi_j|\leq K_j\):
-  \[
-    R_k(\boldsymbol\xi)=0
-    \quad\text{outside the retained band}.
-  \]
+\begin{frame}{Mode Truncation: Keep Only the Low Frequencies}
   \centering
   \begin{tikzpicture}[scale=0.45]
     \draw[->] (-6,0)--(6.5,0) node[right] {\(\xi_1\)};
     \draw[->] (0,-4)--(0,4.5) node[above] {\(\xi_2\)};
     \fill[courseblue!25] (-2.5,-2) rectangle (2.5,2);
     \draw[courseblue,very thick] (-2.5,-2) rectangle (2.5,2);
-    \node at (0,0) {retained modes};
+    \node at (0,0) {kept modes};
   \end{tikzpicture}
+
+  \raggedright
   \begin{itemize}
-    \item Fewer modes reduce parameters and computation.
-    \item Fine scales, discontinuities, and sharp boundaries need higher modes.
+    \item The weights act only on a block of low frequencies; higher ones are dropped.
+    \item Fewer modes mean fewer parameters and less computation.
+    \item Fine scales, jumps and sharp boundaries live in high modes and may be lost.
   \end{itemize}
+  \textbf{So:} truncation buys speed at the cost of fine detail.
 \end{frame}
 
-\begin{frame}{Operator Models Extrapolate Poorly Under Distribution Shift}
-  Test changes may affect
+\begin{frame}{Operators Can Fail When the Test Inputs Change}
+  A learned operator is only trusted for inputs like those it saw. Changes that can hurt:
   \begin{itemize}
-    \item coefficient magnitude or correlation length,
-    \item forcing frequency and amplitude,
-    \item geometry and boundary conditions,
-    \item temporal horizon,
-    \item discretization and resolution.
+    \item coefficient size or correlation length, forcing frequency or amplitude,
+    \item geometry and boundary conditions, longer time horizons, a different resolution.
   \end{itemize}
-  \[
-    a_{\mathrm{test}}\not\sim p_{\mathrm{train}}(a)
-    \quad\Longrightarrow\quad
-    \text{accuracy is not guaranteed}.
-  \]
-  \begin{itemize}
-    \item Physics-inspired architecture does not remove statistical shift.
-  \end{itemize}
+  \textbf{So:} a physics-inspired architecture does not remove the need to test on shifted inputs.
 \end{frame}
+
+\begin{frame}{Recap of Part 2}
+  \begin{itemize}
+    \item A neural operator maps an input function to its solution and is trained on many instances.
+    \item DeepONet separates input and query; FNO mixes global waves and keeps few modes.
+    \item Trust is limited to inputs similar to the training distribution.
+  \end{itemize}
+  \textbf{Next (Part 3):} compare the two tools and set honest baselines.
+\end{frame}
+
+\section{Comparing and Using Them}
+\sectiondivider{Part 3: Comparing and Using Them}
 
 \begin{frame}{PINNs and Neural Operators Solve Different Problems}
+  \small
   \begin{center}
-  \begin{tabular}{lcc}
+  \begin{tabular}{p{2.3cm}p{3.7cm}p{3.7cm}}
     \hline
       & PINN & Neural operator\\
     \hline
-    Target & one solution \(u\) & map \(a\mapsto u\)\\
-    Training & per instance & across instances\\
-    Main supervision & residual/data & solution families\\
-    New instance & retrain or adapt & forward evaluation\\
-    Benefit & limited observations & repeated related solves\\
+    Learns & one solution \(u\) & the map \(a\mapsto u\)\\
+    Training & per instance & across many instances\\
+    Main signal & residual and data & solved examples\\
+    New instance & retrain or adapt & one forward pass\\
+    Helps when & few observations & many related solves\\
     \hline
   \end{tabular}
   \end{center}
-  \begin{itemize}
-    \item Neither dominates for every PDE workload.
-  \end{itemize}
+  \normalsize
+  \textbf{So:} neither dominates; pick by the workload.
 \end{frame}
 
 \begin{frame}{Data and Physics Can Constrain Either Approach}
-  \[
-    L_{\mathrm{hybrid}}
-      =L_{\mathrm{data}}
-       +\lambda_rL_{\mathrm{residual}}
-       +\lambda_cL_{\mathrm{conservation}}.
-  \]
   \begin{itemize}
-    \item A neural operator can be trained with solution data and PDE residuals.
-    \item A PINN can use sparse observations in addition to equations.
-    \item Hard architectural symmetries can complement soft physical penalties.
-    \item Every added term creates a scale and optimization choice.
+    \item A neural operator can also be trained with PDE residuals in addition to solved examples.
+    \item A PINN can also use sparse measurements in addition to the equation.
+    \item Symmetries built into the architecture can complement penalty terms.
+    \item Every added term brings another weight to choose and another scale to balance.
   \end{itemize}
+  \textbf{So:} data and physics terms can be combined, at the price of more tuning.
 \end{frame}
 
 \begin{frame}{Established Numerical Solvers Are Essential Baselines}
-  Compare
-  \[
-    \text{error},\quad
-    \text{offline cost},\quad
-    \text{per-query cost},\quad
-    \text{memory},\quad
-    \text{robustness}.
-  \]
+  Compare on the same problem:
   \begin{itemize}
-    \item PINNs should be compared with direct numerical solves for the same instance.
-    \item Operators should include training-data generation in offline cost.
-    \item Report speed only at matched accuracy and hardware.
-    \item Verify convergence, conservation, and out-of-distribution behavior.
+    \item error, memory and robustness,
+    \item offline cost (training, and generating training data for operators),
+    \item per-query cost.
   \end{itemize}
+  Report speed only at matched accuracy and hardware, and verify convergence, conservation and out-of-distribution behavior.
+
+  \medskip
+  \textbf{So:} a learned model earns its place only against a good classical solver.
 \end{frame}
 
-\begin{frame}{Physics Supplies Structure, Not Immunity}
+\begin{frame}{Summary}
   \begin{itemize}
-    \item PINNs optimize a coordinate-based solution under differential constraints.
-    \item Automatic differentiation evaluates derivatives of the represented field.
-    \item Neural operators amortize a family of related PDE solves.
-    \item DeepONet factorizes input-function and query-coordinate dependence.
-    \item FNO learns global spectral mixing with truncated modes.
-    \item Optimization, discretization, validation, and distribution shift remain central.
+    \item PINN: one instance, trained on residual, boundary and data; validate on new points.
+    \item Our toy run solved \(k=1\) to \(10^{-5}\) but degraded for faster oscillations.
+    \item Neural operators (DeepONet, FNO) learn the solution map and amortize repeated solves.
+    \item Optimization, discretization, validation and distribution shift remain central.
   \end{itemize}
+  \textbf{So:} physics supplies structure, not immunity.
+\end{frame}
+
+\appendix
+\sectiondivider{Appendix: optional depth}
+
+\begin{frame}{Nondimensionalization Makes Scales Comparable}
+  Choose characteristic scales \(x=L\widehat x\), \(t=T\widehat t\), \(u=U\widehat u\). For \(\partial_tu-\nu\,\partial_{xx}u=0\), substitution gives
+  \[
+    \partial_{\widehat t}\widehat u-\underbrace{\frac{\nu T}{L^2}}_{\text{dimensionless group}}\partial_{\widehat x\widehat x}\widehat u=0.
+  \]
+  Coordinate scales change derivatives and gradients; dimensionless variables expose the physical ratios. Loss weights still need monitoring.
+\end{frame}
+
+\begin{frame}{Validation Metrics}
+  \[
+    E_u=\left(\frac{\sum_j|u_\theta(\mathbf x_j)-u_{\mathrm{ref}}(\mathbf x_j)|^2}{\sum_j|u_{\mathrm{ref}}(\mathbf x_j)|^2}\right)^{1/2},
+  \]
+  \[
+    E_r=\left(\frac1{N_{\mathrm{val}}}\sum_j|r_\theta(\mathbf x_j)|^2\right)^{1/2}.
+  \]
+  Here \(u_{\mathrm{ref}}\) is a trusted reference solution, \(\{\mathbf x_j\}\) are validation points not used in training and \(N_{\mathrm{val}}\) their number.
+\end{frame}
+
+\begin{frame}{Derivatives of a One-Hidden-Layer Network}
+  For \(u_\theta(x)=W_2\,\phi(W_1x+b_1)+b_2\) (activation \(\phi\), weights \(W_i\), biases \(b_i\)),
+  \[
+    \frac{du_\theta}{dx}=W_2\operatorname{diag}(\phi')\,W_1 .
+  \]
+  Higher derivatives follow by applying the chain rule again, which is why the activation must be smooth.
+\end{frame}
+
+\begin{frame}{The FNO Layer}
+  \[
+    v_{k+1}(\mathbf x)=\sigma\!\Big(W_kv_k(\mathbf x)+\mathcal F^{-1}\big(R_k(\boldsymbol\xi)\,\mathcal F[v_k](\boldsymbol\xi)\big)(\mathbf x)\Big).
+  \]
+  \(W_k\): pointwise channel mixing. \(\mathcal F,\mathcal F^{-1}\): Fourier transform and its inverse. \(\boldsymbol\xi\): frequency (mode) index.
+  \(R_k(\boldsymbol\xi)\): learned matrix applied to the channels of mode \(\boldsymbol\xi\). \(\sigma\): nonlinearity.
+  \(\mathcal F^{-1}R_k\mathcal F\) is a nonlocal spectral convolution.
+\end{frame}
+
+\begin{frame}{Mode Truncation, Formally}
+  Retain only modes with \(|\xi_j|\le K_j\) in each direction \(j\):
+  \[
+    R_k(\boldsymbol\xi)=0\quad\text{outside the retained band}.
+  \]
+  The number of learned parameters per layer then scales with the number of retained modes rather than with the grid size.
 \end{frame}
 
 \end{document}
