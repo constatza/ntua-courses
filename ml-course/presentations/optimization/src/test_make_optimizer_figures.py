@@ -6,20 +6,22 @@ import unittest
 from pathlib import Path
 
 import numpy as np
-
 from make_optimizer_figures import (
+    EVEN_SCALE,
     EXPECTED_FILENAMES,
+    MULTIMODAL_CONFIGS,
     SADDLE_CONFIGS,
     SEED,
+    UNEVEN_SCALE,
     basin_outcomes,
     contraction_factor,
     escape_step,
     generate_figures,
     heavy_ball_parameters,
-    MULTIMODAL_CONFIGS,
     nesterov_parameters,
     optimal_gd_rate,
     protocol_table,
+    showcase_sweep,
     tuned_protocol,
 )
 from optimizers import (
@@ -39,7 +41,9 @@ from problems import (
     Rosenbrock,
     StyblinskiTang,
     make_finite_sum_lab,
+    make_mlp_regression,
 )
+from showcase import METHODS
 
 
 def file_hash(path: Path) -> str:
@@ -226,6 +230,42 @@ class NonconvexTests(unittest.TestCase):
         steps = {label: escape_step(config) for label, config, _color in SADDLE_CONFIGS}
         self.assertGreater(steps["GD"], 2 * steps["Momentum"])
         self.assertGreater(steps["Momentum"], steps["Adam"])
+
+
+class ShowcaseTests(unittest.TestCase):
+    """The "why Adam" slides claim exactly what these assertions check."""
+
+    def test_network_gradient_matches_centered_differences(self) -> None:
+        problem = make_mlp_regression(UNEVEN_SCALE, 1)
+        point = problem.initial_parameters(np.random.default_rng(0))
+        inputs, targets = problem.train_inputs[:20], problem.train_targets[:20]
+
+        def value(parameters: np.ndarray) -> float:
+            return problem.loss_and_gradient(parameters, inputs, targets)[0]
+
+        _, gradient = problem.loss_and_gradient(point, inputs, targets)
+        indices = np.arange(0, problem.size, 37)
+        numerical = np.array(
+            [
+                (value(point + 1e-6 * unit) - value(point - 1e-6 * unit)) / 2e-6
+                for unit in np.eye(problem.size)[indices]
+            ]
+        )
+        np.testing.assert_allclose(gradient[indices], numerical, atol=1e-7)
+
+    def test_tuned_adam_beats_every_other_method_in_both_versions(self) -> None:
+        for scale in (UNEVEN_SCALE, EVEN_SCALE):
+            result = showcase_sweep(scale)
+            others = [m for m in METHODS if m is not OptimizerName.ADAM]
+            with self.subTest(second_input_scale=scale):
+                self.assertTrue(
+                    all(result.best_loss(OptimizerName.ADAM) < result.best_loss(m) for m in others)
+                )
+
+    def test_adam_margin_is_large_when_input_sizes_differ(self) -> None:
+        result = showcase_sweep(UNEVEN_SCALE)
+        best_other = min(result.best_loss(m) for m in METHODS if m is not OptimizerName.ADAM)
+        self.assertLess(result.best_loss(OptimizerName.ADAM), best_other / 3.0)
 
 
 class FigureTests(unittest.TestCase):

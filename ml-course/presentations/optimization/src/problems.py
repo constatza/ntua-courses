@@ -202,3 +202,98 @@ def classify_basin(problem: StyblinskiTang, point: Vector) -> Basin:
             return Basin.MIXED
         case _:
             return Basin.SHALLOW
+
+
+@dataclass(frozen=True, slots=True)
+class MlpRegression:
+    """A small tanh network ``input -> HIDDEN -> HIDDEN -> 1`` fitted to noisy samples.
+
+    The target is ``sin(2 x1) + sin(3 u)`` where the second input is ``x2 = second_scale * u``.
+    A small ``second_scale`` gives the first layer weights of very different gradient size
+    (the weights on ``x2`` see gradients ``second_scale`` times smaller), which is the situation
+    per-parameter scaling is meant for. All parameters live in one flat vector so that the
+    optimizers of ``optimizers.py`` apply unchanged.
+    """
+
+    train_inputs: Matrix
+    train_targets: Vector
+    test_inputs: Matrix
+    test_targets: Vector
+    hidden: int = 24
+
+    @property
+    def size(self) -> int:
+        h = self.hidden
+        return 2 * h + h + h * h + h + h + 1
+
+    def _unpack(self, flat: Vector) -> tuple[Matrix, Vector, Matrix, Vector, Matrix, Vector]:
+        h = self.hidden
+        cuts = np.cumsum((2 * h, h, h * h, h, h))
+        w1, b1, w2, b2, w3, b3 = np.split(flat, cuts)
+        return w1.reshape(2, h), b1, w2.reshape(h, h), b2, w3.reshape(h, 1), b3
+
+    def initial_parameters(self, rng: np.random.Generator) -> Vector:
+        h = self.hidden
+        pieces = (
+            rng.normal(0.0, 1.0, 2 * h),
+            np.zeros(h),
+            rng.normal(0.0, 1.0 / np.sqrt(h), h * h),
+            np.zeros(h),
+            rng.normal(0.0, 1.0 / np.sqrt(h), h),
+            np.zeros(1),
+        )
+        return np.concatenate(pieces)
+
+    def loss_and_gradient(
+        self, flat: Vector, inputs: Matrix, targets: Vector
+    ) -> tuple[float, Vector]:
+        """Half mean squared error and its gradient by backpropagation."""
+        w1, b1, w2, b2, w3, b3 = self._unpack(flat)
+        a1 = np.tanh(inputs @ w1 + b1)
+        a2 = np.tanh(a1 @ w2 + b2)
+        residual = (a2 @ w3)[:, 0] + b3[0] - targets
+        count = targets.size
+        d3 = (residual / count)[:, None]
+        d2 = (d3 @ w3.T) * (1.0 - a2**2)
+        d1 = (d2 @ w2.T) * (1.0 - a1**2)
+        gradient = np.concatenate(
+            (
+                (inputs.T @ d1).ravel(), d1.sum(axis=0),
+                (a1.T @ d2).ravel(), d2.sum(axis=0),
+                (a2.T @ d3).ravel(), d3.sum(axis=0),
+            )
+        )
+        return float(0.5 * np.mean(residual**2)), gradient
+
+    def test_loss(self, flat: Vector) -> float:
+        loss = self.loss_and_gradient(flat, self.test_inputs, self.test_targets)[0]
+        return loss if np.isfinite(loss) else float("inf")
+
+    def batch_oracle(self, batch_size: int):
+        def oracle(flat: Vector, rng: np.random.Generator) -> Vector:
+            indices = rng.integers(self.train_targets.size, size=batch_size)
+            return self.loss_and_gradient(
+                flat, self.train_inputs[indices], self.train_targets[indices]
+            )[1]
+
+        return oracle
+
+
+NOISE_STD = 0.1
+
+
+def make_mlp_regression(
+    second_scale: float, seed: int, train: int = 256, test: int = 512
+) -> MlpRegression:
+    """Noisy samples of the two-input target; ``second_scale`` sets the size of input two."""
+    rng = np.random.default_rng(seed)
+
+    def draw(count: int) -> tuple[Matrix, Vector]:
+        first = rng.uniform(-3.0, 3.0, count)
+        second = rng.uniform(-1.0, 1.0, count)
+        targets = np.sin(2.0 * first) + np.sin(3.0 * second) + NOISE_STD * rng.normal(size=count)
+        return np.stack((first, second_scale * second), axis=1), targets
+
+    train_inputs, train_targets = draw(train)
+    test_inputs, test_targets = draw(test)
+    return MlpRegression(train_inputs, train_targets, test_inputs, test_targets)

@@ -8,10 +8,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
-
 from optimizers import (
     Constant,
-    GradientOracle,
     OptimizerConfig,
     OptimizerName,
     PowerDecay,
@@ -28,8 +26,10 @@ from problems import (
     StyblinskiTang,
     classify_basin,
     make_finite_sum_lab,
+    make_mlp_regression,
     rotated_hessian,
 )
+from showcase import EPOCHS, LEARNING_RATES, METHODS, Sweep, sweep
 
 SEED = 20261029
 FIGURE_DPI = 220
@@ -67,6 +67,7 @@ EXPECTED_FILENAMES = (
     "gd-vs-sgd.png",
     "schedules.png",
     "momentum.png",
+    "momentum-paths.png",
     "diagonal-scaling.png",
     "optimizer-comparison.png",
     "optimizer-progress.png",
@@ -74,6 +75,9 @@ EXPECTED_FILENAMES = (
     "rosenbrock.png",
     "multimodal.png",
     "saddle-escape.png",
+    "adam-tuning.png",
+    "adam-curves.png",
+    "adam-table.tex",
 )
 
 Trajectory = NDArray[np.float64]
@@ -287,9 +291,9 @@ def _learning_rates(path: Path) -> None:
     lambda_max = LAB.eigenvalues[-1]
     figure, axis = plt.subplots(figsize=(8.8, 5.5))
     settings = (
-        (0.008, "too small", GRAY),
-        (0.075, "useful", GREEN),
-        (1.05 * 2.0 / lambda_max, r"just above $2/\lambda_{\max}$", RED),
+        (0.008, "too small: slow", GRAY),
+        (0.075, "good", GREEN),
+        (1.05 * 2.0 / lambda_max, "too large: diverges", RED),
     )
     for rate, label, color in settings:
         trajectory = _deterministic(OptimizerConfig(OptimizerName.GD, Constant(rate)), LAB, 36)
@@ -297,8 +301,6 @@ def _learning_rates(path: Path) -> None:
                       label=rf"$\eta={rate:.3f}$: {label}")
     axis.set_xlabel("update", fontsize=14)
     axis.set_ylabel(r"objective $L(\boldsymbol{\theta}_t)$", fontsize=14)
-    axis.set_title(rf"$\lambda_{{\max}}={lambda_max:.0f}$, stability limit "
-                   rf"$2/\lambda_{{\max}}={2.0 / lambda_max:.3f}$", fontsize=13, color=NAVY)
     axis.grid(alpha=0.2)
     axis.legend(frameon=False, fontsize=12, loc="upper left")
     _clean(axis)
@@ -351,16 +353,15 @@ def _conditioning(path: Path) -> None:
     round_problem = Quadratic(mean_curvature * np.eye(2))
     figure, axes = plt.subplots(1, 2, figsize=(10.8, 5.0))
     for axis, problem, title in (
-        (axes[0], round_problem, r"$\kappa=1$"),
-        (axes[1], LAB, rf"$\kappa={LAB.condition_number:.0f}$"),
+        (axes[0], round_problem, "round bowl"),
+        (axes[1], LAB, "narrow valley"),
     ):
         _quadratic_axis(axis, problem)
         config = OptimizerConfig(OptimizerName.GD, Constant(CONDITIONING_RATE))
-        rho = contraction_factor(CONDITIONING_RATE, problem.eigenvalues)
         _path(axis, _deterministic(config, problem, CONDITIONING_STEPS),
-              rf"GD, $\eta={CONDITIONING_RATE}$, $\rho={rho:.2f}$", ORANGE)
-        axis.set_title(title, color=NAVY, fontsize=15, weight="bold")
-        axis.legend(frameon=False, fontsize=11, loc="lower right")
+              rf"GD, $\eta={CONDITIONING_RATE}$", ORANGE)
+        axis.set_title(title, color=NAVY, fontsize=13, weight="bold")
+        axis.legend(frameon=False, fontsize=11, loc="upper right")
     figure.subplots_adjust(wspace=0.28)
     _save(figure, path)
 
@@ -448,6 +449,33 @@ def _momentum(path: Path) -> None:
         gaps.semilogy(_gaps(LAB.value, trajectory), color=color, linewidth=2.6, label=label)
     _gap_axis(gaps, MOMENTUM_STEPS, bottom=1e-14, top=1e3)
     gaps.legend(frameon=False, fontsize=12, loc="lower left")
+    _save(figure, path)
+
+
+MOMENTUM_PATH_STEPS = 25
+MOMENTUM_PATH_RATE = 0.03
+MOMENTUM_PATH_BETA = 0.7
+
+
+def _momentum_paths(path: Path) -> None:
+    """Same valley, same step size, same 25 updates: momentum covers the flat direction faster."""
+    figure, axes = plt.subplots(1, 2, figsize=(10.8, 5.0))
+    runs = (
+        (axes[0], "gradient descent",
+         OptimizerConfig(OptimizerName.GD, Constant(MOMENTUM_PATH_RATE)), ORANGE),
+        (axes[1], rf"momentum, $\beta={MOMENTUM_PATH_BETA}$",
+         OptimizerConfig(OptimizerName.MOMENTUM, Constant(MOMENTUM_PATH_RATE),
+                         first_decay=MOMENTUM_PATH_BETA), GREEN),
+    )
+    for axis, title, config, color in runs:
+        _quadratic_axis(axis)
+        trajectory = _deterministic(config, LAB, MOMENTUM_PATH_STEPS)
+        _path(axis, trajectory, f"{MOMENTUM_PATH_STEPS} updates", color)
+        axis.set_title(
+            f"{title}: loss {LAB.value(trajectory[-1]):.3f}", color=NAVY, fontsize=14, weight="bold"
+        )
+        axis.legend(frameon=False, fontsize=11, loc="upper right")
+    figure.subplots_adjust(wspace=0.28)
     _save(figure, path)
 
 
@@ -675,6 +703,80 @@ def _saddle_escape(path: Path) -> None:
 
 
 
+SHOWCASE_SEED = 1
+UNEVEN_SCALE = 0.02  # input two is 50 times smaller than input one
+EVEN_SCALE = 1.0
+
+
+@cache
+def showcase_sweep(second_scale: float) -> Sweep:
+    return sweep(make_mlp_regression(second_scale, SHOWCASE_SEED))
+
+
+def adam_table() -> str:
+    """Best learning rate and test loss of each method in both showcase problems."""
+    uneven, even = showcase_sweep(UNEVEN_SCALE), showcase_sweep(EVEN_SCALE)
+    rows = [
+        rf"{method.value} & ${uneven.best_rate(method):.2g}$ & ${uneven.best_loss(method):.3f}$"
+        rf" & ${even.best_rate(method):.2g}$ & ${even.best_loss(method):.3f}$ \\"
+        for method in METHODS
+    ]
+    header = (
+        r"\begin{tabular}{lrrrr}" + "\n" + r"\toprule" + "\n"
+        r" & \multicolumn{2}{c}{inputs of very different size} & \multicolumn{2}{c}{inputs of similar size} \\"
+        + "\n" + r"Method & best $\eta$ & test loss & best $\eta$ & test loss \\" + "\n" + r"\midrule"
+    )
+    return "\n".join((header, *rows, r"\bottomrule", r"\end{tabular}", ""))
+
+
+def _adam_tuning(path: Path) -> None:
+    """Final test loss against learning rate: each curve's lowest point is that method tuned."""
+    figure, axes = plt.subplots(1, 2, figsize=(11.4, 4.6), sharey=True)
+    cases = ((UNEVEN_SCALE, "inputs of very different size"), (EVEN_SCALE, "inputs of similar size"))
+    for axis, (scale, title) in zip(axes, cases, strict=True):
+        result = showcase_sweep(scale)
+        for method in METHODS:
+            losses = np.minimum(result.final_loss[method], 10.0)
+            color = METHOD_COLORS[method]
+            axis.plot(LEARNING_RATES, losses, color=color, linewidth=2.2, label=method.value)
+            best = int(np.argmin(result.final_loss[method]))
+            axis.scatter(LEARNING_RATES[best], losses[best], s=70, color=color, edgecolor="white", zorder=5)
+        axis.set_xscale("log")
+        axis.set_yscale("log")
+        axis.set_ylim(0.02, 3.0)
+        axis.set_title(title, color=NAVY, fontsize=14, weight="bold")
+        axis.set_xlabel("learning rate", fontsize=13)
+        axis.grid(alpha=0.2)
+        _clean(axis)
+    axes[0].set_ylabel("test loss after 40 epochs", fontsize=13)
+    axes[0].legend(frameon=False, fontsize=11, loc="lower left")
+    _save(figure, path)
+
+
+def _adam_curves(path: Path) -> None:
+    """Test loss during training, each method at its own best learning rate."""
+    figure, axes = plt.subplots(1, 2, figsize=(11.4, 4.6), sharey=True)
+    cases = ((UNEVEN_SCALE, "inputs of very different size"), (EVEN_SCALE, "inputs of similar size"))
+    for axis, (scale, title) in zip(axes, cases, strict=True):
+        result = showcase_sweep(scale)
+        for method in METHODS:
+            curve = np.minimum(result.best_curve[method], 10.0)
+            axis.plot(
+                np.arange(EPOCHS + 1), curve, color=METHOD_COLORS[method], linewidth=2.2,
+                label=f"{method.value} ($\\eta={result.best_rate(method):.2g}$)",
+            )
+        axis.set_yscale("log")
+        axis.set_xlim(0, EPOCHS)
+        axis.set_ylim(0.02, 2.0)
+        axis.set_title(title, color=NAVY, fontsize=14, weight="bold")
+        axis.set_xlabel("epoch", fontsize=13)
+        axis.grid(alpha=0.2)
+        axis.legend(frameon=False, fontsize=10, loc="upper right")
+        _clean(axis)
+    axes[0].set_ylabel("test loss", fontsize=13)
+    _save(figure, path)
+
+
 def generate_figures(output_directory: Path) -> tuple[Path, ...]:
     output_directory.mkdir(parents=True, exist_ok=True)
     outputs = {name: output_directory / name for name in EXPECTED_FILENAMES}
@@ -686,6 +788,7 @@ def generate_figures(output_directory: Path) -> tuple[Path, ...]:
     _gd_vs_sgd(outputs["gd-vs-sgd.png"])
     _schedules(outputs["schedules.png"])
     _momentum(outputs["momentum.png"])
+    _momentum_paths(outputs["momentum-paths.png"])
     _diagonal_scaling(outputs["diagonal-scaling.png"])
     _optimizer_comparison(outputs["optimizer-comparison.png"])
     _optimizer_progress(outputs["optimizer-progress.png"])
@@ -693,6 +796,9 @@ def generate_figures(output_directory: Path) -> tuple[Path, ...]:
     _rosenbrock(outputs["rosenbrock.png"])
     _multimodal(outputs["multimodal.png"])
     _saddle_escape(outputs["saddle-escape.png"])
+    _adam_tuning(outputs["adam-tuning.png"])
+    _adam_curves(outputs["adam-curves.png"])
+    outputs["adam-table.tex"].write_text(adam_table(), encoding="utf-8")
     return tuple(outputs.values())
 
 
