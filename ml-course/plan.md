@@ -8,7 +8,7 @@ Build a coherent introductory university course that:
 - covers the conceptual content of the archived `chapter*.pdf` lectures;
 - removes duplicated ownership between decks;
 - keeps one notation and one visual language throughout;
-- gives formal statements and derivations where they add understanding;
+- explains ideas intuitively and defines terms well, keeping derivations in appendices;
 - uses equations and figures as the primary explanatory devices;
 - contains no framework or programming-code slides.
 
@@ -26,9 +26,48 @@ content.
 - Use short sentences when they explain *why* a result matters.
 - Use bullets only for parallel ideas, comparisons, assumptions, or steps.
 - Keep bullet lists concise; avoid both paragraph walls and bullet walls.
-- Reveal derivations in readable stages instead of placing a full proof on one frame.
 - Put secondary qualifications in a short footer, note, or later caveat frame.
 - Do not include code listings or framework-specific APIs.
+
+### Introductory level
+
+The course is introductory. Intuition and good definitions come first; depth is optional.
+"Simple" does not mean "minimal": a slide that shows a formula or a one-line bullet and
+does not say what it means or why it matters teaches nothing.
+
+- Explain, do not just state. A topic gets as many frames as it needs to be understood:
+  motivation (what goes wrong without it), plain-language definition, a picture or small
+  worked example with numbers, and the conclusion. One frame per topic is usually too few.
+- Keep text per frame small but continue a topic across consecutive frames: each frame adds
+  one step of the explanation (problem, idea, picture, example, conclusion). Little text per
+  frame is a reason to add frames, not to drop explanation.
+- Every frame ends with its takeaway in one plain sentence ("so ...", "this means ...").
+  A frame the audience cannot summarize in a sentence is unfinished.
+- Short sentences of real explanation are welcome; paragraphs of jargon and bare symbol
+  strings are not. Prefer "what it is", "why it is needed", "how it works" over notation.
+- Use elementary language. No probability jargon (conditioning, expectation over a mask,
+  measurability) when a numeric example says the same: explain inverted dropout as
+  "divide the kept activations by 1-p, because on average only a fraction 1-p survive,
+  and the division restores the average size".
+
+- Define every symbol in words on first use and say why it matters (for example, the
+  Hessian is the curvature: how quickly the slope changes).
+- Show the picture and the idea first; the formula is the compact summary, not the argument.
+- Keep proofs and derivations out of the main flow: a one-line "why" at most. Derivations,
+  convergence rates, variants and edge cases go to the deck's appendix.
+- State every result with its scope ("for a quadratic", "near a minimum", "for linear
+  models"). If it cannot be stated honestly in one line, drop it.
+- An example must support its caption. Run it first; if it contradicts the claim, change the
+  example or the claim, never ship it. No optimizer, model or method is shown as best unless
+  the shown experiment supports exactly that.
+- Core terms (bias, variance, gradient, learning rate, epoch, Hessian) get their own frame.
+- Make topic changes obvious. Every deck opens (after the title) with a roadmap frame
+  listing its parts in plain words (`\tableofcontents` over `\section{...}` is fine), and
+  every part starts with `\section{...}` plus `\sectiondivider{...}` and ends with a
+  one-sentence recap of what was learned and what comes next. A deck whose parts do not
+  depend on each other is split into separate decks instead (update `TOPICS.toml`).
+- Every deck ends with `\appendix` followed by `\sectiondivider{Appendix: optional depth}`.
+  Aim for roughly 20--28 main frames.
 
 ### Mathematical conventions
 
@@ -71,7 +110,7 @@ content.
 1. `supervised-learning` — problem formulation and linear baselines.
 2. `optimization` — first-order algorithms through Adam.
 3. `neural-nets` — dense networks, backpropagation, and approximation.
-4. `regularization` — generalization, bias–variance, penalties, dropout, augmentation.
+4. `generalization` — bias, variance, penalties, early stopping, ensembles, dropout.
 5. `geometric-deep-learning` — symmetry, invariance, and equivariance.
 6. `cnns` — convolutional architectures in detail.
 7. `rnns` — recurrent architectures in detail.
@@ -97,8 +136,9 @@ space for motivation, intuition, mathematics, and limitations.
 | Dense networks, forward propagation, activations | `neural-nets` |
 | Computation graphs and backpropagation | `neural-nets` |
 | Sine approximation and derivative-informed loss | `neural-nets` |
-| Under/overfitting, early stopping, L1/L2 | `regularization` |
-| Bias–variance, ensembles, dropout, augmentation | `regularization` |
+| Under/overfitting, early stopping, L1/L2 | `generalization` |
+| Bias–variance, ensembles, dropout | `generalization` |
+| Data augmentation | `geometric-deep-learning` |
 | CNNs, filters, pooling, channels, padding | `cnns` |
 | RNNs and sequence recurrence | `rnns` |
 | Graph neural networks | `gnns` |
@@ -143,50 +183,52 @@ dense networks, or regularization.
 ### 2. Optimization: gradient descent through Adam
 
 **Purpose:** explain how first-order methods move, why their behavior differs, and
-how to compare them correctly.
+how to compare them correctly, including on nonconvex landscapes.
 
-1. **Training as optimization** — empirical objective and parameter-space picture.
-2. **Directional derivative** — \(D_{\mathbf d}L=\nabla L^\top\mathbf d\).
-3. **Steepest local decrease** — Cauchy–Schwarz proof under \(\|\mathbf d\|_2=1\).
-4. **Gradient-descent update** — first-order Taylor model and \(-\eta\nabla L\).
-5. **Quadratic laboratory** — convex bowl with known minimizer and eigen-directions.
-6. **Learning-rate stability** — \(0<\eta<2/\lambda_{\max}\) for a positive-definite quadratic.
-7. **Too small, useful, unstable** — three trajectories on identical contour axes.
-8. **Conditioning** — eigenvalue ratio and zig-zag motion in a narrow valley.
-9. **Scaling as preconditioning** — connect feature scaling to rounder objective contours.
-10. **Smooth convex guarantee** — descent lemma and the assumptions behind it.
-11. **Batch gradient** — exact empirical gradient and its cost.
-12. **Mini-batch gradient** — unbiasedness under uniform sampling and variance reduction.
-13. **SGD trajectory** — useful noise versus a finite-step noise floor.
-14. **Epochs, steps, batches** — one timeline; prevent ambiguous training budgets.
-15. **Learning-rate schedules** — constant, decay, and warm-up shown without recipe overload.
-16. **Momentum recurrence** — one declared convention used everywhere:
-    \(\mathbf v_t=\beta\mathbf v_{t-1}+\nabla L_t\),
-    \(\boldsymbol\theta_t=\boldsymbol\theta_{t-1}-\eta\mathbf v_t\).
-17. **Why momentum helps** — eigen-direction damping and accumulated motion.
-18. **AdaGrad** — accumulated squared gradients; benefit and vanishing-step limitation.
-19. **RMSProp** — exponential second moment and coordinate-wise normalization.
-20. **RMSProp is not magic convergence** — fixed steps can settle into a neighborhood
-    or limit cycle; show objective and gradient norm, not position alone.
-21. **Adam combines two moments** — first- and second-moment recurrences.
-22. **Why moments are biased initially** — zero initialization and expected attenuation.
-23. **Bias correction** — derive \(\hat{\mathbf m}_t\) and \(\hat{\mathbf v}_t\).
-24. **Adam update and \(\varepsilon\)** — placement, numerical role, and stated convention.
-25. **Fair comparison** — same objective, start, step budget, axes, and declared tuning;
-    report final \(L-L^*\) and \(\|\nabla L\|\).
-26. **Algorithm selection** — short comparison of memory, noise, scaling, and tuning.
-27. **What optimization cannot decide** — bridge from training loss to generalization.
+**Flow:** landscape, gradient descent, step size and curvature, stochastic gradients,
+beyond a single fixed step, comparison, bridge. Each section answers the question the
+previous one raised; connections are made at section boundaries only.
 
-**Correctness requirements:**
+1. **Landscape** — training as optimization; convexity and its consequence;
+   nonconvex landscapes with several minima and saddles.
+2. **Gradient descent** — directional derivative, steepest descent (Cauchy–Schwarz),
+   the update, and the local linear model.
+3. **Step size and curvature** — learning-rate behavior with the \(2/\lambda_{\max}\)
+   limit; eigenvalue stability; the contraction factor and best constant step
+   \(\rho^\star=(\kappa-1)/(\kappa+1)\); iteration count \(\approx(\kappa/2)\ln(1/\varepsilon)\);
+   the same step on \(\kappa=1\) and \(\kappa=18\); standardization as removal of
+   scale-induced ill-conditioning; the descent lemma and the \(1/T\) convex rate.
+4. **Stochastic gradients** — batch estimates; unbiasedness and variance \(\sigma^2/b\);
+   mini-batch noise floor on a finite-sum problem whose per-sample gradients do not
+   vanish at the minimizer; epochs versus updates; schedules (decay with the
+   Robbins–Monro condition, warm-up, cosine).
+5. **Beyond a single fixed step** — Newton's method as the ideal curvature fix and why
+   it is impractical (L-BFGS in one sentence); momentum recurrence
+   \(\mathbf v_t=\beta\mathbf v_{t-1}+\mathbf g_t,\ \boldsymbol\theta_t=\boldsymbol\theta_{t-1}-\eta\mathbf v_t\);
+   Nesterov; the \(\kappa\to\sqrt\kappa\) rate with Polyak's optimal \((\eta,\beta)\);
+   AdaGrad; RMSProp (constant \(\eta\) leaves a neighborhood of size \(\propto\eta\));
+   coordinate-wise scaling helps axis-aligned curvature only; Adam with moments,
+   bias correction and defaults; gradient clipping and learning-rate search.
+6. **Comparison** — declared protocol (same budget, tuned constant \(\eta\), momentum
+   \(\beta\) searched, tail-gap scoring) with a generated results table; paths;
+   objective gap and gradient norm; Rosenbrock valley; basin outcomes on a four-minimum
+   landscape; saddle escape; selection table.
+7. **Bridge** — gradients of large models come from backpropagation; start, step rule
+   and schedule decide where nonconvex training ends; generalization is deferred.
 
-- Verify the first three steps of momentum, AdaGrad, RMSProp, and Adam against
-  hand-calculated reference values.
-- Verify Adam bias correction on a constant-gradient sequence.
-- Separate deterministic convergence plots from stochastic-noise illustrations.
-- Use a decaying or sufficiently small final step for any plot claiming convergence.
-- Test convergence using both objective error and gradient norm.
-- If a fixed-step optimizer does not reach the exact minimizer, label the behavior
-  accurately instead of visually implying a missing algebraic “bias term.”
+**Correctness requirements (all enforced by `src/test_make_optimizer_figures.py`):**
+
+- First three steps of momentum, AdaGrad, RMSProp, Adam, and Nesterov match hand values.
+- Adam's first step equals the learning rate (bias correction).
+- Gradients of every objective match centered differences.
+- The mini-batch gradient is unbiased with variance \(\sigma^2/b\) (Monte Carlo).
+- Measured contraction matches \((\kappa-1)/(\kappa+1)\), \(\sqrt\beta\) for tuned
+  momentum, and \(1-1/\sqrt\kappa\) (within tolerance) for Nesterov; GD is stable
+  exactly below \(2/\lambda_{\max}\); one Newton step solves a quadratic.
+- The protocol table is generated, never typed; learning rates are tuned by search, not
+  chosen per method by hand.
+- Basin shares across optimizers agree, and saddle-escape order is GD > momentum > Adam.
+- Fixed-step methods that do not reach the minimizer are labelled accurately.
 
 ### 3. Dense neural networks and backpropagation
 
@@ -228,45 +270,38 @@ enough calculus to derive backpropagation rather than present it as a recipe.
 29. **Summary** — representation, differentiation, optimization, and approximation.
 
 **Explicit boundary:** linear/logistic regression stays in `supervised-learning`;
-optimizers stay in `optimization`; generalization techniques stay in `regularization`.
+optimizers stay in `optimization`; generalization techniques stay in `generalization`.
 
-### 4. Generalization and regularization
+### 4. Generalization: bias, variance, and how to control them
 
-**Purpose:** explain why low training error is insufficient and organize the main
-tools for controlling generalization.
+**Purpose:** explain why low training error is insufficient, define bias and variance
+in plain words, and organize the main tools for controlling generalization. Splits,
+cross-validation and the train-versus-test picture are owned by `supervised-learning`
+and only cross-referenced here. Augmentation is owned by `geometric-deep-learning`.
 
-1. **Population versus empirical risk** — what is observed and what is desired.
-2. **Learning curves** — training and validation error versus capacity.
-3. **Underfitting and overfitting** — same dataset, three fitted functions.
-4. **Bias: exact meaning** — \(\operatorname{Bias}[\hat f(x)]=\mathbb E_D[\hat f_D(x)]-f(x)\).
-5. **Variance: exact meaning** — \(\operatorname{Var}[\hat f(x)]=\mathbb E_D[(\hat f_D(x)-\mathbb E_D\hat f_D(x))^2]\).
-6. **Noise** — irreducible conditional variance, distinct from estimator variance.
-7. **Bias–variance decomposition** — equation for squared prediction error.
-8. **Decomposition proof** — add/subtract the mean estimator and cancel the cross term.
-9. **Intuitive repeated-dataset visual** — systematic miss versus sensitivity to samples.
-10. **Capacity trade-off** — connect model class, data volume, bias, and variance carefully.
-11. **Validation chooses complexity** — hyperparameters never selected on the test set.
-12. **Regularized objective** — data fit plus \(\lambda\Omega(\boldsymbol\theta)\).
-13. **L2 moves the optimum** — data-loss contours and circular penalty contours on the
-    same axes; show the constrained tangency and shifted minimum.
-14. **L2 as a prior belief** — Gaussian \(w_j\sim\mathcal N(0,\tau^2)\) and MAP derivation.
-15. **L1 geometry** — diamond constraint and axis-aligned sparse optimum.
-16. **L1 as a prior** — Laplace prior and its cusp at zero.
-17. **Regularization paths** — coefficient magnitude versus \(\lambda\).
-18. **Early stopping** — validation curve and saved iterate; implicit regularization intuition.
-19. **Ensembles reduce variance** — average correlated errors; state the covariance term.
-20. **Bagging** — bootstrap datasets and prediction aggregation.
-21. **Dropout network visual** — a new mask per training pass, not permanently removed units.
-22. **Inverted dropout equation** — \(\tilde{\mathbf h}=\mathbf m\odot\mathbf h/(1-p)\)
-    and \(\mathbb E[\tilde{\mathbf h}]=\mathbf h\).
-23. **Dropout at inference** — deterministic full network; note uncertainty variants separately.
-24. **Augmentation as transformed risk** — label-preserving transformation distribution.
-25. **One cat, several valid views** — original, rotation, flip, crop, and mild color change.
-26. **Noise and blur** — when sensor realism makes them plausible transformations.
-27. **Not every transformation preserves a label** — digits, orientation, chirality,
-    and asymmetric objects as counterexamples.
-28. **Exact symmetry or learned robustness?** — augmentation bridge to geometric deep learning.
-29. **Summary** — diagnose the failure mode, then choose the corresponding control.
+**Main flow (about 22 frames):**
+
+1. **Error on new data** — what generalization means; cross-reference the splits.
+2. **Underfit, good fit, overfit** — three fits to one dataset.
+3. **Capacity curve** — training and validation error versus capacity.
+4. **Bias** — the typical error of the fitted model, in plain words; why it matters.
+5. **Variance** — how much the fit changes between training sets; why it matters.
+6. **Bias/variance targets** — 2x2 picture of fitted weights over many training sets.
+7. **Same idea in prediction space** — many fitted curves against the truth.
+8. **Which do we prefer?** — rule of thumb: when in doubt, low variance and some bias.
+9. **Diagnosis table** — high training error means bias; a large train-test gap means variance.
+10. **Regularized objective** — data fit plus \(\lambda\Omega(\boldsymbol\theta)\); \(\lambda\) chosen on validation.
+11. **L2** — contours and the shifted minimum; do not penalize the intercept.
+12. **L1 versus L2 geometry** — exact zeros.
+13. **Regularization path** — coefficient magnitude versus \(\lambda\).
+14. **Early stopping** — validation curve and saved iterate.
+15. **Ensembles and bagging** — averaging reduces variance.
+16. **Dropout** — a new mask per training pass; full network at inference.
+17. **Match the remedy to the failure** — summary.
+
+**Appendix:** bias-variance decomposition and cross-term argument, noise term,
+L2 as MAP and L1 as Laplace prior, prior-scale figure, averaging-variance formula,
+inverted-dropout expectation, Monte Carlo dropout.
 
 ### 5. Geometric deep learning
 
@@ -513,7 +548,7 @@ This first batch produces the two immediately usable foundation presentations.
 
 1. Rewrite `neural-nets` around dense networks, reverse-mode differentiation,
    backpropagation, initialization, UAT, and the sine/Sobolev example.
-2. Create `regularization` with bias–variance, L1/L2 priors and geometry, early
+2. Create `generalization` with bias–variance, L1/L2 priors and geometry, early
    stopping, ensembles, dropout, and visual augmentation.
 3. Compile and inspect both before continuing.
 
