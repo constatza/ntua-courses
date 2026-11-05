@@ -2,14 +2,17 @@
 [topics.supervised-learning]
 owner = "presentations/supervised-learning"
 mentioned_in = ["presentations/neural-nets", "presentations/generalization"]
+exercises = ["exercises/cantilever-nn-surrogate"]
 
 [topics.first-order-optimization]
 owner = "presentations/optimization"
 mentioned_in = ["presentations/neural-nets", "presentations/pinns-neural-operators"]
+exercises = ["exercises/cantilever-nn-surrogate"]
 
 [topics.dense-neural-networks]
 owner = "presentations/neural-nets"
 mentioned_in = ["presentations/cnns", "presentations/rnns", "presentations/gnns"]
+exercises = ["exercises/cantilever-nn-surrogate"]
 
 [topics.generalization-regularization]
 owner = "presentations/generalization"

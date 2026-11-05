@@ -9,176 +9,167 @@
 
 from __future__ import annotations
 
-"""Generate the 1D flow-matching transport visualization for the deck."""
+"""Generate the 1D flow-matching figures (independent coupling, exact averaged field)."""
 
 from pathlib import Path
 
 import jax.numpy as jnp
-from matplotlib.lines import Line2D
-from matplotlib.patches import Patch
+from jax import random
+from matplotlib.axes import Axes
 
 from figure_io import apply_plot_style, assert_all_finite, generated_path, save_figure, plt, to_plot_array
-from flow_core import build_monotone_transport, transport_characteristics, velocity_field_grid
+from flow_core import (
+    DEFAULT_TARGET,
+    integrate_field,
+    marginal_velocity,
+    normal_pdf,
+    sample_independent_pairs,
+    straight_path,
+    target_pdf,
+)
 
-TRANSPORT_TIME_MIN = 0.03
-TRANSPORT_TIME_MAX = 0.97
-TRANSPORT_TIME_GRID_SIZE = 150
-TRANSPORT_STATE_MIN = -4.4
-TRANSPORT_STATE_MAX = 4.4
-TRANSPORT_STATE_GRID_SIZE = 380
+FLOW_SEED = 20260402
+NUM_PAIRS = 24
+NUM_TRAJECTORIES = 13
+TRAJECTORY_START_MIN = -2.4
+TRAJECTORY_START_MAX = 2.4
+ODE_STEPS = 200
+NUM_PARTICLES = 20000
+HISTOGRAM_SNAPSHOT_TIMES = [0.0, 0.35, 0.7, 1.0]
+HISTOGRAM_BINS = 60
 
-PDF_BAND_HALF_WIDTH = 0.13
-LEFT_PDF_EDGE = -0.13
-RIGHT_PDF_EDGE = 1.13
-TRANSPORT_XMIN = -0.16
-TRANSPORT_XMAX = 1.16
-TRANSPORT_YMIN = -4.4
-TRANSPORT_YMAX = 4.4
-
-CHARACTERISTIC_QUANTILES = [0.04, 0.18, 0.34, 0.50, 0.68, 0.84, 0.96]
-TRAJECTORY_TIME_STEPS = 120
-ENDPOINT_POINT_QUANTILES = jnp.linspace(0.05, 0.95, 17, dtype=jnp.float64)
-TRANSPORT_FIGSIZE = (11.8, 6.2)
-CONTOUR_LEVELS = 18
-LINE_LEVELS = 10
-PDF_LABEL_Y = 3.95
-LABEL_FONT_SIZE = 10
-LEGEND_LOCATION = "lower right"
-SOURCE_POINT_SIZE = 22.0
-TARGET_POINT_SIZE = 22.0
-SOURCE_POINT_COLOR = "#4f5d75"
-TARGET_POINT_COLOR = "#0b7189"
-TRAJECTORY_COLOR = "black"
-TRAJECTORY_LINEWIDTH = 1.0
-TRAJECTORY_ALPHA = 0.8
-SOURCE_BAND_COLOR = "#6c757d"
-TARGET_BAND_COLOR = "#0b7189"
-SOURCE_BAND_ALPHA = 0.88
-TARGET_BAND_ALPHA = 0.88
-CONTOUR_CMAP = "coolwarm"
-CONTOUR_LINE_COLOR = "white"
-CONTOUR_LINE_WIDTH = 0.6
-CONTOUR_LINE_ALPHA = 0.7
-ENDPOINT_LINE_COLOR = "black"
-ENDPOINT_LINE_WIDTH = 0.9
-ENDPOINT_LINE_ALPHA = 0.7
+FIELD_TIME_GRID_SIZE = 160
+FIELD_STATE_GRID_SIZE = 320
+STATE_LIMIT = 4.2
+TIME_MIN = -0.17
+TIME_MAX = 1.17
+BAND_WIDTH = 0.14
+SOURCE_COLOR = "#667085"
+TARGET_COLOR = "#27864A"
+PAIR_COLOR = "#667085"
+HIGHLIGHT_COLORS = ("#D97706", "#3F7CAC")
+PATH_COLOR = "black"
+SUPPORT_SIZE = 800
+FIGSIZE = (9.0, 5.2)
 
 
-def render_transport_field(output_path: Path) -> None:
-    """Render a 1D source-to-target transport field over `(t, x)`.
+def draw_density_bands(ax: Axes) -> None:
+    """Draw the noise density `p_0` on the left and the data density `p_1` on the right."""
+    support = jnp.linspace(-STATE_LIMIT, STATE_LIMIT, SUPPORT_SIZE, dtype=jnp.float64)
+    source = normal_pdf(support, 0.0, 1.0)
+    target = target_pdf(support)
+    left = -BAND_WIDTH * source / jnp.max(source)
+    right = 1.0 + BAND_WIDTH * target / jnp.max(target)
+    ax.fill_betweenx(to_plot_array(support), 0.0, to_plot_array(left), color=SOURCE_COLOR, alpha=0.85)
+    ax.fill_betweenx(to_plot_array(support), 1.0, to_plot_array(right), color=TARGET_COLOR, alpha=0.85)
+    ax.text(-BAND_WIDTH / 2, STATE_LIMIT - 0.15, r"$p_0$ (noise)", ha="center", va="top", fontsize=9)
+    ax.text(1.0 + BAND_WIDTH / 2, STATE_LIMIT - 0.15, r"$p_1$ (data)", ha="center", va="top", fontsize=9)
 
-    The filled contour shows the coupling-induced velocity field, the side bands
-    show the endpoint densities, and the black curves show characteristic
-    interpolation paths for selected quantiles.
-    """
-    transport = build_monotone_transport()
-    time_grid = jnp.linspace(TRANSPORT_TIME_MIN, TRANSPORT_TIME_MAX, TRANSPORT_TIME_GRID_SIZE, dtype=jnp.float64)
-    state_grid = jnp.linspace(TRANSPORT_STATE_MIN, TRANSPORT_STATE_MAX, TRANSPORT_STATE_GRID_SIZE, dtype=jnp.float64)
-    field = velocity_field_grid(transport, time_grid=time_grid, state_grid=state_grid)
 
-    source_peak = float(jnp.max(transport.source_pdf))
-    target_peak = float(jnp.max(transport.target_pdf))
-    source_band = LEFT_PDF_EDGE + PDF_BAND_HALF_WIDTH * transport.source_pdf / source_peak
-    target_band = RIGHT_PDF_EDGE - PDF_BAND_HALF_WIDTH * transport.target_pdf / target_peak
+def style_axes(ax: Axes) -> None:
+    ax.axvline(0.0, color="black", linewidth=0.8)
+    ax.axvline(1.0, color="black", linewidth=0.8)
+    ax.set_xlim(TIME_MIN, TIME_MAX)
+    ax.set_ylim(-STATE_LIMIT, STATE_LIMIT)
+    ax.set_xlabel(r"time $t$ (0 = noise, 1 = data)")
+    ax.set_ylabel(r"position $x$")
 
-    characteristic_quantiles = jnp.array(CHARACTERISTIC_QUANTILES, dtype=jnp.float64)
-    source_chars, target_chars = transport_characteristics(transport, characteristic_quantiles)
-    trajectory_times = jnp.linspace(0.0, 1.0, TRAJECTORY_TIME_STEPS, dtype=jnp.float64)
-    source_points, target_points = transport_characteristics(transport, ENDPOINT_POINT_QUANTILES)
 
-    fig, ax = plt.subplots(figsize=TRANSPORT_FIGSIZE)
+def first_crossing_pair(x0: jnp.ndarray, x1: jnp.ndarray) -> tuple[int, int]:
+    """Return indices of two pairs whose straight lines cross inside (0, 1)."""
+    count = x0.shape[0]
+    for first in range(count):
+        for second in range(first + 1, count):
+            if (x0[first] - x0[second]) * (x1[first] - x1[second]) < 0.0:
+                return first, second
+    raise AssertionError("no crossing pair found; increase the number of pairs")
+
+
+def render_independent_pairs(output_path: Path) -> None:
+    """Straight pair paths under independent coupling: they cross."""
+    x0, x1 = sample_independent_pairs(random.PRNGKey(FLOW_SEED), NUM_PAIRS)
+    times = jnp.linspace(0.0, 1.0, 2, dtype=jnp.float64)
+    paths = straight_path(x0, x1, times)
+    first, second = first_crossing_pair(x0, x1)
+    crossing_time = float((x0[second] - x0[first]) / ((x0[second] - x0[first]) - (x1[second] - x1[first])))
+    crossing_x = float((1.0 - crossing_time) * x0[first] + crossing_time * x1[first])
+    assert 0.0 < crossing_time < 1.0
+    assert_all_finite(paths)
+
+    fig, ax = plt.subplots(figsize=FIGSIZE)
+    draw_density_bands(ax)
+    for index in range(NUM_PAIRS):
+        ax.plot(to_plot_array(times), to_plot_array(paths[:, index]), color=PAIR_COLOR, linewidth=1.0, alpha=0.7)
+    for index, color in zip((first, second), HIGHLIGHT_COLORS, strict=True):
+        ax.plot(to_plot_array(times), to_plot_array(paths[:, index]), color=color, linewidth=2.6)
+    ax.scatter([crossing_time], [crossing_x], s=70, color="black", zorder=5)
+    ax.annotate(
+        "two pairs cross:\ndifferent velocities\nat the same point",
+        xy=(crossing_time, crossing_x),
+        xytext=(0.3, 3.3),
+        arrowprops={"arrowstyle": "->"},
+        fontsize=10,
+    )
+    style_axes(ax)
+    ax.set_title(r"Independent coupling: each pair moves on a straight line $x_t=(1-t)x_0+t x_1$")
+    save_figure(fig, output_path)
+
+
+def render_marginal_field(output_path: Path) -> None:
+    """Exact averaged field with the paths it generates: these do not cross."""
+    times = jnp.linspace(0.0, 1.0, FIELD_TIME_GRID_SIZE, dtype=jnp.float64)
+    states = jnp.linspace(-STATE_LIMIT, STATE_LIMIT, FIELD_STATE_GRID_SIZE, dtype=jnp.float64)
+    field = jnp.stack([marginal_velocity(states, float(t)) for t in times], axis=1)
+    starts = jnp.linspace(TRAJECTORY_START_MIN, TRAJECTORY_START_MAX, NUM_TRAJECTORIES, dtype=jnp.float64)
+    trajectories = integrate_field(starts, ODE_STEPS)
+    assert_all_finite(field, trajectories)
+    assert bool(jnp.all(jnp.diff(trajectories, axis=1) > 0.0)), "ODE paths must keep their order (no crossing)"
+
+    fig, ax = plt.subplots(figsize=FIGSIZE)
     filled = ax.contourf(
-        to_plot_array(time_grid),
-        to_plot_array(state_grid),
-        to_plot_array(field.T),
-        levels=CONTOUR_LEVELS,
-        cmap=CONTOUR_CMAP,
+        to_plot_array(times), to_plot_array(states), to_plot_array(field), levels=18, cmap="coolwarm"
     )
-    ax.contour(
-        to_plot_array(time_grid),
-        to_plot_array(state_grid),
-        to_plot_array(field.T),
-        levels=LINE_LEVELS,
-        colors=CONTOUR_LINE_COLOR,
-        linewidths=CONTOUR_LINE_WIDTH,
-        alpha=CONTOUR_LINE_ALPHA,
-    )
+    draw_density_bands(ax)
+    path_times = jnp.linspace(0.0, 1.0, ODE_STEPS + 1, dtype=jnp.float64)
+    for index in range(NUM_TRAJECTORIES):
+        ax.plot(to_plot_array(path_times), to_plot_array(trajectories[:, index]), color=PATH_COLOR, linewidth=1.2)
+    style_axes(ax)
+    ax.set_title(r"Averaged field $u_t(x)$ (color) and the paths it generates (black)")
+    cbar = fig.colorbar(filled, ax=ax, fraction=0.04, pad=0.02)
+    cbar.set_label(r"velocity $u_t(x)$ (red: moving up, blue: moving down)")
+    save_figure(fig, output_path)
 
-    ax.fill_betweenx(
-        to_plot_array(transport.source_support),
-        LEFT_PDF_EDGE,
-        to_plot_array(source_band),
-        color=SOURCE_BAND_COLOR,
-        alpha=SOURCE_BAND_ALPHA,
-    )
-    ax.fill_betweenx(
-        to_plot_array(transport.source_support),
-        to_plot_array(target_band),
-        RIGHT_PDF_EDGE,
-        color=TARGET_BAND_COLOR,
-        alpha=TARGET_BAND_ALPHA,
-    )
 
-    for source_value, target_value in zip(source_chars, target_chars, strict=True):
-        trajectory = (1.0 - trajectory_times) * source_value + trajectory_times * target_value
-        ax.plot(
-            to_plot_array(trajectory_times),
-            to_plot_array(trajectory),
-            color=TRAJECTORY_COLOR,
-            linewidth=TRAJECTORY_LINEWIDTH,
-            alpha=TRAJECTORY_ALPHA,
+def render_density_evolution(output_path: Path) -> None:
+    """Histogram of particles carried by the averaged field, against the exact density."""
+    x0 = random.normal(random.PRNGKey(FLOW_SEED + 1), (NUM_PARTICLES,), dtype=jnp.float64)
+    trajectory = integrate_field(x0, ODE_STEPS)
+    support = jnp.linspace(-STATE_LIMIT, STATE_LIMIT, SUPPORT_SIZE, dtype=jnp.float64)
+
+    fig, axes = plt.subplots(1, len(HISTOGRAM_SNAPSHOT_TIMES), figsize=(13.0, 2.8), sharey=True)
+    for ax, snapshot in zip(axes, HISTOGRAM_SNAPSHOT_TIMES, strict=True):
+        step = round(snapshot * ODE_STEPS)
+        variance = (1.0 - snapshot) ** 2 + snapshot**2 * DEFAULT_TARGET.stds**2
+        exact = jnp.zeros_like(support)
+        for weight, mean, var in zip(DEFAULT_TARGET.weights, snapshot * DEFAULT_TARGET.means, variance, strict=True):
+            exact += weight * normal_pdf(support, mean, var)
+        ax.hist(
+            to_plot_array(trajectory[step]), bins=HISTOGRAM_BINS, range=(-STATE_LIMIT, STATE_LIMIT),
+            density=True, color="#3F7CAC", alpha=0.65,
         )
-
-    ax.scatter(
-        to_plot_array(jnp.zeros_like(source_points)),
-        to_plot_array(source_points),
-        s=SOURCE_POINT_SIZE,
-        color=SOURCE_POINT_COLOR,
-        edgecolor="white",
-        linewidth=0.5,
-        zorder=4,
-    )
-    ax.scatter(
-        to_plot_array(jnp.ones_like(target_points)),
-        to_plot_array(target_points),
-        s=TARGET_POINT_SIZE,
-        color=TARGET_POINT_COLOR,
-        edgecolor="white",
-        linewidth=0.5,
-        zorder=4,
-    )
-
-    finite_field_mask = jnp.isfinite(field)
-    assert bool(jnp.any(finite_field_mask))
-    assert_all_finite(field[finite_field_mask], source_band, target_band, source_chars, target_chars, source_points, target_points)
-    ax.axvline(0.0, color=ENDPOINT_LINE_COLOR, linewidth=ENDPOINT_LINE_WIDTH, alpha=ENDPOINT_LINE_ALPHA)
-    ax.axvline(1.0, color=ENDPOINT_LINE_COLOR, linewidth=ENDPOINT_LINE_WIDTH, alpha=ENDPOINT_LINE_ALPHA)
-    ax.set_xlim(TRANSPORT_XMIN, TRANSPORT_XMAX)
-    ax.set_ylim(TRANSPORT_YMIN, TRANSPORT_YMAX)
-    ax.set_xlabel(r"time $t$")
-    ax.set_ylabel(r"state $x$")
-    ax.set_title(r"1D flow-matching transport field $u(x,t)$ between a Gaussian source and a bimodal target")
-    ax.text(LEFT_PDF_EDGE + 0.015, PDF_LABEL_Y, r"$p_0(x)$", fontsize=LABEL_FONT_SIZE, ha="center", va="top")
-    ax.text(RIGHT_PDF_EDGE - 0.015, PDF_LABEL_Y, r"$p_1(x)$", fontsize=LABEL_FONT_SIZE, ha="center", va="top")
-
-    legend_handles = [
-        Line2D([0], [0], marker="o", linestyle="", markersize=6, markerfacecolor=SOURCE_POINT_COLOR, markeredgecolor="white", label=r"source samples $x_0$"),
-        Line2D([0], [0], marker="o", linestyle="", markersize=6, markerfacecolor=TARGET_POINT_COLOR, markeredgecolor="white", label=r"target samples $x_1$"),
-        Line2D([0], [0], color=TRAJECTORY_COLOR, linewidth=TRAJECTORY_LINEWIDTH, label=r"straight paths $x_t=(1-t)x_0+t x_1$"),
-        Patch(facecolor=SOURCE_BAND_COLOR, alpha=SOURCE_BAND_ALPHA, label=r"source density $p_0(x)$"),
-        Patch(facecolor=TARGET_BAND_COLOR, alpha=TARGET_BAND_ALPHA, label=r"target density $p_1(x)$"),
-    ]
-    ax.legend(handles=legend_handles, loc=LEGEND_LOCATION, frameon=True)
-
-    cbar = fig.colorbar(filled, ax=ax, fraction=0.035, pad=0.02)
-    cbar.set_label(r"velocity field $u(x,t)$")
+        ax.plot(to_plot_array(support), to_plot_array(exact), color="black", linewidth=1.2)
+        ax.set_title(fr"$t={snapshot:g}$")
+        ax.set_xlabel(r"position $x$")
+    axes[0].set_ylabel("density")
     save_figure(fig, output_path)
 
 
 def main() -> None:
-    """Generate all flow-related figures used by the deck."""
+    """Generate all flow-matching figures used by the deck."""
     apply_plot_style()
-    render_transport_field(generated_path("flow_matching_1d_transport_field.png"))
+    render_independent_pairs(generated_path("flow_matching_independent_pairs.png"))
+    render_marginal_field(generated_path("flow_matching_marginal_field.png"))
+    render_density_evolution(generated_path("flow_matching_density_evolution.png"))
 
 
 if __name__ == "__main__":

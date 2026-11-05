@@ -1,158 +1,105 @@
 from __future__ import annotations
 
-"""Exact 1D transport objects for the flow-matching figure.
+"""Exact 1D flow-matching objects, with no trained model.
 
-The figure uses a monotone quantile coupling between:
-- a standard Gaussian source density `p_0`,
-- a bimodal Gaussian-mixture target density `p_1`.
+Setting (time convention of this deck: t=0 is noise, t=1 is data):
+- source `p_0` is a standard Gaussian,
+- target `p_1` is a bimodal Gaussian mixture,
+- the coupling is *independent*: x_0 ~ p_0 and x_1 ~ p_1 are drawn separately,
+- each pair follows the straight line x_t = (1-t) x_0 + t x_1 with velocity x_1 - x_0.
 
-This gives a clean 1D setting where the interpolation paths and the induced
-velocity field can be visualized without training any model.
+Because every piece is Gaussian, the averaged field
+`u(x, t) = E[x_1 - x_0 | x_t = x]` is available in closed form, so the figures
+show the exact field that an ideal regression would learn.
 """
 
 from dataclasses import dataclass
 
 import jax
 import jax.numpy as jnp
-from jax.scipy.special import erf, erfinv
+from jax import random
 
 jax.config.update("jax_enable_x64", True)
 
 Array = jax.Array
 
-DEFAULT_MIXTURE_WEIGHTS = jnp.array([0.56, 0.44], dtype=jnp.float64)
-DEFAULT_MIXTURE_MEANS = jnp.array([-1.6, 1.9], dtype=jnp.float64)
-DEFAULT_MIXTURE_STDS = jnp.array([0.42, 0.68], dtype=jnp.float64)
-DEFAULT_PROBABILITY_MIN = 1.0e-4
-DEFAULT_PROBABILITY_MAX = 1.0 - DEFAULT_PROBABILITY_MIN
-DEFAULT_SUPPORT_MIN = -4.8
-DEFAULT_SUPPORT_MAX = 4.8
-DEFAULT_SUPPORT_SIZE = 6000
-DEFAULT_NUM_QUANTILES = 2600
+
+@dataclass(frozen=True, slots=True)
+class TargetMixture1D:
+    """Bimodal Gaussian mixture used as the data distribution `p_1`."""
+
+    weights: Array
+    means: Array
+    stds: Array
 
 
-@dataclass(frozen=True)
-class Transport1D:
-    """Container for a monotone 1D source-to-target transport construction."""
-    probabilities: Array
-    source_samples: Array
-    target_samples: Array
-    velocities: Array
-    source_support: Array
-    source_pdf: Array
-    target_pdf: Array
+DEFAULT_TARGET = TargetMixture1D(
+    weights=jnp.array([0.56, 0.44], dtype=jnp.float64),
+    means=jnp.array([-1.6, 1.9], dtype=jnp.float64),
+    stds=jnp.array([0.42, 0.68], dtype=jnp.float64),
+)
 
 
-def normal_pdf(x: Array, mean: float, std: float) -> Array:
-    """Evaluate a 1D Gaussian density."""
-    variance = std**2
-    return jnp.exp(-0.5 * ((x - mean) ** 2) / variance) / jnp.sqrt(2.0 * jnp.pi * variance)
+def normal_pdf(x: Array, mean: Array | float, variance: Array | float) -> Array:
+    """Evaluate a 1D Gaussian density with the given variance."""
+    return jnp.exp(-0.5 * (x - mean) ** 2 / variance) / jnp.sqrt(2.0 * jnp.pi * variance)
 
 
-def normal_cdf(x: Array, mean: float, std: float) -> Array:
-    """Evaluate a 1D Gaussian cumulative distribution function."""
-    return 0.5 * (1.0 + erf((x - mean) / (std * jnp.sqrt(2.0))))
+def target_pdf(x: Array, target: TargetMixture1D = DEFAULT_TARGET) -> Array:
+    """Density of the data distribution `p_1`."""
+    total = jnp.zeros_like(x, dtype=jnp.float64)
+    for weight, mean, std in zip(target.weights, target.means, target.stds, strict=True):
+        total += weight * normal_pdf(x, mean, std**2)
+    return total
 
 
-def normal_ppf(probabilities: Array) -> Array:
-    """Evaluate the inverse CDF of the standard normal distribution."""
-    return jnp.sqrt(2.0) * erfinv(2.0 * probabilities - 1.0)
+def sample_target(key: Array, num: int, target: TargetMixture1D = DEFAULT_TARGET) -> Array:
+    """Draw `num` samples from `p_1`."""
+    key_component, key_noise = random.split(key)
+    components = random.categorical(key_component, jnp.log(target.weights), shape=(num,))
+    noise = random.normal(key_noise, shape=(num,), dtype=jnp.float64)
+    return target.means[components] + target.stds[components] * noise
 
 
-def target_mixture_pdf(
-    x: Array,
-    weights: Array = DEFAULT_MIXTURE_WEIGHTS,
-    means: Array = DEFAULT_MIXTURE_MEANS,
-    stds: Array = DEFAULT_MIXTURE_STDS,
-) -> Array:
-    """Evaluate the target bimodal mixture density."""
-    density = jnp.zeros_like(x, dtype=jnp.float64)
-    for weight, mean, std in zip(weights, means, stds, strict=True):
-        density += weight * normal_pdf(x, float(mean), float(std))
-    return density
+def sample_independent_pairs(key: Array, num: int) -> tuple[Array, Array]:
+    """Independent coupling: x_0 from N(0,1) and x_1 from p_1, drawn separately."""
+    key_source, key_target = random.split(key)
+    x0 = random.normal(key_source, shape=(num,), dtype=jnp.float64)
+    return x0, sample_target(key_target, num)
 
 
-def target_mixture_cdf(
-    x: Array,
-    weights: Array = DEFAULT_MIXTURE_WEIGHTS,
-    means: Array = DEFAULT_MIXTURE_MEANS,
-    stds: Array = DEFAULT_MIXTURE_STDS,
-) -> Array:
-    """Evaluate the CDF of the target bimodal mixture."""
-    cumulative = jnp.zeros_like(x, dtype=jnp.float64)
-    for weight, mean, std in zip(weights, means, stds, strict=True):
-        cumulative += weight * normal_cdf(x, float(mean), float(std))
-    return cumulative
+def straight_path(x0: Array, x1: Array, t: Array) -> Array:
+    """Points `(1-t) x_0 + t x_1` for each time in `t`; result shape `(len(t), len(x0))`."""
+    return (1.0 - t[:, None]) * x0[None, :] + t[:, None] * x1[None, :]
 
 
-def build_monotone_transport(
-    num_quantiles: int = DEFAULT_NUM_QUANTILES,
-    support_min: float = DEFAULT_SUPPORT_MIN,
-    support_max: float = DEFAULT_SUPPORT_MAX,
-    support_size: int = DEFAULT_SUPPORT_SIZE,
-    probability_min: float = DEFAULT_PROBABILITY_MIN,
-    probability_max: float = DEFAULT_PROBABILITY_MAX,
-) -> Transport1D:
-    """Construct a deterministic monotone coupling by matching quantiles.
+def marginal_velocity(x: Array, t: float, target: TargetMixture1D = DEFAULT_TARGET) -> Array:
+    """Exact averaged field `E[x_1 - x_0 | x_t = x]` under the independent coupling.
 
-    The source sample at quantile `p` is `Phi^{-1}(p)`. The target sample at the
-    same quantile is found by numerically inverting the target mixture CDF.
+    Given mixture component k, (x_0, x_1, x_t) are jointly Gaussian, so the
+    conditional mean of `x_1 - x_0` is linear in `x_t`. The components are then
+    averaged with their posterior responsibilities at `(x, t)`.
     """
-    probabilities = jnp.linspace(probability_min, probability_max, num_quantiles, dtype=jnp.float64)
-    source_samples = normal_ppf(probabilities)
-
-    support = jnp.linspace(support_min, support_max, support_size, dtype=jnp.float64)
-    target_cdf = target_mixture_cdf(support)
-    target_samples = jnp.interp(probabilities, target_cdf, support)
-    velocities = target_samples - source_samples
-
-    source_pdf = normal_pdf(support, mean=0.0, std=1.0)
-    target_pdf = target_mixture_pdf(support)
-
-    assert bool(jnp.all(jnp.diff(source_samples) > 0.0))
-    assert bool(jnp.all(jnp.diff(target_samples) > 0.0))
-    assert bool(jnp.all(jnp.isfinite(velocities)))
-
-    return Transport1D(
-        probabilities=probabilities,
-        source_samples=source_samples,
-        target_samples=target_samples,
-        velocities=velocities,
-        source_support=support,
-        source_pdf=source_pdf,
-        target_pdf=target_pdf,
-    )
+    variance_t = (1.0 - t) ** 2 + t**2 * target.stds**2
+    mean_t = t * target.means
+    gain = (t * target.stds**2 - (1.0 - t)) / variance_t
+    component_field = target.means[None, :] + gain[None, :] * (x[:, None] - mean_t[None, :])
+    weights = target.weights[None, :] * normal_pdf(x[:, None], mean_t[None, :], variance_t[None, :])
+    responsibilities = weights / jnp.sum(weights, axis=1, keepdims=True)
+    return jnp.sum(responsibilities * component_field, axis=1)
 
 
-def interpolation_state(transport: Transport1D, t: float) -> Array:
-    """Evaluate the straight interpolation state `x_t = (1-t)x_0 + t x_1`."""
-    assert 0.0 <= t <= 1.0
-    xt = (1.0 - t) * transport.source_samples + t * transport.target_samples
-    assert bool(jnp.all(jnp.isfinite(xt)))
-    return xt
+def integrate_field(x_start: Array, num_steps: int) -> Array:
+    """Integrate dx/dt = u(x, t) from t=0 to 1 with the midpoint rule.
 
-
-def transport_characteristics(transport: Transport1D, chosen_quantiles: Array) -> tuple[Array, Array]:
-    """Extract representative source-target pairs at selected quantiles."""
-    source = jnp.interp(chosen_quantiles, transport.probabilities, transport.source_samples)
-    target = jnp.interp(chosen_quantiles, transport.probabilities, transport.target_samples)
-    return source, target
-
-
-def velocity_field_grid(
-    transport: Transport1D,
-    time_grid: Array,
-    state_grid: Array,
-) -> Array:
-    """Sample the induced 1D field `u(x,t)` on a regular `(t, x)` grid.
-
-    For each time value we evaluate the monotone interpolation path and then
-    interpolate the pairwise velocities onto a state grid.
+    Returns the trajectory with shape `(num_steps + 1, len(x_start))`.
     """
-    field_rows = []
-    for time_value in time_grid:
-        xt = interpolation_state(transport, float(time_value))
-        row = jnp.interp(state_grid, xt, transport.velocities, left=jnp.nan, right=jnp.nan)
-        field_rows.append(row)
-    field = jnp.stack(field_rows, axis=0)
-    return field
+    dt = 1.0 / num_steps
+    states = [x_start]
+    x = x_start
+    for step in range(num_steps):
+        t = step * dt
+        half = x + 0.5 * dt * marginal_velocity(x, t)
+        x = x + dt * marginal_velocity(half, t + 0.5 * dt)
+        states.append(x)
+    return jnp.stack(states, axis=0)
