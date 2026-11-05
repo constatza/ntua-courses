@@ -29,6 +29,8 @@
   \makepresentationtitle
 \end{frame}
 
+% ---------------------------------------------------------------- A. Landscape
+
 \begin{frame}{Optimization Chooses the Parameters}
   \[
     L(\boldsymbol{\theta})
@@ -46,6 +48,31 @@
     L(\boldsymbol{\theta})
   \]
 \end{frame}
+
+\begin{frame}{Convexity Makes Every Stationary Point a Global Minimum}
+  $L$ is convex if, for all $\mathbf a,\mathbf b$ and $\lambda\in[0,1]$,
+  \[
+    L(\lambda\mathbf a+(1-\lambda)\mathbf b)
+    \leq\lambda L(\mathbf a)+(1-\lambda)L(\mathbf b).
+  \]
+  \begin{itemize}
+    \item A twice-differentiable $L$ is convex exactly when $\nabla^2L\succeq\mathbf0$ everywhere.
+    \item Then $\nabla L(\boldsymbol\theta)=\mathbf0$ implies $\boldsymbol\theta$ is a global minimizer.
+    \item Least squares is convex; so is the cross-entropy loss of logistic regression.
+  \end{itemize}
+  Convex problems let us prove convergence rates. Most deep-learning objectives are not convex.
+\end{frame}
+
+\begin{frame}{Nonconvex Objectives Have Several Minima and Saddles}
+  \centering
+  \includegraphics[width=0.98\linewidth,height=0.7\textheight,keepaspectratio]{landscapes.png}
+
+  \vspace{0.1cm}
+  At a stationary point, all Hessian eigenvalues positive means a minimum;
+  mixed signs mean a saddle, where the gradient vanishes but the loss is not minimal.
+\end{frame}
+
+% ---------------------------------------------------------------- B. Gradient descent
 
 \begin{frame}{A Direction Predicts the Local Change}
   For a unit direction $\mathbf d$, the directional derivative is
@@ -107,25 +134,11 @@
   The step is justified locally; the learning rate decides whether that local model is trusted too far.
 \end{frame}
 
+% ---------------------------------------------------------------- C. Step size and curvature
+
 \begin{frame}{The Learning Rate Controls Progress and Stability}
   \centering
   \includegraphics[width=0.96\linewidth,height=0.79\textheight,keepaspectratio]{learning-rates.png}
-\end{frame}
-
-\begin{frame}{Conditioning Couples Curvature to Step Size}
-  For a quadratic objective with Hessian $\mathbf{H}$:
-  \[
-    \kappa(\mathbf{H})
-    =\frac{\lambda_{\max}(\mathbf{H})}
-           {\lambda_{\min}(\mathbf{H})}
-  \]
-  \begin{itemize}
-    \item $\kappa\approx 1$: similar curvature in every direction.
-    \item Large $\kappa$: narrow valleys cause zig-zagging.
-    \item Feature scaling can improve the geometry.
-  \end{itemize}
-  Scaling does not change which physical relation the data represent; it changes how easily
-  a first-order method traverses the parameter space.
 \end{frame}
 
 \begin{frame}{Quadratic Stability Is an Eigenvalue Condition}
@@ -141,7 +154,30 @@
     \quad\Longleftrightarrow\quad
     \boxed{0<\eta<\frac{2}{\lambda_{\max}}}.
   \]
-  A large condition number leaves no single step size that is fast in every direction.
+  The steepest direction limits the step; the flattest direction then sets the speed.
+\end{frame}
+
+\begin{frame}{The Best Constant Step Balances the Extreme Eigenvalues}
+  \centering
+  \includegraphics[width=0.92\linewidth,height=0.7\textheight,keepaspectratio]{contraction.png}
+
+  The slowest direction contracts by $\rho(\eta)=\max_j|1-\eta\lambda_j|$ per update;
+  it is smallest when the two extreme directions contract equally.
+\end{frame}
+
+\begin{frame}{Conditioning Sets the Iteration Count}
+  \[
+    \kappa(\mathbf{H})
+    =\frac{\lambda_{\max}(\mathbf{H})}
+           {\lambda_{\min}(\mathbf{H})},
+    \qquad
+    \rho^\star=\frac{\kappa-1}{\kappa+1}\approx1-\frac2\kappa
+  \]
+  \begin{itemize}
+    \item Reducing the error by a factor $\varepsilon$ takes about $\dfrac{\kappa}{2}\ln\dfrac1\varepsilon$ updates.
+    \item $\kappa\approx1$: any sensible step is fast. Large $\kappa$: narrow valleys and zig-zagging.
+    \item No single $\eta$ is fast in every direction.
+  \end{itemize}
 \end{frame}
 
 \begin{frame}{Ill-Conditioned Objectives Slow Gradient Descent}
@@ -149,19 +185,40 @@
   \includegraphics[width=0.98\linewidth,height=0.79\textheight,keepaspectratio]{conditioning.png}
 \end{frame}
 
-\begin{frame}{Smooth Convex Objectives Admit a Descent Guarantee}
-  If $L$ has an $M$-Lipschitz gradient, the descent lemma gives
+\begin{frame}{Standardizing Features Removes Scale-Induced Ill-Conditioning}
+  For linear least squares the Hessian is $\tfrac2n\mathbf X^\top\mathbf X$. After centering and
+  scaling every feature to unit variance,
+  \[
+    \tfrac1n\widetilde{\mathbf X}^\top\widetilde{\mathbf X}=\mathbf R
+    \quad\text{(feature correlation matrix)}
+  \]
+  \[
+    \operatorname{diag}\mathbf R=\mathbf 1,
+    \qquad \lambda_{\max}(\mathbf R)\leq d.
+  \]
+  \begin{itemize}
+    \item Features measured in different units no longer stretch the contours.
+    \item Strongly correlated features still make $\mathbf R$ ill-conditioned; scaling cannot remove that.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{A Smooth Objective Decreases for Any Step Below $2/M$}
+  If $\nabla L$ is $M$-Lipschitz, the descent lemma gives
   \[
     L(\boldsymbol\theta-\eta\nabla L)
     \leq L(\boldsymbol\theta)
     -\eta\left(1-\frac{M\eta}{2}\right)\|\nabla L\|_2^2.
   \]
-  Therefore $0<\eta<2/M$ decreases the objective unless $\nabla L=0$.
+  Therefore $0<\eta<2/M$ decreases the objective unless $\nabla L=0$; no convexity is needed.
   \begin{itemize}
-    \item Convexity turns a stationary point into a global minimizer.
-    \item Neural-network objectives are generally nonconvex; the local descent statement still matters.
+    \item If $L$ is also convex and $\eta\leq1/M$:
+      $L(\boldsymbol\theta^{(T)})-L^\star\leq\dfrac{\|\boldsymbol\theta^{(0)}-\boldsymbol\theta^\star\|_2^2}{2\eta T}$,
+      a sublinear $1/T$ rate.
+    \item With curvature bounded below as well (strong convexity) the rate becomes linear, as on the quadratic.
   \end{itemize}
 \end{frame}
+
+% ---------------------------------------------------------------- D. Stochastic gradients
 
 \begin{frame}{A Batch Chooses the Gradient Estimate}
   \[
@@ -185,7 +242,7 @@
 \end{frame}
 
 \begin{frame}{A Uniform Mini-Batch Gradient Is Unbiased}
-  For a uniformly sampled batch $\mathcal B_t$ of size $b$,
+  For a batch $\mathcal B_t$ of size $b$ drawn uniformly and independently,
   \[
     \mathbf g^{(t)}
     =\frac1b\sum_{i\in\mathcal B_t}\nabla\ell_i(\boldsymbol\theta^{(t)}),
@@ -193,49 +250,21 @@
     \mathbb E_{\mathcal B_t}[\mathbf g^{(t)}]
     =\nabla L(\boldsymbol\theta^{(t)}).
   \]
-  Under independent sampling,
+  Its variance is
   \[
     \operatorname{Var}(\mathbf g^{(t)})
     =\frac1b\operatorname{Var}(\nabla\ell_i).
   \]
-  A larger batch reduces gradient variance, but usually costs more per update.
+  A larger batch reduces gradient variance, but costs more per update. Sampling without replacement
+  reduces the variance slightly further.
 \end{frame}
 
-\begin{frame}{Mini-Batches Trade Noise for Throughput}
+\begin{frame}{Mini-Batch Noise Leaves a Floor That Shrinks with Batch Size}
   \centering
-  \begin{tikzpicture}[
-    cell/.style={draw,minimum width=0.58cm,minimum height=0.68cm},
-    label/.style={font=\bfseries,anchor=east}
-  ]
-    \node[label] at (-0.4,2.2) {full batch};
-    \foreach \x in {0,...,9}{\node[cell,fill=courseblue!25] at (0.62*\x,2.2) {};}
-    \node[right] at (6.2,2.2) {$n$ samples};
+  \includegraphics[width=0.98\linewidth,height=0.66\textheight,keepaspectratio]{gd-vs-sgd.png}
 
-    \node[label] at (-0.4,1.1) {mini-batch};
-    \foreach \x in {0,...,9}{
-      \ifnum\x<4
-        \node[cell,fill=courseorange!45] at (0.62*\x,1.1) {};
-      \else
-        \node[cell,fill=white] at (0.62*\x,1.1) {};
-      \fi
-    }
-    \node[right] at (6.2,1.1) {$b$ samples};
-
-    \node[label] at (-0.4,0) {SGD};
-    \foreach \x in {0,...,9}{
-      \ifnum\x=0
-        \node[cell,fill=coursegreen!45] at (0.62*\x,0) {};
-      \else
-        \node[cell,fill=white] at (0.62*\x,0) {};
-      \fi
-    }
-    \node[right] at (6.2,0) {$1$ sample};
-  \end{tikzpicture}
-\end{frame}
-
-\begin{frame}{Stochastic Gradients Wander Around the Descent Path}
-  \centering
-  \includegraphics[width=0.96\linewidth,height=0.79\textheight,keepaspectratio]{gd-vs-sgd.png}
+  Per-sample gradients do not vanish at the minimizer, so with a constant step the iterate keeps
+  moving; full-batch GD with the same $\eta$ converges.
 \end{frame}
 
 \begin{frame}{Count Work Before Comparing Optimizers}
@@ -248,18 +277,45 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Learning-Rate Schedules Change the Long-Run Behavior}
+\begin{frame}{A Schedule Lowers the Step as Training Progresses}
   \[
-    \eta_t=\eta_0
-    \quad\text{or}\quad
-    \eta_t=\frac{\eta_0}{(1+t)^\alpha},\;\alpha>0.
+    \text{decay: }\eta_t=\frac{\eta_0}{t^{\alpha}},
+    \qquad
+    \text{warm-up: }\eta_t=\eta_{\max}\frac{t}{t_w}\ \ (t\leq t_w)
+  \]
+  \[
+    \text{cosine, after warm-up: }
+    \eta_t=\frac{\eta_{\max}}{2}\Bigl(1+\cos\frac{\pi(t-t_w)}{T-t_w}\Bigr)
   \]
   \begin{itemize}
-    \item A constant step can keep stochastic or normalized updates near the minimum.
-    \item Decay permits smaller corrections late in training.
-    \item Warm-up limits unstable early updates when gradients or moment estimates are poorly scaled.
+    \item Stochastic gradients converge only if $\sum_t\eta_t=\infty$ and $\sum_t\eta_t^2<\infty$,
+      which holds for $\alpha\in(\tfrac12,1]$.
+    \item Decay removes the noise floor late in training; a constant step keeps it.
+    \item Warm-up limits unstable early updates, when gradients and moment estimates are poorly scaled.
   \end{itemize}
+\end{frame}
+
+\begin{frame}{Common Schedules Differ in How Fast the Step Shrinks}
+  \centering
+  \includegraphics[width=0.92\linewidth,height=0.74\textheight,keepaspectratio]{schedules.png}
+
   The schedule is part of the algorithm and must be reported in a comparison.
+\end{frame}
+
+% ---------------------------------------------------------------- E. Beyond a single fixed step
+
+\begin{frame}{Newton's Method Divides the Gradient by the Curvature}
+  \[
+    \boldsymbol\theta^{(t+1)}
+    =\boldsymbol\theta^{(t)}-\mathbf H^{-1}\nabla L(\boldsymbol\theta^{(t)})
+  \]
+  \begin{itemize}
+    \item On a quadratic this reaches the minimizer in one update, for any $\kappa$.
+    \item It stores a $d\times d$ Hessian and solves a linear system: $O(d^3)$, impractical for millions of parameters.
+    \item At a saddle or in a nonconvex region $\mathbf H$ is indefinite, so the step can go the wrong way.
+    \item L-BFGS builds a curvature estimate from the last few gradient differences; it suits smooth full-batch problems but not noisy mini-batches.
+  \end{itemize}
+  Momentum and adaptive scaling are cheap first-order substitutes for this curvature information.
 \end{frame}
 
 \begin{frame}{Momentum Accumulates a Descent Direction}
@@ -274,16 +330,41 @@
       =\boldsymbol{\theta}^{(t)}-\eta\mathbf{v}^{(t)}
     }
   \]
+  Equivalently,
+  $\boldsymbol\theta^{(t+1)}=\boldsymbol\theta^{(t)}-\eta\mathbf g^{(t)}
+  +\beta\bigl(\boldsymbol\theta^{(t)}-\boldsymbol\theta^{(t-1)}\bigr)$.
   \begin{itemize}
-    \item Persistent directions accumulate.
-    \item Alternating directions partially cancel.
-    \item Momentum can move faster along long valleys.
+    \item A gradient that keeps its sign accumulates toward an effective step $\eta/(1-\beta)$.
+    \item Gradients that alternate sign partially cancel.
+    \item The new term is inertia: the iterate keeps part of its previous displacement.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Momentum Reduces Repeated Zig-Zagging}
+\begin{frame}{Nesterov Momentum Evaluates the Gradient Ahead}
+  \[
+    \tilde{\mathbf g}^{(t)}
+    =\nabla L\bigl(\boldsymbol\theta^{(t)}-\eta\beta\mathbf v^{(t-1)}\bigr)
+  \]
+  \[
+    \mathbf v^{(t)}=\beta\mathbf v^{(t-1)}+\tilde{\mathbf g}^{(t)},
+    \qquad
+    \boldsymbol\theta^{(t+1)}=\boldsymbol\theta^{(t)}-\eta\mathbf v^{(t)}
+  \]
+  \begin{itemize}
+    \item The gradient is taken where momentum alone would carry the iterate, which corrects an overshoot one step earlier.
+    \item For smooth convex $L$ this reaches error $O(1/t^2)$, against $O(1/t)$ for gradient descent.
+    \item With $\eta=1/M$ and $\beta=\frac{\sqrt\kappa-1}{\sqrt\kappa+1}$ the strongly convex rate is about $1-1/\sqrt\kappa$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Momentum Cuts the Iteration Count from About $\kappa$ to $\sqrt\kappa$}
   \centering
-  \includegraphics[width=0.96\linewidth,height=0.79\textheight,keepaspectratio]{momentum.png}
+  \includegraphics[width=0.84\linewidth,height=0.66\textheight,keepaspectratio]{momentum.png}
+
+  \footnotesize
+  Heavy-ball optimum on a quadratic: $\eta=\dfrac{4}{(\sqrt{\lambda_{\max}}+\sqrt{\lambda_{\min}})^2}$,
+  $\beta=\Bigl(\dfrac{\sqrt\kappa-1}{\sqrt\kappa+1}\Bigr)^2$, $\rho=\sqrt\beta$.
+  The objective may rise at first: momentum does not decrease $L$ monotonically.
 \end{frame}
 
 \begin{frame}{AdaGrad Scales Each Parameter Separately}
@@ -317,27 +398,18 @@
     }
   \]
   \begin{itemize}
-    \item Recent squared gradients control the scale.
-    \item $\rho$ controls the memory length.
+    \item Recent squared gradients control the scale; $\rho$ sets the memory length.
+    \item The ratio $\mathbf g/\sqrt{\mathbf s}$ stays of order one even when $\mathbf g$ is tiny, so with a constant $\eta$ the iterate hovers within a neighborhood whose size is proportional to $\eta$.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{RMSProp Adapts to Unequal Curvature}
+\begin{frame}{Coordinate-Wise Scaling Helps When Curvature Is Axis-Aligned}
   \centering
-  \includegraphics[width=0.96\linewidth,height=0.79\textheight,keepaspectratio]{rmsprop.png}
-\end{frame}
+  \includegraphics[width=0.98\linewidth,height=0.64\textheight,keepaspectratio]{diagonal-scaling.png}
 
-\begin{frame}{A Fixed RMSProp Step Need Not Land on the Minimizer}
-  Before $\varepsilon$ dominates, both $\mathbf g^{(t)}$ and its running scale shrink;
-  their ratio need not shrink with the gradient:
-  \[
-    \frac{\mathbf g^{(t)}}{\sqrt{\mathbf s^{(t)}}+\varepsilon}.
-  \]
-  \begin{itemize}
-    \item A large constant $\eta$ can produce a neighborhood or a limit cycle.
-    \item This is a step-size effect, not a missing additive bias correction.
-    \item The plotted deterministic trace uses $\eta_t=0.05/\sqrt{t}$.
-  \end{itemize}
+  Dividing each coordinate separately is a diagonal preconditioner. It removes ill-conditioning
+  that lies along the parameter axes, but not conditioning created by a rotation. Each method
+  is tuned separately in each panel.
 \end{frame}
 
 \begin{frame}{Adam Tracks Two Gradient Moments}
@@ -352,9 +424,9 @@
     +(1-\beta_2)\mathbf{g}^{(t)}\odot\mathbf{g}^{(t)}
   \]
   \begin{itemize}
-    \item $\mathbf{m}^{(t)}$ tracks direction.
-    \item $\mathbf{v}^{(t)}$ tracks coordinate-wise scale.
+    \item $\mathbf{m}^{(t)}$ tracks direction; $\mathbf{v}^{(t)}$ tracks coordinate-wise scale.
     \item Both start at zero.
+    \item Customary defaults: $\beta_1=0.9$, $\beta_2=0.999$, $\varepsilon=10^{-8}$.
   \end{itemize}
 \end{frame}
 
@@ -402,61 +474,98 @@
   \end{tikzpicture}
 \end{frame}
 
-\begin{frame}{One Objective Reveals Different Optimizer Paths}
-  \centering
-  \includegraphics[width=0.96\linewidth,height=0.79\textheight,keepaspectratio]{optimizer-comparison.png}
-\end{frame}
-
-\begin{frame}{Compare Convergence with Quantities, Not Endpoint Appearance}
-  \centering
-  \includegraphics[width=0.96\linewidth,height=0.79\textheight,keepaspectratio]{optimizer-progress.png}
-\end{frame}
-
-\begin{frame}{The Comparison Declares Its Budget and Schedule}
+\begin{frame}{Two Safeguards Make Training Robust to Bad Steps}
   \begin{itemize}
-    \item Same quadratic objective, initial point, and 1000-update budget.
-    \item Constant rates: GD $0.075$, momentum $0.012$, AdaGrad $0.35$, Adam $0.11$.
-    \item RMSProp uses $\eta_t=0.05/\sqrt{t}$ to demonstrate convergence.
-    \item SGD uses a constant rate and additive gradient noise to show its noise floor.
+    \item \textbf{Gradient clipping:}
+      $\mathbf g\leftarrow\mathbf g\cdot\min\!\bigl(1,\,c/\|\mathbf g\|_2\bigr)$
+      keeps the direction and caps the step where the objective is very steep.
+    \item \textbf{Learning-rate search:} try $\eta$ on a logarithmic grid for a short run and keep the
+      largest value whose loss still decreases smoothly.
+    \item Watch the loss and the gradient norm; a spike calls for a smaller $\eta$ or a warm-up.
   \end{itemize}
-  We evaluate both
-  \[
-    L(\boldsymbol\theta^{(T)})-L^\star
-    \qquad\text{and}\qquad
-    \|\nabla L(\boldsymbol\theta^{(T)})\|_2.
-  \]
-  A trajectory plot explains geometry; these quantities check whether an optimizer is actually near a stationary minimum.
 \end{frame}
 
-\begin{frame}{The Final Diagnostics Confirm Which Methods Arrived}
+% ---------------------------------------------------------------- F. Comparison
+
+\begin{frame}{Every Method Gets the Same Budget and a Tuned Learning Rate}
+  \begin{itemize}
+    \item Same quadratic objective ($\kappa=18$), start, and 200 deterministic updates.
+    \item Constant $\eta$ searched on a logarithmic grid; momentum methods also search $\beta\in\{0.5,0.7,0.9\}$.
+    \item RMSProp uses $\rho=0.9$ and Adam $(\beta_1,\beta_2)=(0.9,0.999)$.
+    \item A setting is scored by its worst gap over the last 20 updates, so an oscillating method cannot win by luck of phase.
+  \end{itemize}
+  \vspace{0.2cm}
   \centering
-  \begin{tabular}{lrr}
+  \small
+  \input{assets/generated/protocol-table.tex}
+\end{frame}
+
+\begin{frame}{Tuned Methods Take Different Routes to the Same Minimum}
+  \centering
+  \includegraphics[width=0.7\linewidth,height=0.8\textheight,keepaspectratio]{optimizer-comparison.png}
+\end{frame}
+
+\begin{frame}{Compare Convergence with Quantities, Not Path Appearance}
+  \centering
+  \includegraphics[width=0.98\linewidth,height=0.7\textheight,keepaspectratio]{optimizer-progress.png}
+
+  \small
+  Constant-step RMSProp and Adam stall or oscillate near the minimum; the quadratic does not
+  reward them. This is one controlled problem, not a ranking.
+\end{frame}
+
+\begin{frame}{A Curved Valley Rewards Momentum and Adaptive Steps}
+  \centering
+  \includegraphics[width=0.98\linewidth,height=0.66\textheight,keepaspectratio]{rosenbrock.png}
+
+  \small
+  Rosenbrock's curved valley is nonconvex, with a single minimum. Plain GD must keep $\eta$ small
+  enough for the steep walls and crawls along the floor.
+\end{frame}
+
+\begin{frame}{Which Minimum Is Reached Is Decided by the Start}
+  \centering
+  \includegraphics[width=0.98\linewidth,height=0.7\textheight,keepaspectratio]{multimodal.png}
+
+  \small
+  Four minima, one global. About 30\% of random starts reach it with every optimizer; none
+  of these methods searches globally.
+\end{frame}
+
+\begin{frame}{Momentum and Adam Leave Saddles Sooner}
+  \centering
+  \includegraphics[width=0.9\linewidth,height=0.68\textheight,keepaspectratio]{saddle-escape.png}
+
+  \small
+  Near a saddle the gradient is tiny. GD's step shrinks with it; momentum accumulates it; Adam
+  divides by its own scale, so its step stays near $\eta$.
+\end{frame}
+
+\begin{frame}{Choosing an Optimizer Trades Memory, Noise, and Tuning}
+  \centering
+  \footnotesize
+  \renewcommand{\arraystretch}{1.15}
+  \begin{tabular}{@{}p{2.0cm}p{1.3cm}p{2.9cm}p{3.5cm}@{}}
     \toprule
-    \textbf{Method} & $L(\boldsymbol\theta^{(1000)})-L^\star$
-      & $\|\nabla L(\boldsymbol\theta^{(1000)})\|_2$ \\
+    \textbf{Method} & \textbf{State} & \textbf{Helps with} & \textbf{Watch for} \\
     \midrule
-    GD       & $2.0\times10^{-68}$ & $2.0\times10^{-34}$ \\
-    SGD      & $1.4\times10^{-2}$  & $1.9\times10^{-1}$ \\
-    Momentum & $3.4\times10^{-85}$ & $3.4\times10^{-42}$ \\
-    AdaGrad  & $5.0\times10^{-5}$  & $1.0\times10^{-2}$ \\
-    RMSProp  & $1.0\times10^{-5}$  & $1.9\times10^{-2}$ \\
-    Adam     & $3.0\times10^{-32}$ & $2.6\times10^{-16}$ \\
+    GD / SGD & none & simple baseline & slow when $\kappa$ is large; SGD noise floor \\
+    Momentum, Nesterov & 1 vector & narrow valleys, saddles & overshoot; tune $\eta$ and $\beta$ together \\
+    AdaGrad & 1 vector & axis-aligned or sparse scales & steps shrink for good \\
+    RMSProp & 1 vector & changing gradient scale & needs a decaying $\eta$ to settle \\
+    Adam & 2 vectors & robust default; little tuning & oscillation near the minimum at constant $\eta$ \\
+    L-BFGS & $m$ vectors & smooth full-batch problems & noisy mini-batch gradients \\
     \bottomrule
   \end{tabular}
-
-  \vspace{0.5cm}
-  The constant-rate noisy SGD trace is intentionally near the optimum rather than at it.
-  These values describe this controlled quadratic, not a universal ranking.
 \end{frame}
 
-\begin{frame}{Optimizer Choice Does Not Replace Validation}
+% ---------------------------------------------------------------- G. Bridge
+
+\begin{frame}{Optimization Needs Gradients, and Does Not Decide What to Optimize}
   \begin{itemize}
-    \item GD provides the baseline update.
-    \item Mini-batches trade gradient noise for throughput.
-    \item Momentum smooths directions over time.
-    \item RMSProp adapts coordinate-wise step sizes.
-    \item Adam combines both ideas with bias correction.
-    \item No optimizer is best for every objective.
+    \item A deep network's loss is nonconvex; its gradients come from backpropagation, covered in the neural-network lecture.
+    \item Start, step rule, and schedule then decide where training ends.
+    \item A small training loss does not guarantee a small error on new data; the regularization lecture takes that up.
   \end{itemize}
 \end{frame}
 

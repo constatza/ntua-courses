@@ -1,11 +1,22 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 from numpy.typing import NDArray
+
+from supervised_math import (
+    GaussianScores,
+    augment,
+    fit_logistic,
+    normal_cdf,
+    polynomial_design,
+    sigmoid,
+    trapezoid,
+)
 
 SEED = 20261029
 FIGURE_DPI = 220
@@ -18,10 +29,21 @@ LIGHT_BLUE = "#dce9f5"
 LIGHT_ORANGE = "#f9e4c8"
 
 EXPECTED_FILENAMES = (
+    "task-types.png",
+    "polynomial-fit.png",
     "linear-regression.png",
     "logistic-regression.png",
+    "threshold.png",
+    "roc-pr.png",
     "normalization.png",
 )
+
+POLYNOMIAL_DEGREES = (1, 3, 9)
+POLYNOMIAL_TRAIN_SIZE = 12
+POLYNOMIAL_NOISE = 0.25
+THRESHOLD = 1.0
+SCORE_SEPARATION = 2.0
+PREVALENCE = 0.1
 
 
 def _save(figure: plt.Figure, path: Path) -> None:
@@ -57,32 +79,173 @@ def _linear_regression_figure(rng: np.random.Generator, path: Path) -> None:
     _save(figure, path)
 
 
-def _sigmoid(values: NDArray[np.float64]) -> NDArray[np.float64]:
-    return 1.0 / (1.0 + np.exp(-values))
+def two_class_sample(rng: np.random.Generator, per_class: int = 42) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    negative = rng.multivariate_normal((-1.4, -0.7), ((0.65, 0.18), (0.18, 0.55)), size=per_class)
+    positive = rng.multivariate_normal((1.2, 0.9), ((0.7, 0.12), (0.12, 0.6)), size=per_class)
+    features = np.vstack((negative, positive))
+    labels = np.concatenate((np.zeros(per_class), np.ones(per_class)))
+    return features, labels
 
 
 def _logistic_regression_figure(rng: np.random.Generator, path: Path) -> None:
-    negative = rng.multivariate_normal((-1.4, -0.7), ((0.65, 0.18), (0.18, 0.55)), size=42)
-    positive = rng.multivariate_normal((1.2, 0.9), ((0.7, 0.12), (0.12, 0.6)), size=42)
+    features, labels = two_class_sample(rng)
+    beta = fit_logistic(augment(features), labels)  # fitted, not hand-set
     grid_x, grid_y = np.meshgrid(np.linspace(-4, 4, 260), np.linspace(-3.5, 3.5, 240))
-    logits = 1.25 * grid_x + 1.05 * grid_y - 0.1
-    probabilities = _sigmoid(logits)
+    probabilities = sigmoid(beta[0] * grid_x + beta[1] * grid_y + beta[2])
     color_map = LinearSegmentedColormap.from_list("class_probability", (LIGHT_BLUE, "#ffffff", LIGHT_ORANGE))
 
     figure, axis = plt.subplots(figsize=(9.6, 5.4))
     background = axis.contourf(grid_x, grid_y, probabilities, levels=np.linspace(0.0, 1.0, 21), cmap=color_map)
     axis.contour(grid_x, grid_y, probabilities, levels=(0.5,), colors=(NAVY,), linewidths=2.6)
+    negative, positive = features[labels == 0], features[labels == 1]
     axis.scatter(negative[:, 0], negative[:, 1], s=54, color=BLUE, edgecolor="white", linewidth=0.7, label=r"$y=0$")
     axis.scatter(positive[:, 0], positive[:, 1], s=54, color=ORANGE, edgecolor="white", linewidth=0.7, label=r"$y=1$")
-    axis.text(-0.2, 2.8, r"decision boundary: $\hat p=0.5$", color=NAVY, fontsize=14, rotation=-49)
+    axis.plot([], [], color=NAVY, linewidth=2.6, label=r"decision boundary $\hat p=0.5$")
     color_bar = figure.colorbar(background, ax=axis, pad=0.02)
     color_bar.set_label(r"predicted probability $\hat p(y=1\mid\mathbf{x})$", fontsize=13)
     color_bar.ax.tick_params(labelsize=11)
     axis.set_xlabel(r"feature $x_1$", fontsize=16)
     axis.set_ylabel(r"feature $x_2$", fontsize=16)
-    axis.legend(frameon=False, fontsize=14, loc="lower right")
+    axis.legend(frameon=False, fontsize=13, loc="lower right")
     axis.spines[["top", "right"]].set_visible(False)
     axis.tick_params(labelsize=12)
+    _save(figure, path)
+
+
+def true_curve(x: NDArray[np.float64]) -> NDArray[np.float64]:
+    return np.sin(np.pi * x)
+
+
+@dataclass(frozen=True, slots=True)
+class PolynomialSample:
+    x_train: NDArray[np.float64]
+    y_train: NDArray[np.float64]
+    x_test: NDArray[np.float64]
+    y_test: NDArray[np.float64]
+
+    def rmse(self, degree: int) -> tuple[float, float]:
+        """(train RMSE, test RMSE) of the degree-``degree`` least-squares polynomial."""
+        coefficients = np.polyfit(self.x_train, self.y_train, degree)
+        train = np.sqrt(np.mean((np.polyval(coefficients, self.x_train) - self.y_train) ** 2))
+        test = np.sqrt(np.mean((np.polyval(coefficients, self.x_test) - self.y_test) ** 2))
+        return float(train), float(test)
+
+
+def polynomial_sample(rng: np.random.Generator) -> PolynomialSample:
+    x_train = np.sort(rng.uniform(-1.0, 1.0, POLYNOMIAL_TRAIN_SIZE))
+    x_test = np.linspace(-1.0, 1.0, 400)
+    return PolynomialSample(
+        x_train,
+        true_curve(x_train) + rng.normal(0.0, POLYNOMIAL_NOISE, x_train.size),
+        x_test,
+        true_curve(x_test) + rng.normal(0.0, POLYNOMIAL_NOISE, x_test.size),
+    )
+
+
+def _polynomial_figure(rng: np.random.Generator, path: Path) -> None:
+    sample = polynomial_sample(rng)
+    grid = np.linspace(-1.0, 1.0, 400)
+    figure, axes = plt.subplots(1, 3, figsize=(12.0, 4.0), sharey=True)
+    for axis, degree in zip(axes, POLYNOMIAL_DEGREES, strict=True):
+        coefficients = np.polyfit(sample.x_train, sample.y_train, degree)
+        train, test = sample.rmse(degree)
+        axis.plot(grid, true_curve(grid), color=GRAY, linestyle="--", linewidth=1.8, label="true function")
+        axis.plot(grid, np.polyval(coefficients, grid), color=ORANGE, linewidth=2.8, label=f"degree {degree}")
+        axis.scatter(sample.x_train, sample.y_train, s=46, color=BLUE, edgecolor="white", linewidth=0.7, zorder=4)
+        axis.set_ylim(-2.0, 2.0)
+        axis.set_title(f"degree {degree}\ntrain RMSE {train:.2f}, test RMSE {test:.2f}", color=NAVY, fontsize=12, weight="bold")
+        axis.set_xlabel(r"feature $x$", fontsize=13)
+        axis.spines[["top", "right"]].set_visible(False)
+        axis.tick_params(labelsize=10)
+    axes[0].set_ylabel(r"target $y$", fontsize=13)
+    axes[0].legend(frameon=False, fontsize=10, loc="lower right")
+    figure.subplots_adjust(wspace=0.08)
+    _save(figure, path)
+
+
+def _task_types_figure(rng: np.random.Generator, path: Path) -> None:
+    figure, (regression, classification) = plt.subplots(1, 2, figsize=(10.6, 4.5))
+    x = np.linspace(0.5, 9.5, 28)
+    y = 1.4 * x + 2.0 + rng.normal(0.0, 1.5, size=x.size)
+    slope, intercept = np.polyfit(x, y, deg=1)
+    regression.scatter(x, y, s=46, color=BLUE, edgecolor="white", linewidth=0.7)
+    regression.plot(x, slope * x + intercept, color=ORANGE, linewidth=3.0)
+    regression.set_title(r"regression: $y\in\mathbb{R}$", color=NAVY, fontsize=15, weight="bold")
+    regression.set_xlabel(r"feature $x$", fontsize=13)
+    regression.set_ylabel(r"target $y$", fontsize=13)
+
+    features, labels = two_class_sample(rng, per_class=30)
+    beta = fit_logistic(augment(features), labels)
+    for value, color in ((0.0, BLUE), (1.0, ORANGE)):
+        group = features[labels == value]
+        classification.scatter(group[:, 0], group[:, 1], s=46, color=color, edgecolor="white", linewidth=0.7)
+    line_x = np.linspace(-3.5, 3.5, 50)
+    classification.plot(line_x, -(beta[0] * line_x + beta[2]) / beta[1], color=NAVY, linewidth=2.8)
+    classification.set_ylim(-3.2, 3.5)
+    classification.set_title(r"classification: $y\in\{0,1\}$", color=NAVY, fontsize=15, weight="bold")
+    classification.set_xlabel(r"feature $x_1$", fontsize=13)
+    classification.set_ylabel(r"feature $x_2$", fontsize=13)
+    for axis in (regression, classification):
+        axis.spines[["top", "right"]].set_visible(False)
+        axis.tick_params(labelsize=11)
+    figure.subplots_adjust(wspace=0.28)
+    _save(figure, path)
+
+
+def _threshold_figure(path: Path) -> None:
+    scores = np.linspace(-3.5, 5.5, 600)
+    negative = np.exp(-0.5 * scores**2) / np.sqrt(2 * np.pi)
+    positive = np.exp(-0.5 * (scores - SCORE_SEPARATION) ** 2) / np.sqrt(2 * np.pi)
+    false_positive = scores >= THRESHOLD
+    false_negative = scores < THRESHOLD
+    figure, axis = plt.subplots(figsize=(9.6, 4.6))
+    axis.plot(scores, negative, color=BLUE, linewidth=2.6, label=r"$y=0$")
+    axis.plot(scores, positive, color=ORANGE, linewidth=2.6, label=r"$y=1$")
+    axis.fill_between(scores, negative, where=false_positive, color=BLUE, alpha=0.3)
+    axis.fill_between(scores, positive, where=false_negative, color=ORANGE, alpha=0.3)
+    axis.axvline(THRESHOLD, color=NAVY, linewidth=2.2)
+    fpr = float(1.0 - normal_cdf(THRESHOLD))
+    fnr = float(normal_cdf(THRESHOLD - SCORE_SEPARATION))
+    axis.text(THRESHOLD, 0.415, r"threshold $\tau$", color=NAVY, fontsize=12, ha="center")
+    axis.text(3.0, 0.27, rf"false positives:" "\n" rf"{fpr:.0%} of $y=0$", color=BLUE, fontsize=12)
+    axis.text(-3.4, 0.32, rf"false negatives:" "\n" rf"{fnr:.0%} of $y=1$", color=ORANGE, fontsize=12)
+    axis.set_xlabel(r"model score $z=\mathbf{w}^\top\mathbf{x}+b$", fontsize=14)
+    axis.set_ylabel("density", fontsize=14)
+    axis.set_ylim(top=0.45)
+    axis.legend(frameon=False, fontsize=13, loc="upper right")
+    axis.spines[["top", "right"]].set_visible(False)
+    axis.tick_params(labelsize=11)
+    _save(figure, path)
+
+
+def _roc_pr_figure(path: Path) -> None:
+    model = GaussianScores(SCORE_SEPARATION, PREVALENCE)
+    thresholds = np.linspace(8.0, -6.0, 1200)
+    tpr = model.true_positive_rate(thresholds)
+    fpr = model.false_positive_rate(thresholds)
+    precision = model.precision(thresholds)
+    marker = np.array([THRESHOLD])
+    figure, (roc, pr) = plt.subplots(1, 2, figsize=(10.6, 4.6))
+    roc.plot(fpr, tpr, color=ORANGE, linewidth=2.8)
+    roc.plot([0, 1], [0, 1], color=GRAY, linestyle="--", linewidth=1.5, label="random scores")
+    roc.scatter(model.false_positive_rate(marker), model.true_positive_rate(marker), s=80, color=NAVY, zorder=5, label=r"$\tau=1$")
+    roc.set_title(f"ROC curve, AUC = {trapezoid(tpr, fpr):.2f}", color=NAVY, fontsize=14, weight="bold")
+    roc.set_xlabel("false-positive rate", fontsize=13)
+    roc.set_ylabel("true-positive rate (recall)", fontsize=13)
+    pr.plot(tpr, precision, color=ORANGE, linewidth=2.8)
+    pr.axhline(PREVALENCE, color=GRAY, linestyle="--", linewidth=1.5, label=f"random scores ({PREVALENCE:.0%} positives)")
+    pr.scatter(model.true_positive_rate(marker), model.precision(marker), s=80, color=NAVY, zorder=5, label=r"$\tau=1$")
+    pr.set_title("precision-recall curve", color=NAVY, fontsize=14, weight="bold")
+    pr.set_xlabel("recall", fontsize=13)
+    pr.set_ylabel("precision", fontsize=13)
+    for axis in (roc, pr):
+        axis.set_xlim(0, 1)
+        axis.set_ylim(0, 1.02)
+        axis.legend(frameon=False, fontsize=11, loc="lower right" if axis is roc else "upper right")
+        axis.spines[["top", "right"]].set_visible(False)
+        axis.tick_params(labelsize=11)
+        axis.grid(alpha=0.15)
+    figure.subplots_adjust(wspace=0.28)
     _save(figure, path)
 
 
@@ -128,9 +291,13 @@ def generate_figures(output_directory: Path) -> tuple[Path, ...]:
     rng = np.random.default_rng(SEED)
     outputs = tuple(output_directory / filename for filename in EXPECTED_FILENAMES)
 
-    _linear_regression_figure(rng, outputs[0])
-    _logistic_regression_figure(rng, outputs[1])
-    _normalization_figure(rng, outputs[2])
+    _task_types_figure(rng, outputs[0])
+    _polynomial_figure(rng, outputs[1])
+    _linear_regression_figure(rng, outputs[2])
+    _logistic_regression_figure(rng, outputs[3])
+    _threshold_figure(outputs[4])
+    _roc_pr_figure(outputs[5])
+    _normalization_figure(rng, outputs[6])
 
     assert all(path.exists() and path.stat().st_size > 0 for path in outputs)
     return outputs

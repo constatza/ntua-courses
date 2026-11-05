@@ -27,6 +27,8 @@
   \makepresentationtitle
 \end{frame}
 
+% ---------------------------------------------------------------- A. The task
+
 \begin{frame}{A Supervised-Learning Problem}
   \[
     \mathcal{D}=\{(\mathbf{x}_i,y_i)\}_{i=1}^{n},
@@ -38,6 +40,43 @@
     \item \textbf{Model} $f_{\boldsymbol{\theta}}$: parametrized prediction rule.
     \item \textbf{Prediction} $\hat y_i=f_{\boldsymbol{\theta}}(\mathbf{x}_i)$.
   \end{itemize}
+\end{frame}
+
+\begin{frame}{The Data Form a Design Matrix}
+  \[
+    \mathbf X=\begin{bmatrix}\mathbf x_1^\top\\[-1mm]\vdots\\\mathbf x_n^\top\end{bmatrix}\in\mathbb R^{n\times d},
+    \qquad
+    \mathbf y=\begin{bmatrix}y_1\\[-1mm]\vdots\\y_n\end{bmatrix}\in\mathbb R^{n}
+  \]
+  \begin{itemize}
+    \item One row per sample, one column per feature; $\hat y_i=f_{\boldsymbol\theta}(\mathbf x_i)$.
+    \item $\boldsymbol\theta$: all learnable parameters. $L$: the empirical training objective.
+    \item These symbols are used in every lecture of the course.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Learning Paradigms Differ by the Available Signal}
+  \centering
+  \begin{tikzpicture}[
+    node distance=0.75cm and 0.7cm,
+    box/.style={draw,rounded corners,minimum width=4.2cm,minimum height=1.25cm,align=center,very thick}
+  ]
+    \node[box,fill=courselightblue] (supervised) {\textbf{supervised}: paired $(\mathbf x,y)$\\[-1mm]{\small displacement from load}};
+    \node[box,fill=white,right=of supervised] (unsupervised) {\textbf{unsupervised}: structure in $\mathbf x$\\[-1mm]{\small clusters of sensor signals}};
+    \node[box,fill=white,below=of supervised] (self) {\textbf{self-supervised}: targets from $\mathbf x$\\[-1mm]{\small predict a masked word}};
+    \node[box,fill=courselightorange,right=of self] (reinforcement) {\textbf{reinforcement}: actions, rewards\\[-1mm]{\small control policy for a robot}};
+  \end{tikzpicture}
+
+  \vspace{0.35cm}
+  This lecture studies paired examples. The distinction is the training signal,
+  not the architecture used to process it.
+\end{frame}
+
+\begin{frame}{Regression and Classification Differ in the Target}
+  \centering
+  \includegraphics[width=0.96\linewidth,height=0.66\textheight,keepaspectratio]{task-types.png}
+
+  Regression predicts a number; classification predicts a category, usually through a probability.
 \end{frame}
 
 \begin{frame}{Learning Connects Data to an Objective}
@@ -67,22 +106,21 @@
   \]
 \end{frame}
 
-\begin{frame}{Learning Paradigms Differ by the Available Signal}
-  \centering
-  \begin{tikzpicture}[
-    node distance=0.75cm and 0.7cm,
-    box/.style={draw,rounded corners,minimum width=3.2cm,minimum height=1.0cm,align=center,very thick}
-  ]
-    \node[box,fill=courselightblue] (supervised) {supervised\\paired $(\mathbf x,y)$};
-    \node[box,fill=white,right=of supervised] (unsupervised) {unsupervised\\structure in $\mathbf x$};
-    \node[box,fill=white,below=of supervised] (self) {self-supervised\\targets derived from $\mathbf x$};
-    \node[box,fill=courselightorange,right=of self] (reinforcement) {reinforcement\\actions and rewards};
-  \end{tikzpicture}
-
-  \vspace{0.45cm}
-  This lecture studies paired examples. The distinction is the training signal,
-  not the architecture used to process it.
+\begin{frame}{A Model Class Is a Choice of Hypotheses}
+  \[
+    \mathcal H=\{f_{\boldsymbol\theta}:\boldsymbol\theta\in\Theta\},
+    \qquad
+    \hat{\boldsymbol\theta}\in\operatorname*{arg\,min}_{\boldsymbol\theta\in\Theta}L(\boldsymbol\theta)
+  \]
+  \begin{itemize}
+    \item $\mathcal H$ is the set of functions the learner is allowed to return; choosing it is an assumption.
+    \item A small class, such as affine functions, has a strong inductive bias: it extrapolates simply and cannot fit complicated structure.
+    \item A rich class fits more data patterns, including accidental ones.
+  \end{itemize}
+  This lecture fixes $\mathcal H$ to linear models; later lectures enlarge it.
 \end{frame}
+
+% ---------------------------------------------------------------- B. Honest evaluation
 
 \begin{frame}{Generalization, Not Memorization, Is the Goal}
   Let $(X,Y)\sim p_{\mathrm{data}}$ be a future example. We want small
@@ -98,6 +136,14 @@
   \]
   A model can reduce $L$ by learning genuine structure or by fitting accidental details.
   Held-out data distinguish the two.
+\end{frame}
+
+\begin{frame}{Fitting the Sample Is Not Enough}
+  \centering
+  \includegraphics[width=0.98\linewidth,height=0.6\textheight,keepaspectratio]{polynomial-fit.png}
+
+  Twelve noisy points from a sine. Training error keeps falling with the polynomial degree;
+  error on fresh points does not.
 \end{frame}
 
 \begin{frame}{Each Data Split Has One Role}
@@ -120,6 +166,29 @@
   Grouped or time-ordered samples require a split that respects that dependence.
 \end{frame}
 
+\begin{frame}{Cross-Validation Reuses Scarce Data}
+  \centering
+  \begin{tikzpicture}[x=0.9cm,y=0.62cm]
+    \foreach \r in {0,...,4}{
+      \foreach \c in {0,...,4}{
+        \ifnum\r=\c
+          \fill[courseorange] (\c,-\r) rectangle ++(0.9,0.5);
+        \else
+          \fill[courselightblue] (\c,-\r) rectangle ++(0.9,0.5);
+        \fi
+      }
+      \node[font=\small,anchor=east] at (-0.2,-\r+0.25) {split \the\numexpr\r+1\relax};
+    }
+    \node[font=\small,anchor=west,courseorange] at (5.2,0.25) {validation fold};
+    \node[font=\small,anchor=west,courseblue] at (5.2,-0.55) {training folds};
+  \end{tikzpicture}
+  \[
+    \mathrm{CV}_K=\frac1K\sum_{k=1}^{K}L^{(k)}_{\mathrm{val}}
+  \]
+  Every sample is validated exactly once. Preprocessing is refit inside each split.
+  Use it to choose hyperparameters; keep a final test set apart.
+\end{frame}
+
 \begin{frame}{Leakage Makes Evaluation Optimistic}
   \centering
   \begin{tikzpicture}[
@@ -140,6 +209,22 @@
   \end{tikzpicture}
 \end{frame}
 
+\begin{frame}{A Numeric Leak: Statistics Computed on All the Data}
+  Training feature values $\{1,2,3,4\}$ and one test value $10$, standardized as $z=(x-\mu)/\sigma$:
+  \begin{center}
+    \begin{tabular}{lcc}
+      \toprule
+      & $\mu,\ \sigma$ & $z$ of the test value \\
+      \midrule
+      Leaked: all five values & $4,\ 3.16$ & $1.90$ \\
+      Honest: training values only & $2.5,\ 1.12$ & $6.71$ \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  The leaked statistics make the shifted test value look ordinary. The honest statistics expose
+  that the test data differ from the training data, which is exactly what evaluation must reveal.
+\end{frame}
+
 \begin{frame}{A Simple Baseline Is a Diagnostic Tool}
   \begin{itemize}
     \item Regression baseline: predict the training-target mean.
@@ -153,6 +238,8 @@
   A baseline catches broken preprocessing, leakage, weak signal, and misleading metrics
   before model complexity hides the problem.
 \end{frame}
+
+% ---------------------------------------------------------------- C. Linear regression
 
 \begin{frame}{Regression Predicts a Numerical Value}
   \[
@@ -183,6 +270,20 @@
     \item A residual is the vertical prediction error.
     \item Squaring makes large errors more influential.
     \item MSE has squared target units; $\mathrm{RMSE}=\sqrt{L_{\mathrm{MSE}}}$ has target units.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Each Loss Targets a Different Summary of the Target}
+  For a constant prediction $c$ of random targets $Y$:
+  \[
+    \operatorname*{arg\,min}_c\ \mathbb E\,(Y-c)^2=\mathbb E[Y],
+    \qquad
+    \operatorname*{arg\,min}_c\ \mathbb E\,|Y-c|=\operatorname{median}(Y).
+  \]
+  \begin{itemize}
+    \item Squared error aims at the conditional mean and is pulled by outliers.
+    \item Absolute error aims at the conditional median and is robust to them.
+    \item Hence $f(\mathbf x)=\mathbb E[Y\mid\mathbf x]$ is the target of an MSE-trained model.
   \end{itemize}
 \end{frame}
 
@@ -237,19 +338,63 @@
   The formula proves uniqueness; it is not the preferred numerical algorithm.
 \end{frame}
 
+\begin{frame}{Least Squares Is an Orthogonal Projection}
+  \centering
+  \begin{tikzpicture}[scale=1.05]
+    \fill[courselightblue] (-0.5,-0.3) -- (4.6,-0.3) -- (5.6,1.2) -- (0.5,1.2) -- cycle;
+    \node[coursegray,font=\small] at (4.6,0.95) {$\operatorname{col}(\widetilde{\mathbf X})$};
+    \coordinate (O) at (0.4,0);
+    \coordinate (P) at (2.9,0.55);
+    \coordinate (Y) at (2.9,2.5);
+    \draw[-{Latex[length=3mm]},very thick,courseblue] (O) -- (P) node[below right]{$\hat{\mathbf y}=\widetilde{\mathbf X}\boldsymbol\beta^\star$};
+    \draw[-{Latex[length=3mm]},very thick,courseorange] (O) -- (Y) node[above]{$\mathbf y$};
+    \draw[-{Latex[length=3mm]},very thick,coursegreen,dashed] (P) -- (Y) node[midway,right]{$\mathbf r=\mathbf y-\hat{\mathbf y}$};
+    \draw[coursegray] (2.9,0.8) -- (3.15,0.8) -- (3.15,0.55);
+  \end{tikzpicture}
+  \[
+    \widetilde{\mathbf X}^\top\mathbf r=\mathbf 0,
+    \qquad
+    \|\mathbf y\|_2^2=\|\hat{\mathbf y}\|_2^2+\|\mathbf r\|_2^2.
+  \]
+  The residual is orthogonal to every feature column, including the column of ones.
+\end{frame}
+
+\begin{frame}{A Four-Point Example Solved by Hand}
+  Points $(x,y)$: $(0,1),\ (1,2),\ (2,2),\ (3,4)$.
+  \[
+    \widetilde{\mathbf X}^\top\widetilde{\mathbf X}=\begin{bmatrix}14&6\\6&4\end{bmatrix},
+    \quad
+    \widetilde{\mathbf X}^\top\mathbf y=\begin{bmatrix}18\\9\end{bmatrix}
+    \ \Longrightarrow\
+    \begin{bmatrix}w\\b\end{bmatrix}=\frac1{20}\begin{bmatrix}18\\18\end{bmatrix}=\begin{bmatrix}0.9\\0.9\end{bmatrix}.
+  \]
+  Residuals $\mathbf r=(0.1,\ 0.2,\ -0.7,\ 0.4)$: they sum to $0$ and $\sum_i x_ir_i=0$,
+  and $L_{\mathrm{MSE}}=0.175$.
+\end{frame}
+
 \begin{frame}{Solve Least Squares Without Forming an Inverse}
   \begin{itemize}
-    \item Solve the normal equations directly only when conditioning is acceptable.
-    \item QR factorization avoids squaring the condition number.
-    \item SVD reveals rank deficiency and gives the minimum-norm solution.
+    \item Forming $\widetilde{\mathbf X}^\top\widetilde{\mathbf X}$ squares the condition number:
+      $\kappa(\widetilde{\mathbf X}^\top\widetilde{\mathbf X})=\kappa(\widetilde{\mathbf X})^2$.
+    \item Solve through a QR or SVD factorization of $\widetilde{\mathbf X}$ instead of an explicit inverse.
+    \item With dependent features there is no unique solution; the SVD gives the minimum-norm one.
   \end{itemize}
-  \[
-    \widetilde{\mathbf X}=\mathbf Q\mathbf R
-    \quad\Longrightarrow\quad
-    \mathbf R\boldsymbol\beta^\star=\mathbf Q^\top\mathbf y.
-  \]
   Iterative optimization becomes essential when the model or dataset makes a direct solve impractical.
 \end{frame}
+
+\begin{frame}{Features Can Be Nonlinear While the Model Stays Linear}
+  \[
+    \hat y=\sum_{k=0}^{p}\beta_k\,x^k,
+    \qquad
+    \boldsymbol\Phi=\begin{bmatrix}1&x_1&\cdots&x_1^{p}\\[-1mm]\vdots&&&\vdots\\1&x_n&\cdots&x_n^{p}\end{bmatrix}
+  \]
+  \begin{itemize}
+    \item The model is linear in $\boldsymbol\beta$, so the normal equations apply to $\boldsymbol\Phi$ unchanged.
+    \item The degree $p$ sets how flexible $\mathcal H$ is, as the earlier fits showed.
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------- D. Classification
 
 \begin{frame}{Binary Classification Predicts a Probability}
   \[
@@ -313,6 +458,24 @@
   \end{itemize}
 \end{frame}
 
+\begin{frame}{Cross-Entropy Has a Clean Gradient but No Closed-Form Minimizer}
+  \[
+    \nabla_{\boldsymbol\beta}L_{\mathrm{BCE}}
+    =\frac1n\widetilde{\mathbf X}^\top(\hat{\mathbf p}-\mathbf y)
+    \qquad\text{versus}\qquad
+    \nabla_{\boldsymbol\beta}L_{\mathrm{MSE}}
+    =\frac2n\widetilde{\mathbf X}^\top(\hat{\mathbf y}-\mathbf y).
+  \]
+  \begin{itemize}
+    \item Both gradients are ``features times prediction error''.
+    \item For BCE the prediction $\hat{\mathbf p}=\sigma(\widetilde{\mathbf X}\boldsymbol\beta)$ is nonlinear in $\boldsymbol\beta$, so $\nabla L=\mathbf0$ has no explicit solution.
+    \item The loss is convex, so an iterative method that follows the gradient reaches the global minimum.
+    \item With $K>2$ classes the sigmoid becomes a softmax; it is introduced with the output layers of neural networks.
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------- E. Judging a classifier
+
 \begin{frame}{A Decision Threshold Encodes Error Costs}
   Predict class $1$ when $\hat p\geq\tau$. With false-positive cost $C_{\mathrm{FP}}$
   and false-negative cost $C_{\mathrm{FN}}$, choose class $1$ when
@@ -324,6 +487,13 @@
       \frac{C_{\mathrm{FP}}}{C_{\mathrm{FP}}+C_{\mathrm{FN}}}}.
   \]
   The familiar threshold $0.5$ assumes equal costs and calibrated probabilities.
+\end{frame}
+
+\begin{frame}{Moving the Threshold Trades One Error for the Other}
+  \centering
+  \includegraphics[width=0.9\linewidth,height=0.7\textheight,keepaspectratio]{threshold.png}
+
+  Overlapping classes make some errors unavoidable; $\tau$ only chooses which kind.
 \end{frame}
 
 \begin{frame}{The Confusion Matrix Separates Error Types}
@@ -348,6 +518,15 @@
   Class imbalance and application costs determine which summary is informative.
 \end{frame}
 
+\begin{frame}{ROC and Precision--Recall Curves Show Every Threshold at Once}
+  \centering
+  \includegraphics[width=0.96\linewidth,height=0.6\textheight,keepaspectratio]{roc-pr.png}
+
+  \small
+  AUC is the probability that a random positive scores above a random negative. With 10\% positives
+  a random scorer has precision $0.1$; accuracy alone would reward predicting ``negative'' for everyone ($90\%$).
+\end{frame}
+
 \begin{frame}{Loss Trains; Metrics Communicate}
   \centering
   \begin{tabular}{lll}
@@ -355,7 +534,7 @@
     \textbf{Task} & \textbf{Training loss} & \textbf{Evaluation metrics} \\
     \midrule
     Regression & MSE & MAE, RMSE, $R^2$ \\
-    Binary classification & Cross-entropy & Accuracy, precision, recall \\
+    Binary classification & Cross-entropy & Accuracy, precision, recall, AUC \\
     \bottomrule
   \end{tabular}
   \vspace{0.6cm}
@@ -366,23 +545,19 @@
   \end{itemize}
 \end{frame}
 
+% ---------------------------------------------------------------- F. Inputs
+
 \begin{frame}{Normalize With Training Statistics Only}
   \[
-    \mu_j^{\mathrm{train}}
-    =\frac{1}{n_{\mathrm{train}}}\sum_{i\in\mathrm{train}}x_{ij},
-    \qquad
-    \sigma_j^{\mathrm{train}}
-    =\sqrt{\frac{1}{n_{\mathrm{train}}}
-      \sum_{i\in\mathrm{train}}(x_{ij}-\mu_j^{\mathrm{train}})^2}
-  \]
-  \[
     \tilde x_{ij}
-    =\frac{x_{ij}-\mu_j^{\mathrm{train}}}{\sigma_j^{\mathrm{train}}}
+    =\frac{x_{ij}-\mu_j^{\mathrm{train}}}{\sigma_j^{\mathrm{train}}},
+    \qquad
+    \mu_j^{\mathrm{train}}=\frac{1}{n_{\mathrm{train}}}\sum_{i\in\mathrm{train}}x_{ij}
   \]
   \begin{itemize}
+    \item $\sigma_j^{\mathrm{train}}$ is the training standard deviation of feature $j$.
     \item Apply the same $\mu_j^{\mathrm{train}}$ and $\sigma_j^{\mathrm{train}}$ to every split.
     \item Never recompute preprocessing from validation or test data.
-    \item A constant training feature has $\sigma_j^{\mathrm{train}}=0$ and must be handled separately.
   \end{itemize}
 \end{frame}
 
@@ -406,21 +581,16 @@
   The optimization lecture formalizes this through conditioning.
 \end{frame}
 
-\begin{frame}{One Notation Across the Course}
-  \[
-    \hat y_i=f_{\boldsymbol{\theta}}(\mathbf{x}_i),
-    \qquad
-    L(\boldsymbol{\theta})
-    =\frac{1}{n}\sum_{i=1}^{n}\ell(\hat y_i,y_i)
-  \]
+\begin{frame}{Real Data Need Cleaning Before Scaling}
   \begin{itemize}
-    \item $\mathbf{x}_i$: input features.
-    \item $y_i$: observed target.
-    \item $\hat y_i$: model prediction.
-    \item $\boldsymbol{\theta}$: all learnable parameters.
-    \item $L$: empirical training objective.
+    \item \textbf{Categorical features:} encode each category as its own 0/1 column (one-hot) rather than as an arbitrary number.
+    \item \textbf{Outliers:} inspect them; a squared loss lets a few extreme points dominate the fit.
+    \item \textbf{Missing values:} fill them using training statistics only, and record which entries were missing.
   \end{itemize}
+  Every cleaning rule, like every scaling statistic, is fitted on the training split and then applied to the rest.
 \end{frame}
+
+% ---------------------------------------------------------------- G. Bridge
 
 \begin{frame}{Next: How Do Parameters Learn?}
   \centering
@@ -435,6 +605,9 @@
     \draw[flow] (objective) -- (gradient);
     \draw[flow] (gradient) -- (optimizer);
   \end{tikzpicture}
+
+  \vspace{0.2cm}
+  Least squares has a closed form; logistic regression and later models do not.
 \end{frame}
 
 \end{document}
