@@ -2,6 +2,7 @@
 
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath}
+\usepackage{appendixnumberbeamer}
 \usepackage{amssymb}
 \usepackage{booktabs}
 \usepackage{graphicx}
@@ -13,6 +14,10 @@
 \date{}
 
 \graphicspath{{assets/}{assets/generated/}}
+
+% Every frame ends with its takeaway as one plain sentence.
+\newcommand{\takeaway}[1]{\par\vspace{0.3cm}\begingroup\raggedright\noindent
+  {\color{courseblue}\textbf{So:}} #1\par\endgroup}
 
 \definecolor{courseblue}{HTML}{3F7CAC}
 \definecolor{courseorange}{HTML}{D97706}
@@ -29,57 +34,95 @@
 
 % ---------------------------------------------------------------- A. The task
 
-\begin{frame}{A Supervised-Learning Problem}
-  \[
-    \mathcal{D}=\{(\mathbf{x}_i,y_i)\}_{i=1}^{n},
-    \qquad \mathbf{x}_i\in\mathbb{R}^{d}
-  \]
-  \begin{itemize}
-    \item \textbf{Input} $\mathbf{x}_i$: measured features.
-    \item \textbf{Target} $y_i$: desired answer.
-    \item \textbf{Model} $f_{\boldsymbol{\theta}}$: parametrized prediction rule.
-    \item \textbf{Prediction} $\hat y_i=f_{\boldsymbol{\theta}}(\mathbf{x}_i)$.
-  \end{itemize}
+\begin{frame}{Roadmap}
+  \tableofcontents
 \end{frame}
 
-\begin{frame}{The Data Form a Design Matrix}
+\section{What Is Supervised Learning?}
+\sectiondivider{What Is Supervised Learning?}
+
+\begin{frame}{Learning From Solved Examples}
+  A beam is loaded in the lab and its midspan deflection is measured
+  (illustrative numbers):
+  \begin{center}
+    \begin{tabular}{rr}
+      \toprule
+      load (kN) & deflection (mm) \\
+      \midrule
+      10 & 1.6 \\
+      20 & 3.1 \\
+      30 & 4.4 \\
+      40 & 6.2 \\
+      \midrule
+      25 & \textbf{?} \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  We know the answer for four loads and want it for a load never tested.
+  \takeaway{supervised learning uses examples with known answers to predict the answer for a new input.}
+\end{frame}
+
+\begin{frame}{Inputs, Targets, Predictions, and the Model}
+  \begin{itemize}
+    \item \textbf{Input} $\mathbf{x}$: what we measure (the load).
+    \item \textbf{Target} $y$: the answer we want (the deflection); known for the solved examples.
+    \item \textbf{Model} $f_{\boldsymbol{\theta}}$: a rule that turns an input into an answer.
+    \item \textbf{Parameters} $\boldsymbol{\theta}$: the numbers that tune the rule (for a line: slope and intercept).
+    \item \textbf{Prediction} $\hat y=f_{\boldsymbol{\theta}}(\mathbf{x})$: the model's answer; the hat means ``estimated''.
+    \item \textbf{Training set} $\mathcal{D}=\{(\mathbf{x}_i,y_i)\}_{i=1}^{n}$: the $n$ solved examples; $i$ numbers them.
+  \end{itemize}
+  \takeaway{learning means choosing $\boldsymbol\theta$ so that the predictions $\hat y_i$ match the known targets $y_i$.}
+\end{frame}
+
+\begin{frame}{With Several Features the Data Form a Table}
+  Each beam has $d=2$ features (load, span); there are $n=3$ beams:
   \[
-    \mathbf X=\begin{bmatrix}\mathbf x_1^\top\\[-1mm]\vdots\\\mathbf x_n^\top\end{bmatrix}\in\mathbb R^{n\times d},
+    \mathbf X=\begin{bmatrix}10&2.0\\20&2.5\\30&3.0\end{bmatrix}\in\mathbb R^{3\times 2},
     \qquad
-    \mathbf y=\begin{bmatrix}y_1\\[-1mm]\vdots\\y_n\end{bmatrix}\in\mathbb R^{n}
+    \mathbf y=\begin{bmatrix}1.6\\3.5\\6.2\end{bmatrix}\in\mathbb R^{3}.
   \]
   \begin{itemize}
-    \item One row per sample, one column per feature; $\hat y_i=f_{\boldsymbol\theta}(\mathbf x_i)$.
-    \item $\boldsymbol\theta$: all learnable parameters. $L$: the empirical training objective.
-    \item These symbols are used in every lecture of the course.
+    \item Row $i$ of $\mathbf X$ is the feature vector $\mathbf x_i^\top$ of example $i$.
+    \item Column $j$ of $\mathbf X$ holds feature $j$ for all examples.
+    \item $\mathbf y$ stacks the $n$ targets.
   \end{itemize}
+  \takeaway{the whole dataset is a table $\mathbf X$ with $n$ rows and $d$ columns plus a column $\mathbf y$ of answers; these symbols are used in every lecture.}
 \end{frame}
 
 \begin{frame}{Learning Paradigms Differ by the Available Signal}
   \centering
   \begin{tikzpicture}[
     node distance=0.75cm and 0.7cm,
-    box/.style={draw,rounded corners,minimum width=4.2cm,minimum height=1.25cm,align=center,very thick}
+    box/.style={draw,rounded corners,text width=3.4cm,minimum height=1.25cm,align=center,very thick}
   ]
     \node[box,fill=courselightblue] (supervised) {\textbf{supervised}: paired $(\mathbf x,y)$\\[-1mm]{\small displacement from load}};
     \node[box,fill=white,right=of supervised] (unsupervised) {\textbf{unsupervised}: structure in $\mathbf x$\\[-1mm]{\small clusters of sensor signals}};
     \node[box,fill=white,below=of supervised] (self) {\textbf{self-supervised}: targets from $\mathbf x$\\[-1mm]{\small predict a masked word}};
     \node[box,fill=courselightorange,right=of self] (reinforcement) {\textbf{reinforcement}: actions, rewards\\[-1mm]{\small control policy for a robot}};
   \end{tikzpicture}
-
-  \vspace{0.35cm}
-  This lecture studies paired examples. The distinction is the training signal,
-  not the architecture used to process it.
+  \takeaway{the paradigms differ in what the learner is told, not in the model used; this lecture covers the supervised case.}
 \end{frame}
 
 \begin{frame}{Regression and Classification Differ in the Target}
   \centering
-  \includegraphics[width=0.96\linewidth,height=0.66\textheight,keepaspectratio]{task-types.png}
-
-  Regression predicts a number; classification predicts a category, usually through a probability.
+  \includegraphics[width=0.96\linewidth,height=0.62\textheight,keepaspectratio]{task-types.png}
+  \takeaway{regression predicts a number (left); classification predicts a category (right), usually through a probability.}
 \end{frame}
 
-\begin{frame}{Learning Connects Data to an Objective}
+\begin{frame}{A Loss Measures the Mistake on One Example}
+  Beam example: the model predicts $\hat y=3.5$ mm, the measured value is $y=3.1$ mm.
+  \begin{itemize}
+    \item The \textbf{loss} $\ell(\hat y,y)$ is a penalty: zero for a perfect answer, larger for a worse one.
+    \item Squared error is one choice: $\ell=(\hat y-y)^2=(3.5-3.1)^2=0.16$.
+    \item The \textbf{training loss} $L(\boldsymbol\theta)$ averages $\ell$ over all $n$ training examples:
+      \[
+        L(\boldsymbol{\theta})=\frac1n\sum_{i=1}^{n}\ell\bigl(f_{\boldsymbol\theta}(\mathbf x_i),y_i\bigr).
+      \]
+  \end{itemize}
+  \takeaway{$L(\boldsymbol\theta)$ is one number that says how badly the parameters fit the training data; lower is better.}
+\end{frame}
+
+\begin{frame}{Learning Searches for Parameters With a Small Loss}
   \centering
   \begin{tikzpicture}[
     node distance=1.25cm,
@@ -98,55 +141,92 @@
     \draw[flow] (loss) -- (adjust);
     \draw[flow] (adjust) -- (model);
   \end{tikzpicture}
-  \vspace{0.35cm}
-  \[
-    L(\boldsymbol{\theta})
-    =\frac{1}{n}\sum_{i=1}^{n}
-    \ell\!\left(f_{\boldsymbol{\theta}}(\mathbf{x}_i),y_i\right)
-  \]
+  \takeaway{training is a loop: predict, measure the loss, adjust $\boldsymbol\theta$ to lower it.}
 \end{frame}
 
-\begin{frame}{A Model Class Is a Choice of Hypotheses}
+\begin{frame}{A Model Class Is the Set of Rules We Allow}
   \[
-    \mathcal H=\{f_{\boldsymbol\theta}:\boldsymbol\theta\in\Theta\},
-    \qquad
-    \hat{\boldsymbol\theta}\in\operatorname*{arg\,min}_{\boldsymbol\theta\in\Theta}L(\boldsymbol\theta)
+    \mathcal H=\{f_{\boldsymbol\theta}:\boldsymbol\theta\in\Theta\}
   \]
   \begin{itemize}
-    \item $\mathcal H$ is the set of functions the learner is allowed to return; choosing it is an assumption.
-    \item A small class, such as affine functions, has a strong inductive bias: it extrapolates simply and cannot fit complicated structure.
-    \item A rich class fits more data patterns, including accidental ones.
+    \item $\Theta$ (capital theta) is the set of allowed parameter values; $\mathcal H$ is the set of rules they define.
+    \item Example: all straight lines $\hat y=wx+b$; here $\boldsymbol\theta=(w,b)$ and $\Theta$ is every pair of numbers.
+    \item Example: all polynomials of degree 9 (ten parameters).
+    \item Training picks the member with the smallest training loss, written
+      $\hat{\boldsymbol\theta}=\operatorname*{arg\,min}_{\boldsymbol\theta\in\Theta}L(\boldsymbol\theta)$
+      (``the $\boldsymbol\theta$ that gives the smallest $L$'').
   \end{itemize}
-  This lecture fixes $\mathcal H$ to linear models; later lectures enlarge it.
+  \takeaway{the choice of model class fixes what the learner can express before it sees any data.}
+\end{frame}
+
+\begin{frame}{Small and Rich Model Classes Fail in Different Ways}
+  \begin{columns}[T]
+    \column{0.48\textwidth}
+    \textbf{Small class (lines)}
+    \begin{itemize}
+      \item Simple, stable, extrapolates smoothly.
+      \item Cannot bend, so it misses curved structure.
+    \end{itemize}
+    \column{0.48\textwidth}
+    \textbf{Rich class (degree-9 curves)}
+    \begin{itemize}
+      \item Can follow almost any set of points.
+      \item Also follows accidents: measurement noise.
+    \end{itemize}
+  \end{columns}
+  \takeaway{too small a class misses real structure and too rich a class fits accidents; next we see how to tell which one happened.}
 \end{frame}
 
 % ---------------------------------------------------------------- B. Honest evaluation
 
-\begin{frame}{Generalization, Not Memorization, Is the Goal}
-  Let $(X,Y)\sim p_{\mathrm{data}}$ be a future example. We want small
-  \[
-    R(\boldsymbol\theta)
-    =\mathbb E_{(X,Y)\sim p_{\mathrm{data}}}
-      [\ell(f_{\boldsymbol\theta}(X),Y)],
-  \]
-  but training provides only the empirical estimate
-  \[
-    L(\boldsymbol\theta)
-    =\frac1n\sum_{i=1}^n\ell(f_{\boldsymbol\theta}(\mathbf x_i),y_i).
-  \]
-  A model can reduce $L$ by learning genuine structure or by fitting accidental details.
-  Held-out data distinguish the two.
+\begin{frame}{Recap}
+  We learned what a supervised problem, a loss and a model class are. Next: how to measure honestly whether a model has learned anything.
+\end{frame}
+
+\section{Honest Evaluation: Splits, Cross-Validation, Leakage}
+\sectiondivider{Honest Evaluation: Splits, Cross-Validation, Leakage}
+
+\begin{frame}{Low Training Error Is Not the Goal}
+  A student who memorizes last year's exam gets full marks on it and may fail a new exam.
+  \begin{itemize}
+    \item $L(\boldsymbol\theta)$: average loss on the \textbf{training} examples. We can compute it.
+    \item $R(\boldsymbol\theta)$: average loss on \textbf{new} examples from the same source (the ``risk''). We care about it.
+    \item A model that memorizes can have $L\approx 0$ and a large $R$.
+  \end{itemize}
+  \takeaway{we must measure error on data the model did not train on, because only that error tells us how it will behave in use.}
+\end{frame}
+
+\begin{frame}{Experiment: Polynomials of Increasing Degree}
+  \begin{itemize}
+    \item Data: 12 noisy points from a sine curve (the dashed truth, unknown to the model).
+    \item A degree-$p$ polynomial $\theta_0+\theta_1x+\dots+\theta_px^p$ is a curve with up to $p-1$ bends;
+      a larger $p$ means a richer class.
+    \item Fit $p=1,3,9$ by least squares (the method is explained later in this lecture).
+    \item Measure the error (RMSE, defined in the regression section) on the 12 training points
+      and on 400 fresh points.
+  \end{itemize}
+  \takeaway{we will compare the error on the points used for fitting with the error on points the fit never saw.}
 \end{frame}
 
 \begin{frame}{Fitting the Sample Is Not Enough}
   \centering
-  \includegraphics[width=0.98\linewidth,height=0.6\textheight,keepaspectratio]{polynomial-fit.png}
-
-  Twelve noisy points from a sine. Training error keeps falling with the polynomial degree;
-  error on fresh points does not.
+  \includegraphics[width=0.96\linewidth,height=0.68\textheight,keepaspectratio]{polynomial-fit.png}
+  \takeaway{training error keeps falling, fresh-data error falls and then explodes.}
 \end{frame}
 
-\begin{frame}{Each Data Split Has One Role}
+\begin{frame}{Reading the Experiment: Underfitting and Overfitting}
+  \begin{itemize}
+    \item \textbf{Degree 1 underfits}: the line is too stiff; both errors are high (0.62 and 0.55).
+    \item \textbf{Degree 3 fits well}: fresh-data error 0.33, near the noise level 0.25 that no model can beat.
+    \item \textbf{Degree 9 overfits}: error 0.04 on the training points (below the noise level: it is bending to the noise)
+      but 4.66 on fresh points.
+  \end{itemize}
+  The 4.66 comes from the curve swinging far between and beyond the points, mostly near the ends,
+  where it reaches $-17$ near $x=-0.9$ (off the plotted scale).
+  \takeaway{overfitting means low training error with high fresh-data error, so training error alone cannot pick the model.}
+\end{frame}
+
+\begin{frame}{Hold Out Data to Measure Fresh-Data Error}
   \centering
   \begin{tikzpicture}[x=0.09\textwidth,y=1cm]
     \fill[courseblue] (0,0) rectangle (6.5,1.2);
@@ -162,34 +242,70 @@
     \node[align=center,font=\small] at (9.25,-1.12) {evaluate once};
   \end{tikzpicture}
 
-  Repeated decisions on the test set turn it into validation data.
-  Grouped or time-ordered samples require a split that respects that dependence.
+  \vspace{0.3cm}
+  Set aside part of the data before training, shuffled at random. Think of practice problems (training),
+  a mock exam (validation) and the final exam (test).
+  \takeaway{each split has one job, and the model never trains on the data used to judge it.}
 \end{frame}
 
-\begin{frame}{Cross-Validation Reuses Scarce Data}
-  \centering
-  \begin{tikzpicture}[x=0.9cm,y=0.62cm]
-    \foreach \r in {0,...,4}{
-      \foreach \c in {0,...,4}{
-        \ifnum\r=\c
-          \fill[courseorange] (\c,-\r) rectangle ++(0.9,0.5);
-        \else
-          \fill[courselightblue] (\c,-\r) rectangle ++(0.9,0.5);
-        \fi
+\begin{frame}{Why Two Held-Out Sets?}
+  \begin{itemize}
+    \item We use the validation score to choose among models (the degree, the settings).
+    \item Choosing the best of many tries partly picks luck, so the winner's validation score is a little too good.
+    \item The test set is looked at once, after all choices are made, so its score is an honest estimate.
+    \item Repeated decisions based on the test set turn it into validation data.
+    \item Grouped or time-ordered samples need a split that respects the grouping or the order.
+  \end{itemize}
+  \takeaway{validation data are for choosing, test data are for reporting, and mixing the two makes the report optimistic.}
+\end{frame}
+
+\begin{frame}{Cross-Validation: Problem and Idea}
+  \begin{columns}[c]
+    \column{0.55\textwidth}
+    \begin{tikzpicture}[x=0.8cm,y=0.5cm]
+      \foreach \r in {0,...,4}{
+        \foreach \c in {0,...,4}{
+          \ifnum\r=\c
+            \fill[courseorange] (\c,-\r) rectangle ++(0.9,0.5);
+          \else
+            \fill[courselightblue] (\c,-\r) rectangle ++(0.9,0.5);
+          \fi
+        }
+        \node[font=\small,anchor=east] at (-0.2,-\r+0.25) {round \the\numexpr\r+1\relax};
       }
-      \node[font=\small,anchor=east] at (-0.2,-\r+0.25) {split \the\numexpr\r+1\relax};
-    }
-    \node[font=\small,anchor=west,courseorange] at (5.2,0.25) {validation fold};
-    \node[font=\small,anchor=west,courseblue] at (5.2,-0.55) {training folds};
-  \end{tikzpicture}
-  \[
-    \mathrm{CV}_K=\frac1K\sum_{k=1}^{K}L^{(k)}_{\mathrm{val}}
-  \]
-  Every sample is validated exactly once. Preprocessing is refit inside each split.
-  Use it to choose hyperparameters; keep a final test set apart.
+      \node[font=\small,anchor=north west,courseorange] at (0,-4.6) {orange: validation fold};
+      \node[font=\small,anchor=north west,courseblue] at (0,-5.4) {blue: training folds};
+    \end{tikzpicture}
+    \column{0.42\textwidth}
+    \begin{itemize}
+      \item Problem: with little data, one small validation split is a noisy (lucky or unlucky) score.
+      \item Idea: cut the data into $K$ folds; each fold is the validation set once.
+    \end{itemize}
+  \end{columns}
+  \takeaway{cross-validation reuses scarce data so that every example is used for validation exactly once.}
 \end{frame}
 
-\begin{frame}{Leakage Makes Evaluation Optimistic}
+\begin{frame}{Cross-Validation: A Numeric Example}
+  100 examples, $K=5$ folds of 20. In each of 5 rounds train on 80 and validate on the other 20
+  (illustrative scores):
+  \begin{center}
+    \begin{tabular}{lccccc}
+      \toprule
+      round & 1 & 2 & 3 & 4 & 5 \\
+      \midrule
+      validation RMSE & 0.41 & 0.38 & 0.45 & 0.40 & 0.36 \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \[
+    \mathrm{CV}_K=\frac1K\sum_{k=1}^{K}L^{(k)}_{\mathrm{val}}=\frac{0.41+0.38+0.45+0.40+0.36}{5}=0.40 .
+  \]
+  The scores vary between rounds, so the average is more trustworthy than any single one.
+  The price is $K$ trainings. Preprocessing is refit inside each round; a final test set stays apart.
+  \takeaway{use the cross-validation average to compare settings, then report once on the untouched test set.}
+\end{frame}
+
+\begin{frame}{Leakage: Test Information Must Not Reach Training}
   \centering
   \begin{tikzpicture}[
     node distance=1.25cm,
@@ -205,12 +321,18 @@
     \draw[good] (fit) -- (evaluate);
     \draw[good] (test) -- (evaluate);
     \draw[bad] (test.west) -| (fit.south);
-    \node[courseorange,font=\bfseries,below=0.2cm of fit] {test information must not affect fitting};
+    \node[courseorange,font=\bfseries,below=0.2cm of fit] {the dashed path is a leak};
   \end{tikzpicture}
+
+  \vspace{0.2cm}
+  Typical leaks: scaling with statistics of all the data, choosing features using all the labels,
+  the same sample appearing in both splits.
+  \takeaway{any step that fits something (a model, a scaling) must see only the training data.}
 \end{frame}
 
 \begin{frame}{A Numeric Leak: Statistics Computed on All the Data}
-  Training feature values $\{1,2,3,4\}$ and one test value $10$, standardized as $z=(x-\mu)/\sigma$:
+  Training feature values $\{1,2,3,4\}$ and one test value $10$, standardized as $z=(x-\mu)/\sigma$
+  ($\mu$ the mean, $\sigma$ the standard deviation):
   \begin{center}
     \begin{tabular}{lcc}
       \toprule
@@ -221,314 +343,376 @@
       \bottomrule
     \end{tabular}
   \end{center}
-  The leaked statistics make the shifted test value look ordinary. The honest statistics expose
-  that the test data differ from the training data, which is exactly what evaluation must reveal.
-\end{frame}
-
-\begin{frame}{A Simple Baseline Is a Diagnostic Tool}
-  \begin{itemize}
-    \item Regression baseline: predict the training-target mean.
-    \item Classification baseline: predict the majority class or class frequency.
-    \item A learned model must improve on a rule that ignores the features.
-  \end{itemize}
-  \[
-    \hat y_{\mathrm{mean}}=\frac1{n_{\mathrm{train}}}
-      \sum_{i\in\mathrm{train}}y_i.
-  \]
-  A baseline catches broken preprocessing, leakage, weak signal, and misleading metrics
-  before model complexity hides the problem.
+  The leaked statistics make the shifted test value look ordinary ($z\approx 1.9$).
+  The honest ones show it is far outside the training range ($z\approx 6.7$).
+  \takeaway{leakage hides exactly the surprises that evaluation is supposed to reveal.}
 \end{frame}
 
 % ---------------------------------------------------------------- C. Linear regression
 
-\begin{frame}{Regression Predicts a Numerical Value}
-  \[
-    y_i\in\mathbb{R},
-    \qquad
-    \hat y_i=\mathbf{w}^{\top}\mathbf{x}_i+b
-  \]
-  \begin{itemize}
-    \item The weights $\mathbf{w}\in\mathbb{R}^{d}$ set feature contributions.
-    \item The bias $b\in\mathbb{R}$ shifts every prediction.
-    \item Examples include price, temperature, displacement, and stress.
-  \end{itemize}
+\begin{frame}{Recap}
+  We learned why training error misleads and how splits, cross-validation and leak-free preprocessing give an honest score. Next: the simplest model, fitted in closed form.
 \end{frame}
 
-\begin{frame}{Linear Regression Fits a Trend}
+\section{Linear Regression}
+\sectiondivider{Linear Regression}
+
+\begin{frame}{Linear Regression Fits a Straight Line}
   \centering
-  \includegraphics[width=0.94\linewidth,height=0.76\textheight,keepaspectratio]{linear-regression.png}
+  \includegraphics[width=0.9\linewidth,height=0.5\textheight,keepaspectratio]{linear-regression.png}
+
+  Model $\hat y=wx+b$: the slope $w$ is the change in the prediction per unit of $x$ (mm per kN for the beam);
+  the intercept $b$ is the prediction at $x=0$.
+  \takeaway{linear regression chooses the line that sits closest to the points; the next frames say what ``closest'' means.}
 \end{frame}
 
-\begin{frame}{Mean-Squared Error Penalizes Residuals}
+\begin{frame}{With Several Features: a Weighted Sum Plus an Offset}
   \[
-    r_i=y_i-\hat y_i,
-    \qquad
-    L_{\mathrm{MSE}}(\mathbf{w},b)
-    =\frac{1}{n}\sum_{i=1}^{n}r_i^2
+    \hat y=w_1x_1+w_2x_2+\dots+w_dx_d+b=\mathbf w^\top\mathbf x+b
   \]
   \begin{itemize}
-    \item A residual is the vertical prediction error.
-    \item Squaring makes large errors more influential.
-    \item MSE has squared target units; $\mathrm{RMSE}=\sqrt{L_{\mathrm{MSE}}}$ has target units.
+    \item Weight $w_j$: how much the prediction moves per unit of feature $j$, the others held fixed.
+    \item Intercept $b$ (also called the bias term): the prediction when every feature is $0$.
+    \item Example: $\mathbf w=(0.15,\,0.5)$, $b=-1$, beam with load $20$ and span $2.5$:
+      $\hat y=0.15\cdot20+0.5\cdot2.5-1=3.25$.
+    \item Throughout this lecture the linear model's parameters are $\boldsymbol\theta=(\mathbf w,b)$.
   \end{itemize}
+  \takeaway{a linear model adds up the features, each scaled by its weight; training means choosing $\mathbf w$ and $b$.}
 \end{frame}
 
-\begin{frame}{Each Loss Targets a Different Summary of the Target}
-  For a constant prediction $c$ of random targets $Y$:
+\begin{frame}{A Residual Is the Error on One Point}
+  Take four points and the candidate line $\hat y=0.9x+0.9$:
+  \begin{center}
+    \begin{tabular}{crrr}
+      \toprule
+      $x$ & $y$ (measured) & $\hat y$ (line) & residual $r=y-\hat y$ \\
+      \midrule
+      0 & 1 & 0.9 & $+0.1$ \\
+      1 & 2 & 1.8 & $+0.2$ \\
+      2 & 2 & 2.7 & $-0.7$ \\
+      3 & 4 & 3.6 & $+0.4$ \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  The residual is the vertical gap between a point and the line (the dashed segments in the previous picture).
+  Positive means the line is too low; negative means too high.
+  \takeaway{one residual measures one mistake; we need a single score for all of them.}
+\end{frame}
+
+\begin{frame}{Mean-Squared Error Scores All Residuals at Once}
   \[
-    \operatorname*{arg\,min}_c\ \mathbb E\,(Y-c)^2=\mathbb E[Y],
-    \qquad
-    \operatorname*{arg\,min}_c\ \mathbb E\,|Y-c|=\operatorname{median}(Y).
+    L_{\mathrm{MSE}}(\mathbf w,b)=\frac1n\sum_{i=1}^{n}r_i^2
+    =\frac{0.1^2+0.2^2+0.7^2+0.4^2}{4}=\frac{0.70}{4}=0.175 .
   \]
   \begin{itemize}
-    \item Squared error aims at the conditional mean and is pulled by outliers.
-    \item Absolute error aims at the conditional median and is robust to them.
-    \item Hence $f(\mathbf x)=\mathbb E[Y\mid\mathbf x]$ is the target of an MSE-trained model.
+    \item Why square? The residuals above sum to $0$, so a plain sum says nothing; squares are never negative.
+    \item Large errors count more: the single residual $-0.7$ supplies $0.49$ of the total $0.70$.
+    \item $\mathrm{RMSE}=\sqrt{0.175}\approx0.42$ is in the units of $y$, which is easier to read.
+    \item Squared error assumes the noise in $y$ is bell-shaped (Gaussian); the appendix shows why.
   \end{itemize}
+  \takeaway{MSE is the average squared residual, and the best line is the one that makes it smallest.}
 \end{frame}
 
-\begin{frame}{Gaussian Observation Noise Leads to Squared Error}
-  Assume independent observations
-  \[
-    y_i=\mathbf w^\top\mathbf x_i+b+\varepsilon_i,
-    \qquad \varepsilon_i\sim\mathcal N(0,\sigma^2).
-  \]
-  Then the negative log-likelihood is
-  \[
-    -\log p(\mathbf y\mid\mathbf X,\mathbf w,b)
-    =\frac{1}{2\sigma^2}\sum_{i=1}^n(y_i-\hat y_i)^2
-      +\frac n2\log(2\pi\sigma^2).
-  \]
-  For fixed $\sigma^2$, maximum likelihood and least squares have the same minimizer.
-  The derivation also states the model assumption behind MSE.
-\end{frame}
-
-\begin{frame}{Matrix Form Makes the Linear Problem Explicit}
-  Add a column of ones for the intercept:
-  \[
-    \widetilde{\mathbf X}
-    =\begin{bmatrix}\mathbf x_1^\top&1\\[-1mm]\vdots&\vdots\\\mathbf x_n^\top&1\end{bmatrix},
-    \qquad
-    \boldsymbol\beta=\begin{bmatrix}\mathbf w\\b\end{bmatrix}.
-  \]
-  The least-squares objective becomes
-  \[
-    L(\boldsymbol\beta)
-    =\frac1n\|\widetilde{\mathbf X}\boldsymbol\beta-\mathbf y\|_2^2.
-  \]
-  This is convex; every stationary point is a global minimizer.
-\end{frame}
-
-\begin{frame}{The Normal Equations Characterize Least Squares}
-  \begin{align*}
-    \nabla_{\boldsymbol\beta}L
-      &=\frac2n\widetilde{\mathbf X}^\top
-        (\widetilde{\mathbf X}\boldsymbol\beta-\mathbf y),\\
-    \nabla_{\boldsymbol\beta}L=\mathbf0
-      &\Longleftrightarrow
-        \widetilde{\mathbf X}^\top\widetilde{\mathbf X}\boldsymbol\beta
-        =\widetilde{\mathbf X}^\top\mathbf y.
-  \end{align*}
-  If $\widetilde{\mathbf X}$ has full column rank,
-  \[
-    \boldsymbol\beta^\star
-    =(\widetilde{\mathbf X}^\top\widetilde{\mathbf X})^{-1}
-      \widetilde{\mathbf X}^\top\mathbf y.
-  \]
-  The formula proves uniqueness; it is not the preferred numerical algorithm.
-\end{frame}
-
-\begin{frame}{Least Squares Is an Orthogonal Projection}
+\begin{frame}{The Best Line Sits at the Bottom of a Bowl}
   \centering
-  \begin{tikzpicture}[scale=1.05]
-    \fill[courselightblue] (-0.5,-0.3) -- (4.6,-0.3) -- (5.6,1.2) -- (0.5,1.2) -- cycle;
-    \node[coursegray,font=\small] at (4.6,0.95) {$\operatorname{col}(\widetilde{\mathbf X})$};
-    \coordinate (O) at (0.4,0);
-    \coordinate (P) at (2.9,0.55);
-    \coordinate (Y) at (2.9,2.5);
-    \draw[-{Latex[length=3mm]},very thick,courseblue] (O) -- (P) node[below right]{$\hat{\mathbf y}=\widetilde{\mathbf X}\boldsymbol\beta^\star$};
-    \draw[-{Latex[length=3mm]},very thick,courseorange] (O) -- (Y) node[above]{$\mathbf y$};
-    \draw[-{Latex[length=3mm]},very thick,coursegreen,dashed] (P) -- (Y) node[midway,right]{$\mathbf r=\mathbf y-\hat{\mathbf y}$};
-    \draw[coursegray] (2.9,0.8) -- (3.15,0.8) -- (3.15,0.55);
+  \begin{tikzpicture}[x=0.8cm,y=0.65cm]
+    \draw[-{Latex},thick] (-3.2,0) -- (3.4,0) node[right] {$w$};
+    \draw[-{Latex},thick] (-3,-0.2) -- (-3,3.6) node[above] {$L_{\mathrm{MSE}}$};
+    \draw[very thick,courseblue,domain=-2.4:2.4,smooth,samples=40] plot (\x,{0.45*\x*\x+0.4});
+    \fill[courseorange] (0,0.4) circle (0.1);
+    \draw[courseorange,thick] (-1.1,0.4) -- (1.1,0.4);
+    \node[courseorange,font=\small,align=center] (low) at (0,-1.3) {lowest point: the slope is zero};
+    \draw[-{Latex},courseorange,thick] (low.north) -- (0,0.25);
   \end{tikzpicture}
-  \[
-    \widetilde{\mathbf X}^\top\mathbf r=\mathbf 0,
-    \qquad
-    \|\mathbf y\|_2^2=\|\hat{\mathbf y}\|_2^2+\|\mathbf r\|_2^2.
-  \]
-  The residual is orthogonal to every feature column, including the column of ones.
+  \begin{itemize}
+    \item One parameter: a parabola. Parameters $w$ and $b$: a bowl in 3D.
+    \item At the bottom the surface is flat: the slope is $0$ in every direction.
+    \item So instead of searching, solve ``slope $=0$''.
+  \end{itemize}
+  \takeaway{for a linear model with squared error there is one lowest point, and we can find it by solving equations.}
 \end{frame}
 
-\begin{frame}{A Four-Point Example Solved by Hand}
-  Points $(x,y)$: $(0,1),\ (1,2),\ (2,2),\ (3,4)$.
+\begin{frame}{Stack $w$ and $b$ Into One Vector}
+  Append a column of ones to $\mathbf X$ and put $b$ under $\mathbf w$: then $\hat y_i=\mathbf w^\top\mathbf x_i+b$ becomes one product.
+  \[
+    \widetilde{\mathbf X}=\begin{bmatrix}\mathbf x_1^\top&1\\[-1mm]\vdots&\vdots\\\mathbf x_n^\top&1\end{bmatrix},
+    \quad
+    \boldsymbol\theta=\begin{bmatrix}\mathbf w\\b\end{bmatrix},
+    \quad
+    \hat{\mathbf y}=\widetilde{\mathbf X}\boldsymbol\theta .
+  \]
+  Four-point example: $\widetilde{\mathbf X}=\begin{bmatrix}0&1\\1&1\\2&1\\3&1\end{bmatrix}$,
+  $\boldsymbol\theta=\begin{bmatrix}w\\b\end{bmatrix}$, so row $i$ of $\widetilde{\mathbf X}\boldsymbol\theta$ is $w x_i+b$.
+  The loss becomes
+  $L(\boldsymbol\theta)=\frac1n\|\widetilde{\mathbf X}\boldsymbol\theta-\mathbf y\|^2$,
+  where $\|\mathbf v\|^2$ is the sum of the squared entries of $\mathbf v$.
+  \takeaway{the intercept is just another weight, multiplying a feature that is always 1.}
+\end{frame}
+
+\begin{frame}{The Normal Equations}
+  Setting the slope of $L$ to zero gives a linear system, the \textbf{normal equations}:
+  \[
+    \widetilde{\mathbf X}^\top\widetilde{\mathbf X}\,\boldsymbol\theta
+    =\widetilde{\mathbf X}^\top\mathbf y
+    \qquad\Longrightarrow\qquad
+    \boldsymbol\theta^\star=(\widetilde{\mathbf X}^\top\widetilde{\mathbf X})^{-1}\widetilde{\mathbf X}^\top\mathbf y .
+  \]
+  \begin{itemize}
+    \item ``Normal'' means perpendicular: at the best fit the residuals are perpendicular to every column of $\widetilde{\mathbf X}$ (appendix).
+    \item $\widetilde{\mathbf X}^\top\widetilde{\mathbf X}$ is only $(d{+}1)\times(d{+}1)$, however many examples there are.
+    \item \textbf{Closed form}: an explicit formula, no iteration. The inverse exists when no feature is a combination of the others.
+    \item Scope: linear models with squared error.
+  \end{itemize}
+  \takeaway{least squares is solved by one small linear system, not by trial and error.}
+\end{frame}
+
+\begin{frame}{Worked Example, Step 1: Build the Two Ingredients}
+  Points $(x,y)$: $(0,1),\ (1,2),\ (2,2),\ (3,4)$, with $\widetilde{\mathbf X}$ as before.
   \[
     \widetilde{\mathbf X}^\top\widetilde{\mathbf X}=\begin{bmatrix}14&6\\6&4\end{bmatrix},
-    \quad
-    \widetilde{\mathbf X}^\top\mathbf y=\begin{bmatrix}18\\9\end{bmatrix}
-    \ \Longrightarrow\
-    \begin{bmatrix}w\\b\end{bmatrix}=\frac1{20}\begin{bmatrix}18\\18\end{bmatrix}=\begin{bmatrix}0.9\\0.9\end{bmatrix}.
+    \qquad
+    \widetilde{\mathbf X}^\top\mathbf y=\begin{bmatrix}18\\9\end{bmatrix}.
   \]
-  Residuals $\mathbf r=(0.1,\ 0.2,\ -0.7,\ 0.4)$: they sum to $0$ and $\sum_i x_ir_i=0$,
-  and $L_{\mathrm{MSE}}=0.175$.
-\end{frame}
-
-\begin{frame}{Solve Least Squares Without Forming an Inverse}
   \begin{itemize}
-    \item Forming $\widetilde{\mathbf X}^\top\widetilde{\mathbf X}$ squares the condition number:
-      $\kappa(\widetilde{\mathbf X}^\top\widetilde{\mathbf X})=\kappa(\widetilde{\mathbf X})^2$.
-    \item Solve through a QR or SVD factorization of $\widetilde{\mathbf X}$ instead of an explicit inverse.
-    \item With dependent features there is no unique solution; the SVD gives the minimum-norm one.
+    \item $14=0^2+1^2+2^2+3^2$, $\ 6=0+1+2+3$, $\ 4=n$.
+    \item $18=0\cdot1+1\cdot2+2\cdot2+3\cdot4$, $\ 9=1+2+2+4$.
   \end{itemize}
-  Iterative optimization becomes essential when the model or dataset makes a direct solve impractical.
+  \takeaway{the two ingredients are just sums over the data, so they are cheap to compute.}
 \end{frame}
 
-\begin{frame}{Features Can Be Nonlinear While the Model Stays Linear}
+\begin{frame}{Worked Example, Step 2: Solve and Check}
   \[
-    \hat y=\sum_{k=0}^{p}\beta_k\,x^k,
+    \begin{bmatrix}14&6\\6&4\end{bmatrix}\begin{bmatrix}w\\b\end{bmatrix}=\begin{bmatrix}18\\9\end{bmatrix}
+    \ \Longrightarrow\
+    \begin{bmatrix}w\\b\end{bmatrix}=\frac1{20}\begin{bmatrix}4&-6\\-6&14\end{bmatrix}\begin{bmatrix}18\\9\end{bmatrix}
+    =\begin{bmatrix}0.9\\0.9\end{bmatrix}.
+  \]
+  \begin{itemize}
+    \item This is exactly the candidate line $\hat y=0.9x+0.9$ used earlier, with $L_{\mathrm{MSE}}=0.175$.
+    \item Check: the residuals $(0.1,\,0.2,\,-0.7,\,0.4)$ sum to $0$ and $\sum_i x_ir_i=0$.
+    \item Software solves the system with a numerically stable factorization rather than an explicit inverse (appendix).
+  \end{itemize}
+  \takeaway{one small solve gives the best line, and the zero checks confirm that it is the minimum.}
+\end{frame}
+
+\begin{frame}{A Baseline Shows Whether the Model Learned Anything}
+  A baseline ignores the features. Regression: always predict the training-target mean.
+  On the four points the mean of $y$ is $2.25$:
+  \begin{center}
+    \begin{tabular}{lcc}
+      \toprule
+      & training MSE & training RMSE \\
+      \midrule
+      Baseline (constant $2.25$) & $1.19$ & $1.09$ \\
+      Fitted line & $0.175$ & $0.42$ \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  For classification the baseline predicts the most frequent class.
+  The comparison belongs on test data; here it shows the idea on the same four points.
+  \takeaway{a model is worth keeping only if it clearly beats the baseline, and a baseline that is hard to beat warns of broken preprocessing, leakage or weak signal.}
+\end{frame}
+
+\begin{frame}{Nonlinear Features, Linear Model}
+  A line cannot follow a curve. The trick: build new features from $x$ and keep the model linear in the parameters.
+  \[
+    \hat y=\theta_0+\theta_1x+\dots+\theta_px^p,
     \qquad
     \boldsymbol\Phi=\begin{bmatrix}1&x_1&\cdots&x_1^{p}\\[-1mm]\vdots&&&\vdots\\1&x_n&\cdots&x_n^{p}\end{bmatrix}
   \]
   \begin{itemize}
-    \item The model is linear in $\boldsymbol\beta$, so the normal equations apply to $\boldsymbol\Phi$ unchanged.
-    \item The degree $p$ sets how flexible $\mathcal H$ is, as the earlier fits showed.
+    \item $\boldsymbol\Phi$ (capital phi) is the feature table after the transformation; for $p=3$ the input $x=2$ becomes $(1,2,4,8)$.
+    \item The model is linear in $\boldsymbol\theta$, so the normal equations apply with $\boldsymbol\Phi$ in place of $\widetilde{\mathbf X}$.
+    \item The degree $p$ sets how rich the model class is, as the polynomial experiment showed.
   \end{itemize}
+  \takeaway{fitting a curve is still least squares, only on transformed features.}
 \end{frame}
 
 % ---------------------------------------------------------------- D. Classification
 
-\begin{frame}{Binary Classification Predicts a Probability}
-  \[
-    y_i\in\{0,1\},
-    \qquad
-    \hat p_i=P(y_i=1\mid\mathbf{x}_i)
-  \]
-  \[
-    \hat p_i=\sigma(z_i),
-    \qquad
-    z_i=\mathbf{w}^{\top}\mathbf{x}_i+b,
-    \qquad
-    \sigma(z)=\frac{1}{1+e^{-z}}
-  \]
-  \begin{itemize}
-    \item The threshold $\hat p_i\geq 0.5$ corresponds to $z_i\geq 0$.
-    \item The threshold may change when error costs are unequal.
-  \end{itemize}
+\begin{frame}{Recap}
+  We learned to fit a line by least squares, solve it with the normal equations and compare it with a baseline. Next: predicting categories with probabilities.
 \end{frame}
 
-\begin{frame}{Logistic Regression Is Linear in the Log-Odds}
-  The sigmoid maps any score to $(0,1)$, and its inverse is the logit:
+\section{Logistic Regression and Classification Metrics}
+\sectiondivider{Logistic Regression and Classification Metrics}
+
+\begin{frame}{Classification: Why Not Fit a Line to the Labels?}
+  \centering
+  \includegraphics[width=0.84\linewidth,height=0.6\textheight,keepaspectratio]{linear-vs-logistic.png}
+
+  Labels are $0$ or $1$ (for example healthy or damaged). A line leaves the band between $0$ and $1$ at the ends;
+  the logistic curve does not.
+  \takeaway{for yes/no targets we want an output that is always a valid probability between 0 and 1.}
+\end{frame}
+
+\begin{frame}{The Sigmoid Turns a Score Into a Probability}
   \[
-    \hat p=\sigma(z)
-    \quad\Longleftrightarrow\quad
-    \log\frac{\hat p}{1-\hat p}=z=\mathbf w^\top\mathbf x+b.
+    \sigma(z)=\frac1{1+e^{-z}},
+    \qquad
+    \hat p=\sigma(z)=\text{the model's probability that }y=1 .
   \]
-  Therefore each constant-probability set satisfies
+  \begin{center}
+    \begin{tabular}{r|ccccc}
+      $z$ & $-4$ & $-2$ & $0$ & $2$ & $4$ \\
+      \hline
+      $\sigma(z)$ & 0.02 & 0.12 & 0.50 & 0.88 & 0.98 \\
+    \end{tabular}
+  \end{center}
+  The score $z$ can be any real number. Large negative scores give probabilities near $0$,
+  large positive scores near $1$, and $z=0$ gives exactly $0.5$.
+  \takeaway{the sigmoid squeezes any score into the interval from 0 to 1, so it can be read as a probability.}
+\end{frame}
+
+\begin{frame}{Logistic Regression: a Linear Score Through a Sigmoid}
   \[
-    \mathbf w^\top\mathbf x+b
-    =\log\frac{c}{1-c}.
+    z=\mathbf w^\top\mathbf x+b,
+    \qquad
+    \hat p=\sigma(z),
+    \qquad
+    \text{predict class }1\text{ when }\hat p\ge0.5 .
   \]
-  Logistic regression is nonlinear as a probability map but retains parallel linear
-  decision contours in feature space.
+  \begin{itemize}
+    \item $\hat p\ge0.5$ is the same as $z\ge0$, that is $\mathbf w^\top\mathbf x+b\ge0$.
+    \item The set where $\mathbf w^\top\mathbf x+b=0$ is a straight line (in 2D): the \textbf{decision boundary}.
+    \item The same $\mathbf w$ and $b$ as in linear regression, but the output is a probability.
+  \end{itemize}
+  \takeaway{logistic regression separates the classes by a straight boundary and reports how confident it is.}
 \end{frame}
 
 \begin{frame}{Logistic Regression Learns a Decision Boundary}
   \centering
-  \includegraphics[width=0.95\linewidth,height=0.78\textheight,keepaspectratio]{logistic-regression.png}
+  \includegraphics[width=0.92\linewidth,height=0.66\textheight,keepaspectratio]{logistic-regression.png}
+  \takeaway{the line is where $\hat p=0.5$; colour gets surer away from it, and a few overlapping points are still misclassified.}
 \end{frame}
 
-\begin{frame}{Bernoulli Likelihood Leads to Cross-Entropy}
-  For $Y_i\mid\mathbf x_i\sim\operatorname{Bernoulli}(\hat p_i)$,
-  \[
-    p(y_i\mid\mathbf x_i)
-    =\hat p_i^{y_i}(1-\hat p_i)^{1-y_i}.
-  \]
-  Its negative log-likelihood is
-  \[
-    \ell_{\mathrm{BCE}}(\hat p_i,y_i)
-    =-y_i\log\hat p_i-(1-y_i)\log(1-\hat p_i)
-  \]
-  \[
-    L_{\mathrm{BCE}}(\mathbf{w},b)
-    =\frac{1}{n}\sum_{i=1}^{n}
-    \ell_{\mathrm{BCE}}(\hat p_i,y_i)
-  \]
+\begin{frame}{Cross-Entropy: Punish Confident Mistakes}
+  For one example, look at the probability the model gave to the \emph{true} class, $p_{\mathrm{true}}$:
   \begin{itemize}
-    \item A confident wrong probability receives an unbounded penalty.
-    \item The loss evaluates probability quality before any decision threshold is chosen.
+    \item True label $1$: $p_{\mathrm{true}}=\hat p$. True label $0$: $p_{\mathrm{true}}=1-\hat p$.
+    \item Loss $=-\log p_{\mathrm{true}}$: small when the model was right, large when it was confidently wrong.
   \end{itemize}
+  \begin{center}
+    \begin{tabular}{r|cccc}
+      $p_{\mathrm{true}}$ & 0.9 & 0.5 & 0.1 & 0.01 \\
+      \hline
+      $-\log p_{\mathrm{true}}$ & 0.11 & 0.69 & 2.30 & 4.61 \\
+    \end{tabular}
+  \end{center}
+  \takeaway{the penalty grows without bound as the model puts less probability on the truth.}
 \end{frame}
 
-\begin{frame}{Cross-Entropy Has a Clean Gradient but No Closed-Form Minimizer}
+\begin{frame}{The Cross-Entropy Loss and How It Is Minimized}
   \[
-    \nabla_{\boldsymbol\beta}L_{\mathrm{BCE}}
-    =\frac1n\widetilde{\mathbf X}^\top(\hat{\mathbf p}-\mathbf y)
-    \qquad\text{versus}\qquad
-    \nabla_{\boldsymbol\beta}L_{\mathrm{MSE}}
-    =\frac2n\widetilde{\mathbf X}^\top(\hat{\mathbf y}-\mathbf y).
+    \ell_{\mathrm{BCE}}(\hat p,y)=-y\log\hat p-(1-y)\log(1-\hat p),
+  \]
+  \[
+    L_{\mathrm{BCE}}(\mathbf w,b)=\frac1n\sum_{i=1}^{n}\ell_{\mathrm{BCE}}(\hat p_i,y_i).
   \]
   \begin{itemize}
-    \item Both gradients are ``features times prediction error''.
-    \item For BCE the prediction $\hat{\mathbf p}=\sigma(\widetilde{\mathbf X}\boldsymbol\beta)$ is nonlinear in $\boldsymbol\beta$, so $\nabla L=\mathbf0$ has no explicit solution.
-    \item The loss is convex, so an iterative method that follows the gradient reaches the global minimum.
-    \item With $K>2$ classes the sigmoid becomes a softmax; it is introduced with the output layers of neural networks.
+    \item Only one term is active: $y=1$ keeps $-\log\hat p$, $y=0$ keeps $-\log(1-\hat p)$. BCE = binary cross-entropy.
+    \item No normal equations exist here, because $\hat p$ depends on $\boldsymbol\theta$ through the sigmoid. The loss is
+      convex (a single bowl), so gradient descent, next lecture, reaches its global minimum.
+    \item For $K>2$ classes the sigmoid becomes the \textbf{softmax}: $K$ scores into $K$ probabilities summing to $1$.
   \end{itemize}
+  \takeaway{cross-entropy is the loss for probabilities, and unlike least squares it is minimized iteratively.}
 \end{frame}
 
 % ---------------------------------------------------------------- E. Judging a classifier
 
 \begin{frame}{A Decision Threshold Encodes Error Costs}
-  Predict class $1$ when $\hat p\geq\tau$. With false-positive cost $C_{\mathrm{FP}}$
-  and false-negative cost $C_{\mathrm{FN}}$, choose class $1$ when
-  \[
-    C_{\mathrm{FP}}(1-\hat p)
-    \leq C_{\mathrm{FN}}\hat p
-    \quad\Longleftrightarrow\quad
-    \boxed{\hat p\geq
-      \frac{C_{\mathrm{FP}}}{C_{\mathrm{FP}}+C_{\mathrm{FN}}}}.
-  \]
-  The familiar threshold $0.5$ assumes equal costs and calibrated probabilities.
+  Predict class $1$ when $\hat p\ge\tau$. The default $\tau=0.5$ treats both mistakes as equally bad,
+  which is rarely true.
+  \begin{itemize}
+    \item Missed crack (false negative) costs $C_{\mathrm{FN}}=9$; a false alarm (false positive) costs $C_{\mathrm{FP}}=1$.
+    \item Saying ``damaged'' costs $C_{\mathrm{FP}}(1-\hat p)$ on average; saying ``healthy'' costs $C_{\mathrm{FN}}\hat p$.
+    \item Choose ``damaged'' when the first is smaller:
+      \[
+        \hat p\ \ge\ \tau=\frac{C_{\mathrm{FP}}}{C_{\mathrm{FP}}+C_{\mathrm{FN}}}=\frac{1}{1+9}=0.1 .
+      \]
+  \end{itemize}
+  \takeaway{when a miss is costlier than a false alarm, lower the threshold and accept more false alarms.}
 \end{frame}
 
 \begin{frame}{Moving the Threshold Trades One Error for the Other}
   \centering
-  \includegraphics[width=0.9\linewidth,height=0.7\textheight,keepaspectratio]{threshold.png}
-
-  Overlapping classes make some errors unavoidable; $\tau$ only chooses which kind.
+  \includegraphics[width=0.88\linewidth,height=0.62\textheight,keepaspectratio]{threshold.png}
+  \takeaway{overlapping classes make some errors unavoidable; $\tau$ only chooses which kind we make more of.}
 \end{frame}
 
-\begin{frame}{The Confusion Matrix Separates Error Types}
-  \centering
-  \begin{tabular}{c|cc}
-    & \textbf{Predicted 1} & \textbf{Predicted 0} \\
-    \hline
-    \textbf{Actual 1} & TP & FN \\
-    \textbf{Actual 0} & FP & TN
-  \end{tabular}
-  \vspace{0.45cm}
-  \[
-    \mathrm{precision}=\frac{TP}{TP+FP},
-    \qquad
-    \mathrm{recall}=\frac{TP}{TP+FN},
-  \]
-  \[
-    \mathrm{specificity}=\frac{TN}{TN+FP},
-    \qquad
-    \mathrm{accuracy}=\frac{TP+TN}{TP+TN+FP+FN}.
-  \]
-  Class imbalance and application costs determine which summary is informative.
+\begin{frame}{The Confusion Matrix Counts the Four Outcomes}
+  100 beams inspected, 10 truly damaged (illustrative counts):
+  \begin{center}
+    \begin{tabular}{c|cc}
+      & \textbf{Predicted damaged} & \textbf{Predicted healthy} \\
+      \hline
+      \textbf{Actually damaged} & TP $=8$ & FN $=2$ \\
+      \textbf{Actually healthy} & FP $=5$ & TN $=85$
+    \end{tabular}
+  \end{center}
+  \begin{itemize}
+    \item TP: correctly flagged. FN: damage missed. FP: false alarm. TN: correctly passed.
+    \item The two error types, FN and FP, are counted separately because they cost differently.
+  \end{itemize}
+  \takeaway{one table shows both what the model gets right and which kind of mistake it makes.}
 \end{frame}
 
-\begin{frame}{ROC and Precision--Recall Curves Show Every Threshold at Once}
-  \centering
-  \includegraphics[width=0.96\linewidth,height=0.6\textheight,keepaspectratio]{roc-pr.png}
+\begin{frame}{Metrics Answer Different Questions}
+  With the counts above:
+  \begin{center}
+    \footnotesize\setlength{\tabcolsep}{3pt}
+    \begin{tabular}{lll}
+      \toprule
+      metric & question it answers & value \\
+      \midrule
+      recall $=TP/(TP+FN)$ & of the damaged, how many caught? & $0.80$ \\
+      precision $=TP/(TP+FP)$ & of the flagged, how many damaged? & $0.62$ \\
+      specificity $=TN/(TN+FP)$ & of the healthy, how many passed? & $0.94$ \\
+      accuracy $=(TP+TN)/n$ & how often right overall? & $0.93$ \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \takeaway{no single number tells the whole story, so report the metrics that match the application's costs.}
+\end{frame}
 
-  \small
-  AUC is the probability that a random positive scores above a random negative. With 10\% positives
-  a random scorer has precision $0.1$; accuracy alone would reward predicting ``negative'' for everyone ($90\%$).
+\begin{frame}{Accuracy Can Mislead on Imbalanced Data}
+  Same 100 beams, 10 damaged. A rule that ignores the data and always answers ``healthy'':
+  \begin{itemize}
+    \item accuracy $=90/100=0.90$, which sounds good;
+    \item recall $=0/10=0$, because it never finds a damaged beam.
+  \end{itemize}
+  Our model's accuracy of $0.93$ is only slightly above this useless baseline, while its recall of $0.80$ shows real detection.
+  \takeaway{when one class is rare, judge a classifier by recall and precision, and always compare with the majority-class baseline.}
+\end{frame}
+
+\begin{frame}{ROC Curve: Every Threshold at Once}
+  \begin{itemize}
+    \item Slide the threshold $\tau$ from high to low and record two rates at each setting.
+    \item True-positive rate (recall): share of damaged beams caught.
+    \item False-positive rate: share of healthy beams wrongly flagged, $FP/(FP+TN)$.
+    \item Each $\tau$ gives one point; together they form the \textbf{ROC curve}.
+    \item A curve hugging the top-left corner is good; the diagonal is random guessing.
+  \end{itemize}
+  \takeaway{the ROC curve shows the whole trade-off without committing to one threshold.}
+\end{frame}
+
+\begin{frame}{AUC: One Number for the ROC Curve}
+  \begin{columns}[c]
+    \column{0.52\textwidth}
+    \includegraphics[width=\linewidth,height=0.6\textheight,keepaspectratio]{roc.png}
+    \column{0.44\textwidth}
+    \textbf{AUC} (area under the curve): pick one random positive and one random negative;
+    AUC is the chance that the model scores the positive higher.
+
+    \smallskip
+    $0.5$ is a coin flip, $1$ is perfect. Here the scores are two bell curves two standard deviations apart (the figure on the previous threshold slide).
+  \end{columns}
+  \takeaway{AUC summarizes how well the scores rank positives above negatives, independent of any threshold.}
 \end{frame}
 
 \begin{frame}{Loss Trains; Metrics Communicate}
   \centering
+  \small
   \begin{tabular}{lll}
     \toprule
     \textbf{Task} & \textbf{Training loss} & \textbf{Evaluation metrics} \\
@@ -537,60 +721,76 @@
     Binary classification & Cross-entropy & Accuracy, precision, recall, AUC \\
     \bottomrule
   \end{tabular}
-  \vspace{0.6cm}
+  \vspace{0.4cm}
   \begin{itemize}
-    \item A loss must support parameter optimization.
-    \item A metric should answer the application question.
-    \item Report more than one metric when error types differ.
+    \item A loss must be smooth enough to optimize; accuracy is a count and is not.
+    \item A metric should answer the application's question.
   \end{itemize}
+  \takeaway{train on the loss, judge with the metrics.}
 \end{frame}
 
 % ---------------------------------------------------------------- F. Inputs
 
-\begin{frame}{Normalize With Training Statistics Only}
-  \[
-    \tilde x_{ij}
-    =\frac{x_{ij}-\mu_j^{\mathrm{train}}}{\sigma_j^{\mathrm{train}}},
-    \qquad
-    \mu_j^{\mathrm{train}}=\frac{1}{n_{\mathrm{train}}}\sum_{i\in\mathrm{train}}x_{ij}
-  \]
-  \begin{itemize}
-    \item $\sigma_j^{\mathrm{train}}$ is the training standard deviation of feature $j$.
-    \item Apply the same $\mu_j^{\mathrm{train}}$ and $\sigma_j^{\mathrm{train}}$ to every split.
-    \item Never recompute preprocessing from validation or test data.
-  \end{itemize}
+\begin{frame}{Recap}
+  We learned logistic regression, its cross-entropy loss, and how thresholds and metrics judge a classifier. Next: preparing the inputs.
 \end{frame}
 
-\begin{frame}{Normalization Places Features on Comparable Scales}
+\section{Preparing the Data: Normalization}
+\sectiondivider{Preparing the Data: Normalization}
+
+\begin{frame}{Features Often Live on Very Different Scales}
   \centering
-  \includegraphics[width=0.97\linewidth,height=0.78\textheight,keepaspectratio]{normalization.png}
+  \includegraphics[width=0.92\linewidth,height=0.5\textheight,keepaspectratio]{normalization.png}
+
+  Left: one feature spans tens, the other a few tenths. Right: after normalization both are centered and comparable.
+  \takeaway{without scaling, one feature's units can dominate how weights and step sizes behave.}
 \end{frame}
 
-\begin{frame}{Scaling Changes Optimization Geometry}
-  If $\tilde x_j=(x_j-\mu_j)/\sigma_j$, then an affine model can represent the same map
-  after transforming its coefficients:
+\begin{frame}{Normalization: Subtract the Mean, Divide by the Spread}
   \[
-    \mathbf w^\top\mathbf x+b
-    =\widetilde{\mathbf w}^{\top}\widetilde{\mathbf x}+\tilde b.
+    x'_{ij}=\frac{x_{ij}-\mu_j}{\sigma_j},
+    \qquad
+    \mu_j=\frac1{n}\sum_{i}x_{ij}.
   \]
+  Here $\mu_j$ is the mean of feature $j$ and $\sigma_j$ its standard deviation (the typical distance from the mean).
+  Example, feature values $\{1,2,3,4\}$: $\mu=2.5$, $\sigma\approx1.12$, so the values become
+  $\{-1.34,\,-0.45,\,0.45,\,1.34\}$.
+  \takeaway{normalized features have mean $0$ and spread $1$, whatever their original units.}
+\end{frame}
+
+\begin{frame}{Use Training Statistics Only}
   \begin{itemize}
-    \item The model class is unchanged when every $\sigma_j>0$.
-    \item The objective contours in parameter space can become less elongated.
-    \item First-order optimization can then use a useful step size in more directions.
+    \item Compute $\mu_j$ and $\sigma_j$ from the \textbf{training} rows only.
+    \item Apply those same numbers to validation and test rows.
+    \item Never recompute them on validation or test data: that is the leak seen earlier ($z=1.9$ instead of $6.7$).
+    \item Inside cross-validation, recompute them in every round.
   \end{itemize}
-  The optimization lecture formalizes this through conditioning.
+  \takeaway{a scaling is part of the model, so it is fitted on training data like everything else.}
+\end{frame}
+
+\begin{frame}{Why Scaling Helps}
+  \begin{itemize}
+    \item The model class is unchanged: a linear model on the original features can be rewritten
+      as a linear model on the scaled ones, with different weights.
+    \item Weights become comparable: a weight of $2$ now means the same size of effect for every feature.
+    \item Gradient descent behaves better: elongated loss valleys become rounder, so one step size works in all directions
+      (the optimization lecture explains the zig-zag).
+  \end{itemize}
+  \takeaway{scaling does not change what the model can represent, it makes the model easier to fit.}
 \end{frame}
 
 \begin{frame}{Real Data Need Cleaning Before Scaling}
   \begin{itemize}
-    \item \textbf{Categorical features:} encode each category as its own 0/1 column (one-hot) rather than as an arbitrary number.
+    \item \textbf{Categorical features:} encode each category as its own 0/1 column (one-hot), not as an arbitrary number.
     \item \textbf{Outliers:} inspect them; a squared loss lets a few extreme points dominate the fit.
     \item \textbf{Missing values:} fill them using training statistics only, and record which entries were missing.
   \end{itemize}
-  Every cleaning rule, like every scaling statistic, is fitted on the training split and then applied to the rest.
+  \takeaway{every cleaning rule, like every scaling statistic, is fitted on the training split and then applied unchanged to the rest.}
 \end{frame}
 
-% ---------------------------------------------------------------- G. Bridge
+\begin{frame}{Recap}
+  We learned to scale and clean features with training statistics only. Next lecture: how a loss without a closed form is minimized.
+\end{frame}
 
 \begin{frame}{Next: How Do Parameters Learn?}
   \centering
@@ -605,9 +805,137 @@
     \draw[flow] (objective) -- (gradient);
     \draw[flow] (gradient) -- (optimizer);
   \end{tikzpicture}
+  \takeaway{least squares has a closed form, but logistic regression and later models do not, so the next lecture shows how to minimize a loss step by step.}
+\end{frame}
 
-  \vspace{0.2cm}
-  Least squares has a closed form; logistic regression and later models do not.
+% ---------------------------------------------------------------- Appendix
+
+\appendix
+\sectiondivider{Appendix: optional depth}
+
+\begin{frame}{Appendix: Normal Equations From the Gradient}
+  \[
+    \nabla_{\boldsymbol\theta}L=\frac2n\widetilde{\mathbf X}^\top(\widetilde{\mathbf X}\boldsymbol\theta-\mathbf y),
+    \qquad
+    \nabla_{\boldsymbol\theta}L=\mathbf 0
+    \Longleftrightarrow
+    \widetilde{\mathbf X}^\top\widetilde{\mathbf X}\boldsymbol\theta=\widetilde{\mathbf X}^\top\mathbf y .
+  \]
+  $L$ is a convex quadratic in $\boldsymbol\theta$, so every stationary point is a global minimizer.
+  If $\widetilde{\mathbf X}$ has full column rank the minimizer is unique.
+  \takeaway{solving ``gradient $=0$'' is exactly the normal equations.}
+\end{frame}
+
+\begin{frame}{Appendix: Least Squares as an Orthogonal Projection}
+  \centering
+  \begin{tikzpicture}[scale=1.05]
+    \fill[courselightblue] (-0.5,-0.3) -- (4.6,-0.3) -- (5.6,1.2) -- (0.5,1.2) -- cycle;
+    \node[coursegray,font=\small] at (4.6,0.95) {$\operatorname{col}(\widetilde{\mathbf X})$};
+    \coordinate (O) at (0.4,0);
+    \coordinate (P) at (2.9,0.55);
+    \coordinate (Y) at (2.9,2.5);
+    \draw[-{Latex[length=3mm]},very thick,courseblue] (O) -- (P) node[below right]{$\hat{\mathbf y}=\widetilde{\mathbf X}\boldsymbol\theta^\star$};
+    \draw[-{Latex[length=3mm]},very thick,courseorange] (O) -- (Y) node[above]{$\mathbf y$};
+    \draw[-{Latex[length=3mm]},very thick,coursegreen,dashed] (P) -- (Y) node[midway,right]{$\mathbf r=\mathbf y-\hat{\mathbf y}$};
+    \draw[coursegray] (2.9,0.8) -- (3.15,0.8) -- (3.15,0.55);
+  \end{tikzpicture}
+  \[
+    \widetilde{\mathbf X}^\top\mathbf r=\mathbf 0,
+    \qquad
+    \|\mathbf y\|^2=\|\hat{\mathbf y}\|^2+\|\mathbf r\|^2.
+  \]
+  $\operatorname{col}(\widetilde{\mathbf X})$ is the set of all vectors $\widetilde{\mathbf X}\boldsymbol\theta$.
+  \takeaway{the best fit is the point of that set closest to $\mathbf y$, so the residual is perpendicular to every feature column.}
+\end{frame}
+
+\begin{frame}{Appendix: Solve Least Squares Without Forming an Inverse}
+  \begin{itemize}
+    \item The \textbf{condition number} $\kappa(\mathbf A)$ is the ratio of the largest to the smallest stretching that $\mathbf A$ applies;
+      a large $\kappa$ means small input errors can become large output errors.
+    \item Forming $\widetilde{\mathbf X}^\top\widetilde{\mathbf X}$ squares it:
+      $\kappa(\widetilde{\mathbf X}^\top\widetilde{\mathbf X})=\kappa(\widetilde{\mathbf X})^2$.
+    \item Solve through a QR or SVD factorization of $\widetilde{\mathbf X}$ instead of an explicit inverse.
+    \item With dependent features there is no unique solution; the SVD gives the minimum-norm one.
+  \end{itemize}
+  \takeaway{the normal-equations formula is for understanding, and software uses a factorization that is more accurate.}
+\end{frame}
+
+\begin{frame}{Appendix: Mean Versus Median}
+  For a constant prediction $c$ of random targets $Y$:
+  \[
+    \operatorname*{arg\,min}_c\ \mathbb E\,(Y-c)^2=\mathbb E[Y],
+    \qquad
+    \operatorname*{arg\,min}_c\ \mathbb E\,|Y-c|=\operatorname{median}(Y).
+  \]
+  Squared error aims at the average target and is pulled by outliers;
+  absolute error aims at the median and is robust to them.
+  \takeaway{the choice of loss decides which summary of the targets the model learns.}
+\end{frame}
+
+\begin{frame}{Appendix: Gaussian Noise Leads to Squared Error}
+  Assume $y_i=\mathbf w^\top\mathbf x_i+b+\varepsilon_i$ with independent noise $\varepsilon_i\sim\mathcal N(0,\sigma^2)$. Then
+  \[
+    -\log p(\mathbf y\mid\mathbf X,\mathbf w,b)
+    =\frac{1}{2\sigma^2}\sum_{i=1}^n(y_i-\hat y_i)^2
+      +\frac n2\log(2\pi\sigma^2).
+  \]
+  For fixed $\sigma^2$, maximum likelihood and least squares have the same minimizer.
+  \takeaway{minimizing MSE is the right thing exactly when the noise is Gaussian.}
+\end{frame}
+
+\begin{frame}{Appendix: Bernoulli Likelihood Leads to Cross-Entropy}
+  If $Y_i\mid\mathbf x_i\sim\operatorname{Bernoulli}(\hat p_i)$, then
+  $p(y_i\mid\mathbf x_i)=\hat p_i^{\,y_i}(1-\hat p_i)^{1-y_i}$, and its negative logarithm is
+  \[
+    -y_i\log\hat p_i-(1-y_i)\log(1-\hat p_i)=\ell_{\mathrm{BCE}}(\hat p_i,y_i).
+  \]
+  Averaging over the examples gives $L_{\mathrm{BCE}}$.
+  \takeaway{cross-entropy is the negative log-likelihood of yes/no labels.}
+\end{frame}
+
+\begin{frame}{Appendix: Cross-Entropy and MSE Gradients}
+  \[
+    \nabla_{\boldsymbol\theta}L_{\mathrm{BCE}}
+    =\frac1n\widetilde{\mathbf X}^\top(\hat{\mathbf p}-\mathbf y)
+    \qquad\text{versus}\qquad
+    \nabla_{\boldsymbol\theta}L_{\mathrm{MSE}}
+    =\frac2n\widetilde{\mathbf X}^\top(\hat{\mathbf y}-\mathbf y).
+  \]
+  Both are ``features times prediction error''. For BCE, $\hat{\mathbf p}=\sigma(\widetilde{\mathbf X}\boldsymbol\theta)$
+  is nonlinear in $\boldsymbol\theta$, so $\nabla L=\mathbf 0$ has no explicit solution.
+  \takeaway{the two gradients look alike, but only the squared-error one gives a closed form.}
+\end{frame}
+
+\begin{frame}{Appendix: Logistic Regression Is Linear in the Log-Odds}
+  \[
+    \hat p=\sigma(z)
+    \quad\Longleftrightarrow\quad
+    \log\frac{\hat p}{1-\hat p}=z=\mathbf w^\top\mathbf x+b .
+  \]
+  Each set of constant probability $\hat p=c$ satisfies $\mathbf w^\top\mathbf x+b=\log\frac{c}{1-c}$:
+  a family of parallel lines in feature space.
+  \takeaway{the probability map is nonlinear, but the contours of equal probability are straight and parallel.}
+\end{frame}
+
+\begin{frame}{Appendix: Precision--Recall Curve}
+  \begin{columns}[c]
+    \column{0.52\textwidth}
+    \includegraphics[width=\linewidth,height=0.6\textheight,keepaspectratio]{pr.png}
+    \column{0.44\textwidth}
+    Precision against recall over all thresholds. With $10\%$ positives a random scorer has precision $0.1$,
+    so the baseline is a flat line at the prevalence, not a diagonal.
+  \end{columns}
+  \takeaway{for rare positives the precision--recall curve is more informative than ROC because it does not reward the many easy negatives.}
+\end{frame}
+
+\begin{frame}{Appendix: Scaling Keeps the Model Class}
+  If $x'_j=(x_j-\mu_j)/\sigma_j$ with every $\sigma_j>0$, then
+  \[
+    \mathbf w^\top\mathbf x+b=\mathbf w'^{\top}\mathbf x'+b',
+    \qquad
+    w'_j=\sigma_jw_j,\quad b'=b+\sum_j w_j\mu_j .
+  \]
+  \takeaway{every linear model on the original features has an equal linear model on the scaled features.}
 \end{frame}
 
 \end{document}

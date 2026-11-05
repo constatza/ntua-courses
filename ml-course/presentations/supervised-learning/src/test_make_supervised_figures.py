@@ -6,14 +6,16 @@ import unittest
 from pathlib import Path
 
 import numpy as np
-
 from make_supervised_figures import (
+    ERROR_CURVE_DEGREES,
     EXPECTED_FILENAMES,
-    POLYNOMIAL_DEGREES,
-    SEED,
+    POLYNOMIAL_NOISE,
+    POLYNOMIAL_YLIM,
     PREVALENCE,
     SCORE_SEPARATION,
+    SEED,
     generate_figures,
+    label_fit_sample,
     polynomial_sample,
     two_class_sample,
 )
@@ -26,6 +28,7 @@ from supervised_math import (
     fit_logistic,
     least_squares,
     polynomial_design,
+    sigmoid,
     standardize,
     trapezoid,
 )
@@ -139,13 +142,76 @@ class CurveTests(unittest.TestCase):
 
 
 class PolynomialTests(unittest.TestCase):
-    def test_training_error_falls_with_degree_but_the_flexible_fit_generalizes_worst(self) -> None:
-        sample = polynomial_sample(np.random.default_rng(SEED))
-        errors = {degree: sample.rmse(degree) for degree in POLYNOMIAL_DEGREES}
-        train = [errors[d][0] for d in POLYNOMIAL_DEGREES]
+    """The slide quotes these numbers; the figure annotates the off-scale curve."""
+
+    def setUp(self) -> None:
+        self.sample = polynomial_sample(np.random.default_rng(SEED))
+
+    def test_training_error_never_rises_with_degree_and_fresh_error_explodes_at_the_top(self) -> None:
+        errors = {degree: self.sample.rmse(degree) for degree in ERROR_CURVE_DEGREES}
+        train = [errors[d][0] for d in ERROR_CURVE_DEGREES]
         self.assertEqual(train, sorted(train, reverse=True))
         self.assertGreater(errors[9][1], 3 * errors[3][1])
         self.assertLess(errors[3][1], errors[1][1])
+
+    def test_slide_numbers_for_the_three_shown_degrees(self) -> None:
+        expected = {1: (0.62, 0.55), 3: (0.17, 0.33), 9: (0.04, 4.66)}
+        for degree, (train, test) in expected.items():
+            self.assertEqual(tuple(round(v, 2) for v in self.sample.rmse(degree)), (train, test))
+        self.assertLess(abs(self.sample.rmse(3)[1] - POLYNOMIAL_NOISE), 0.1)
+
+    def test_only_the_degree_9_curve_leaves_the_plotted_range_and_slide_says_minus_17(self) -> None:
+        for degree in (1, 3):
+            self.assertLess(abs(self.sample.curve_extreme(degree)[1]), POLYNOMIAL_YLIM)
+        x, value = self.sample.curve_extreme(9)
+        self.assertGreater(abs(value), 5 * POLYNOMIAL_YLIM)
+        self.assertEqual((round(x, 1), round(value)), (-0.9, -17))
+
+
+class SlideNumberTests(unittest.TestCase):
+    def test_sigmoid_and_cross_entropy_tables(self) -> None:
+        scores = np.array([-4.0, -2.0, 0.0, 2.0, 4.0])
+        np.testing.assert_allclose(np.round(sigmoid(scores), 2), [0.02, 0.12, 0.5, 0.88, 0.98])
+        np.testing.assert_allclose(np.round(-np.log([0.9, 0.5, 0.1, 0.01]), 2), [0.11, 0.69, 2.30, 4.61])
+
+    def test_confusion_matrix_example_and_the_always_healthy_rule(self) -> None:
+        tp, fn, fp, tn = 8, 2, 5, 85
+        self.assertAlmostEqual(tp / (tp + fn), 0.80)
+        self.assertAlmostEqual(tp / (tp + fp), 0.615, places=3)
+        self.assertAlmostEqual(tn / (tn + fp), 0.944, places=3)
+        self.assertAlmostEqual((tp + tn) / (tp + fn + fp + tn), 0.93)
+        self.assertAlmostEqual((tn + fp) / 100, 0.90)  # accuracy of "always healthy"
+
+    def test_cost_example_threshold_is_one_tenth(self) -> None:
+        self.assertAlmostEqual(1.0 / (1.0 + 9.0), 0.1)
+        self.assertAlmostEqual(expected_cost(0.1, True, 1.0, 9.0), expected_cost(0.1, False, 1.0, 9.0))
+
+    def test_baseline_versus_fitted_line_on_the_four_points(self) -> None:
+        y = np.array([1.0, 2.0, 2.0, 4.0])
+        baseline_mse = float(np.mean((y - y.mean()) ** 2))
+        self.assertAlmostEqual(y.mean(), 2.25)
+        self.assertAlmostEqual(baseline_mse, 1.1875)
+        self.assertAlmostEqual(np.sqrt(baseline_mse), 1.09, places=2)
+        self.assertAlmostEqual(np.sqrt(0.175), 0.42, places=2)
+
+    def test_standardizing_one_to_four(self) -> None:
+        values = np.array([1.0, 2.0, 3.0, 4.0])
+        np.testing.assert_allclose(
+            np.round(standardize(values, values.mean(), values.std()), 2), [-1.34, -0.45, 0.45, 1.34]
+        )
+
+    def test_cross_validation_example_average(self) -> None:
+        self.assertAlmostEqual(np.mean([0.41, 0.38, 0.45, 0.40, 0.36]), 0.40)
+
+    def test_a_straight_line_fitted_to_labels_leaves_the_unit_interval_but_the_logistic_does_not(self) -> None:
+        x, labels = label_fit_sample(np.random.default_rng(SEED))
+        slope, intercept = np.polyfit(x, labels, deg=1)
+        ends = slope * np.array([-3.4, 3.4]) + intercept
+        self.assertLess(ends[0], 0.0)
+        self.assertGreater(ends[1], 1.0)
+        beta = fit_logistic(augment(x[:, None]), labels)
+        probabilities = sigmoid(beta[0] * np.linspace(-3.4, 3.4, 100) + beta[1])
+        self.assertTrue(np.all((probabilities > 0.0) & (probabilities < 1.0)))
 
 
 class FigureTests(unittest.TestCase):
