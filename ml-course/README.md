@@ -15,7 +15,7 @@ Pick the newest `ml-course/v…` release and download whichever PDFs you need; n
 1. Supervised learning — problem formulation and linear baselines
 2. Neural nets — dense networks, backpropagation, approximation
 3. Optimization — first-order algorithms through Adam
-4. Regularization — generalization, bias–variance, penalties
+4. Generalization — bias, variance, and how to control them
 5. Geometric deep learning — symmetry, invariance, equivariance
 6. CNNs — convolutional architectures
 7. RNNs — recurrent architectures

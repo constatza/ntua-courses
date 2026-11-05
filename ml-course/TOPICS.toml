@@ -1,7 +1,7 @@
 # Single registry: one owner per topic; other decks only cross-reference it.
 [topics.supervised-learning]
 owner = "presentations/supervised-learning"
-mentioned_in = ["presentations/neural-nets", "presentations/regularization"]
+mentioned_in = ["presentations/neural-nets", "presentations/generalization"]
 
 [topics.first-order-optimization]
 owner = "presentations/optimization"
@@ -12,8 +12,12 @@ owner = "presentations/neural-nets"
 mentioned_in = ["presentations/cnns", "presentations/rnns", "presentations/gnns"]
 
 [topics.generalization-regularization]
-owner = "presentations/regularization"
+owner = "presentations/generalization"
 mentioned_in = ["presentations/neural-nets", "presentations/cnns"]
+
+[topics.augmentation]
+owner = "presentations/geometric-deep-learning"
+mentioned_in = ["presentations/generalization", "presentations/cnns"]
 
 [topics.geometric-deep-learning]
 owner = "presentations/geometric-deep-learning"
@@ -47,6 +51,10 @@ exercises = ["exercises/toy-diffusion-flow"]
 owner = "presentations/flow-matching"
 mentioned_in = ["presentations/diffusion-models"]
 exercises = ["exercises/toy-diffusion-flow"]
+
+[topics.continuous-time-diffusion-sde-ode]
+owner = "presentations/flow-matching"
+mentioned_in = ["presentations/diffusion-models"]
 
 [topics.pca-pod-rom]
 owner = "presentations/pca-rom"

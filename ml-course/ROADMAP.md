@@ -8,7 +8,7 @@ lectures' topic jumps and gives every concept one owning deck in `TOPICS.toml`.
 Completed redesign:
 
 1. Foundation material is owned by `supervised-learning` and `optimization`.
-2. Dense networks and generalization are separated into `neural-nets` and `regularization`.
+2. Dense networks and generalization are separated into `neural-nets` and `generalization`.
 3. Geometric deep learning precedes the CNN, RNN, Transformer, and GNN specialist decks.
 4. Scientific ML is covered by `pinns-neural-operators`.
 5. Diffusion and flow matching are separate lectures with one shared generated-asset source.
