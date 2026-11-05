@@ -8,7 +8,7 @@ All slides are published as PDFs on the repository's releases page, filtered to 
 
 **[ntua-courses releases — ml-course](https://github.com/constatza/ntua-courses/releases?q=ml-course)**
 
-Pick the newest `ml-course/v…` release and download whichever PDFs you need; no clone or LaTeX is required. Files are named by kind and topic, for example `presentation_cnns.pdf` and `exercise_toy-diffusion-flow.pdf`. Exercise solutions are not published.
+Pick the newest `ml-course/v…` release and download whichever PDFs you need; no clone or LaTeX is required. Files are named by kind and topic, for example `presentation_cnns.pdf` and `exercise_toy-diffusion-flow.pdf`; a translation adds its language, as in `exercise_cantilever-nn-surrogate_greek.pdf`. Exercise solutions are not published.
 
 ## Suggested reading order
 

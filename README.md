@@ -8,7 +8,7 @@ All NTUA courses, their build tooling and CI in one repository. Each course is a
 |---|---|
 | `ml-course/` | machine learning: decks, notes, exercises |
 | `stochastic-course/` | stochastic methods: decks, notes, exercises |
-| `tools/` | `build-course`, `release-course`, `check-course-layout`, `ci`, `courses` |
+| `tools/` | `build-course`, `release-course`, `check-course-layout`, `check-variants`, `ci`, `courses` |
 | `beamer-ntua/` | the Beamer class, a one-way copy of [constatza/beamer-ntua](https://github.com/constatza/beamer-ntua) |
 
 ## Build
@@ -22,6 +22,14 @@ A failed target leaves no `dist/` and no stale PDF behind, and prints the tail o
 
 ## Just one course
 `git sparse-checkout` gives a single-course view (it is a convenience, not an access boundary): `git clone --filter=blob:none --sparse <this-repo> && cd ntua-courses && git sparse-checkout set ml-course tools beamer-ntua`.
+
+## What is tracked
+Tracked: sources (`*.tex`, `src/*.py`, `TOPICS.toml`), hand-made figures under `assets/` and generated ones under `assets/generated/` (PNGs, `results.tex`, `summary.json`; the scripts that make them are tracked too), and the few figure PDFs a note includes.
+Ignored (see each course's `.gitignore`): `.build/` and `dist/`, LaTeX by-products (`*.aux`, `*.log`, `*.fls`, `*.synctex.gz`, ...), built `main*.pdf` / `answers.pdf`, `__pycache__/`, `*.gif`, and the untracked `_archive/`.
+Always build through `tools/build-course`, which writes to `.build/`; a bare `latexmk` without `-outdir=.build` leaves PDFs next to the sources.
+
+## Variants
+A translation (or other variant) of a deck, note or exercise sheet is a sibling `main-<variant>.tex` next to `main.tex`, for example `main-greek.tex`. `tools/build-course` builds it as `<kind>_<slug>_<variant>.pdf` and releases publish it like any other PDF; answers are not translated. `tools/check-variants` (also a pre-commit hook and part of the build) fails when a variant's questions, sections, labels or links no longer match `main.tex`, so edit both files in the same commit.
 
 ## Checks
 `prek install -t pre-commit -t commit-msg` once per clone ([prek](https://github.com/j178/prek) runs the standard `.pre-commit-config.yaml`). Third-party hooks (ruff, shellcheck, actionlint, conventional commits) are remote; the course checks (layout, no built PDFs, no AI attribution) are local scripts. CI runs the same hooks plus the build.

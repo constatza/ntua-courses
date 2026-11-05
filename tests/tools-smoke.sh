@@ -20,6 +20,8 @@ mkdir -p beamer-ntua/packages/ntuabeamer-class/framework c/presentations/a c/exe
 printf '\\ProvidesClass{ntuabeamer}\\LoadClass{article}\n' >beamer-ntua/packages/ntuabeamer-class/framework/ntuabeamer.cls
 tex ok >c/presentations/a/main.tex
 tex sheet >c/exercises/e/main.tex
+tex hoja >c/exercises/e/main-greek.tex
+tex ok >c/presentations/a/main-greek.tex
 tex solutions >c/exercises/e/answers.tex
 printf '[topics.t]\nowner = "presentations/a"\nexercises = ["exercises/e"]\n' >c/TOPICS.toml
 git add -A && git -c user.name=t -c user.email=t@t commit -qm init
@@ -29,7 +31,9 @@ git tag c/v1 && git push -q origin main c/v1
 tools/build-course c >/dev/null || fail "good build failed"
 want="exercise_e.pdf
 exercise_e_answers.pdf
-presentation_a.pdf"
+exercise_e_greek.pdf
+presentation_a.pdf
+presentation_a_greek.pdf"
 [ "$(sort c/dist/MANIFEST)" = "$(echo "$want" | sort)" ] || fail "manifest: $(cat c/dist/MANIFEST)"
 
 [ -s c/dist/TEXLIVE ] || fail "TeX Live version not recorded in dist/"
@@ -50,6 +54,14 @@ git checkout -q c/TOPICS.toml
 mkdir -p c/presentations/empty && : >c/presentations/empty/notes.txt && git add c/presentations/empty
 tools/check-course-layout c >/dev/null && fail "target without main.tex accepted"
 git rm -qf c/presentations/empty/notes.txt
+
+# 3c. a variant that loses a question is rejected; one that keeps the structure passes
+tools/check-variants c >/dev/null || fail "structurally equal variants rejected"
+mkdir -p c/exercises/p
+printf '\\question{A1}{x}\n' >c/exercises/p/main.tex
+printf 'no questions here\n' >c/exercises/p/main-greek.tex
+tools/check-variants c >/dev/null && fail "variant missing a question accepted"
+rm -rf c/exercises/p
 
 # 4. tools/ci --tag validation
 tools/ci --tag nope >/dev/null 2>&1 && fail "tag without a prefix accepted"
@@ -74,6 +86,7 @@ export GH_LOG="$work/gh.log" GH_STATE="$work/gh.state" PATH="$work/bin:$PATH"
 tools/release-course c c/v1 >/dev/null || fail "release failed"
 grep -q 'release create c/v1 --draft' "$GH_LOG" || fail "release not created as draft"
 grep -q 'presentation_a.pdf' "$GH_LOG" || fail "deck asset missing"
+grep -q 'exercise_e_greek.pdf' "$GH_LOG" || fail "variant asset missing"
 ! grep -q '_answers.pdf' "$GH_LOG" || fail "answers published by default"
 [ "$(cat "$GH_STATE")" = false ] || fail "release not published"
 

@@ -36,11 +36,17 @@ repos:
         language: script
         pass_filenames: false
         files: (TOPICS\.toml$|/(presentations|notes|exercises)/)
+      - id: check-variants
+        name: main-<variant>.tex keeps the structure of main.tex
+        entry: tools/check-variants
+        language: script
+        pass_filenames: false
+        files: /(presentations|notes|exercises)/[^/]+/main(-[^/]+)?\.tex$
       - id: no-built-artifacts
         name: no built PDFs or build directories
         entry: built artifacts must not be committed (tools/build-course writes them to .build/ and dist/)
         language: fail
-        files: (^|/)(\.build|dist)/|^[^/]+/(presentations|notes|exercises)/[^/]+/(main|answers)\.pdf$|\.gif$
+        files: (^|/)(\.build|dist)/|^[^/]+/(presentations|notes|exercises)/[^/]+/(main(-[^/]+)?|answers)\.pdf$|\.gif$
       - id: no-ai-attribution
         name: no AI attribution in commit messages
         entry: (?i)co-authored-by:.*(claude|anthropic|openai|codex|copilot|gemini)|generated (with|by) .*(claude|codex|copilot)|noreply@anthropic\.com

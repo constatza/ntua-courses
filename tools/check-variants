@@ -1,0 +1,39 @@
+#!/bin/sh
+# Static check that every main-<variant>.tex (e.g. main-greek.tex) keeps the structure of its
+# base main.tex, for one course directory or for every course when called without arguments.
+# Needs no TeX, so it also runs as a pre-commit hook. A translation may change any prose, but
+# not the number of questions or sections, nor the order of labels, references and links;
+# those are what silently drift when only one of the two files is edited.
+set -u
+
+if [ "$#" -eq 0 ]; then
+  root=$(git rev-parse --show-toplevel) || exit 1
+  rc=0
+  for c in $("$root/tools/courses"); do "$root/tools/check-variants" "$root/$c" || rc=1; done
+  exit $rc
+fi
+
+cd "$1" || exit 1
+
+sig() { # <file>: the structure a variant must share with its base
+  grep -o '\\question{' "$1" | wc -l
+  grep -o '\\\(sub\)\{0,1\}section' "$1" | wc -l
+  grep -o '\\\(label\|ref\|href\|doc\){[^}]*}' "$1"
+}
+
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/check-variants.XXXXXX")
+trap 'rm -rf "$tmp"' EXIT
+rc=0
+for v in presentations/*/main-*.tex notes/*/main-*.tex exercises/*/main-*.tex; do
+  [ -f "$v" ] || continue
+  base="$(dirname "$v")/main.tex"
+  [ -f "$base" ] || { echo "FAIL $v has no $base"; rc=1; continue; }
+  sig "$base" >"$tmp/base"
+  sig "$v" >"$tmp/variant"
+  if ! diff "$tmp/base" "$tmp/variant" >"$tmp/diff"; then
+    echo "FAIL $v differs structurally from $base (counts first, then labels/refs/links):"
+    sed 's/^/     | /' "$tmp/diff"
+    rc=1
+  fi
+done
+exit $rc

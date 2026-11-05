@@ -6,13 +6,15 @@
 #
 # Targets (a directory with main.tex; exercises may also have answers.tex):
 #   presentations/<slug>/main.tex   notes/<slug>/main.tex   exercises/<slug>/{main,answers}.tex
+# Variants: a sibling main-<variant>.tex (e.g. main-greek.tex) is built as <kind>_<slug>_<variant>.pdf.
+# Only main has variants; answers are not translated. tools/check-variants keeps them in step.
 #
 # Guarantees, so a failed or skipped build can never ship an old PDF:
 #   - each target's previous .build/<stem>.pdf is deleted before it is rebuilt
 #   - <course>/dist/ only exists after every target of that course built; it is moved into place last
 #   - dist/MANIFEST lists exactly the PDFs built, named <kind>_<slug>[_answers].pdf
 #   - a LaTeX log tail is printed for every failing target
-#   - tools/check-course-layout must pass
+#   - tools/check-course-layout and tools/check-variants must pass
 # The class is found through TEXINPUTS inside this repository; nothing is installed globally.
 set -u
 
@@ -32,7 +34,8 @@ build_one() { # <course-dir>; run from the repo root
     mkdir dist.tmp
     rc=0
     built=0
-    for t in presentations/*/main.tex notes/*/main.tex exercises/*/main.tex exercises/*/answers.tex; do
+    for t in presentations/*/main.tex notes/*/main.tex exercises/*/main.tex exercises/*/answers.tex \
+             presentations/*/main-*.tex notes/*/main-*.tex exercises/*/main-*.tex; do
       [ -f "$t" ] || continue
       d=$(dirname "$t")
       stem=$(basename "$t" .tex)
@@ -43,7 +46,10 @@ build_one() { # <course-dir>; run from the repo root
         exercises/*) kind=exercise ;;
       esac
       name="${kind}_${slug}"
-      [ "$stem" = answers ] && name="${name}_answers"
+      case "$stem" in
+        answers) name="${name}_answers" ;;
+        main-*) name="${name}_${stem#main-}" ;;
+      esac
 
       mkdir -p "$d/.build"
       rm -f "$d/.build/$stem.pdf"
@@ -69,6 +75,7 @@ build_one() { # <course-dir>; run from the repo root
       rc=1
     fi
     "$root/tools/check-course-layout" . || rc=1
+    "$root/tools/check-variants" . || rc=1
 
     if [ "$rc" -ne 0 ]; then
       rm -rf dist.tmp

@@ -8,4 +8,5 @@ One repository holds the courses (`ml-course/`, `stochastic-course/`), the share
 - Releases are per-course tags: `<course>/vX.Y.Z`.
 - Cross-course work items live in `ROADMAP.md`; course-specific items live in that course's `ROADMAP.md`.
 - `_archive/` (books, slides, datasets, assignments, grades, student submissions) is untracked. Never add it to git.
+- Variants: a translation or other variant of a target is a sibling `main-<variant>.tex` (e.g. `main-greek.tex`); answers have none. Mirror every change to `main.tex` into its variants in the same commit; `tools/check-variants` enforces matching questions, sections, labels and links. Built as `<kind>_<slug>_<variant>.pdf`.
 - Commits: Conventional Commit header, bulleted body, no AI attribution.
