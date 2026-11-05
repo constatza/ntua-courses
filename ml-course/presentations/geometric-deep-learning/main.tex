@@ -1,55 +1,106 @@
 \documentclass{ntuabeamer}
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath,amssymb,booktabs,graphicx,tikz}
+\usepackage{appendixnumberbeamer}
 \usetikzlibrary{arrows.meta,positioning,matrix}
 
 \title{Geometric Deep Learning: Structure and Symmetry}
 \author{}\date{}
+\graphicspath{{assets/}{assets/generated/}{assets/source/}}
 \definecolor{courseblue}{HTML}{3F7CAC}
 \definecolor{courseorange}{HTML}{D97706}
 \definecolor{coursegreen}{HTML}{27864A}
 \definecolor{coursepurple}{HTML}{7656A3}
+\definecolor{coursered}{HTML}{B5473C}
 \definecolor{coursegray}{HTML}{667085}
 \definecolor{courselightblue}{HTML}{DCE9F5}
 \definecolor{courselightorange}{HTML}{F9E4C8}
 
+% One plain-sentence conclusion per frame.
+\newcommand{\takeaway}[1]{\par\vspace{0.3cm}{\color{courseblue}\textbf{#1}}\par}
+
 \begin{document}
 \begin{frame}[plain]\makepresentationtitle\end{frame}
+
+\begin{frame}{Roadmap}
+  Different data have different structure, and a good model should respect it.
+  \medskip
+  \tableofcontents
+  \takeaway{So: first name the transformations, then the two ways a model can respect them, then see where they occur.}
+\end{frame}
+
+% ============================================================ 1
+\section{Symmetry and Transformations}
+\sectiondivider{Symmetry and Transformations}
 
 \begin{frame}{Data Live on Domains with Different Structure}
   \centering
   \small
-  \begin{tabular}{lll}
+  \begin{tabular}{llp{3.3cm}}
     \toprule
     \textbf{Domain} & \textbf{Relation} & \textbf{Typical model}\\
     \midrule
-    Grid & fixed local offsets & CNN\\
-    Sequence & order and causality & RNN / Transformer\\
-    Set & no canonical order & invariant set network\\
-    Graph & arbitrary neighborhoods & GNN\\
-    Continuous field & coordinates and operators & neural operator\\
+    Grid (image) & fixed local offsets & CNN\\
+    Sequence (text) & order and causality & RNN, Transformer\\
+    Set (point cloud) & no canonical order & set network\\
+    Graph (molecule) & arbitrary neighborhoods & GNN\\
+    Field (PDE solution) & coordinates, operators & neural operator\\
     \bottomrule
   \end{tabular}
-  \par
-  \vspace{0.5cm}
-  An architecture is useful when its assumptions match the domain and the prediction target.
+  \takeaway{So: an architecture is useful when its built-in assumptions match the structure of the data.}
+\end{frame}
+
+\begin{frame}{Some Changes Should Not Change the Answer}
+  \begin{itemize}
+    \item Move a cat to the left in a photo: it is still a cat.
+    \item List the points of a point cloud in another order: it is still the same shape.
+    \item Renumber the atoms of a molecule: it is still the same molecule.
+  \end{itemize}
+  Such changes are \textbf{symmetries} of the problem: they alter the representation but not what we care about.
+  A model that already knows this does not have to learn it from examples.
+  \takeaway{So: symmetry is knowledge about the problem that we can build into the model.}
 \end{frame}
 
 \begin{frame}{A Transformation Acts on Data}
-  A group $G$ contains transformations with identity, inverses, and composition.
-  A group action maps
-  \[
-    (g,x)\mapsto g\cdot x,
-    \qquad e\cdot x=x,
-    \qquad g_1\cdot(g_2\cdot x)=(g_1g_2)\cdot x.
-  \]
-  Examples include translations of an image, permutations of set elements, and relabelings of graph nodes.
-  The action specifies how a transformation changes the representation.
+  A \textbf{group} $G$ is a set of transformations $g$ that can be undone and combined
+  (shifting an image, permuting a list, rotating a shape).
+  The notation $g\cdot x$ means: apply the transformation $g$ to the data $x$.
+  \begin{itemize}
+    \item Doing nothing leaves $x$ unchanged.
+    \item Two transformations in a row are another transformation.
+  \end{itemize}
+  The precise rules (the group-action axioms) are in the appendix.
+  \takeaway{So: a group is a family of reversible changes, and $g\cdot x$ is the data after one of them.}
 \end{frame}
 
-\begin{frame}{Invariance Removes a Transformation from the Output}
+\begin{frame}{Example: Translation of a Signal}
+  Shift a signal $x$ by $u$ positions. We write the shifted signal $T_u x$, defined by
+  $(T_u x)[v]=x[v-u]$: the value now found at position $v$ was at position $v-u$.
+  \centering
+  \begin{tikzpicture}[scale=0.72]
+    \foreach \i in {0,...,4}{\foreach \j in {0,...,3}{\draw[coursegray!60] (\i,\j) rectangle +(1,1);}}
+    \fill[courseorange] (1,1) rectangle +(1,1); \fill[courseorange] (2,1) rectangle +(1,1);
+    \draw[-{Latex[length=3mm]},very thick,courseblue] (5.4,2)--(7,2) node[midway,above]{$T_u$};
+    \foreach \i in {8,...,12}{\foreach \j in {0,...,3}{\draw[coursegray!60] (\i,\j) rectangle +(1,1);}}
+    \fill[courseorange] (10,2) rectangle +(1,1); \fill[courseorange] (11,2) rectangle +(1,1);
+  \end{tikzpicture}
+
+  \raggedright
+  \takeaway{So: $T_u$ moves the pattern without changing its values.}
+\end{frame}
+
+\begin{frame}{Recap: Symmetry and Transformations}
+  We learned that symmetries are changes that should not alter what we care about, and that groups give
+  them a precise name. Next: the two ways a model can respect a symmetry, invariance and equivariance.
+\end{frame}
+
+% ============================================================ 2
+\section{Invariance and Equivariance}
+\sectiondivider{Invariance and Equivariance}
+
+\begin{frame}{Invariance: The Output Ignores the Transformation}
   \[
-    \boxed{f(g\cdot x)=f(x)\qquad\forall g\in G.}
+    \boxed{f(g\cdot x)=f(x)\qquad\text{for every }g\in G.}
   \]
   \centering
   \begin{tikzpicture}[node distance=0.8cm,
@@ -62,172 +113,23 @@
     \draw[flow] (x)--node[above]{$f$}(fx); \draw[flow] (gx)--node[below]{$f$}(fgx);
     \draw[flow] (x)--node[left]{$g$}(gx); \draw[coursegreen,very thick] (fx)--node[right]{$=$}(fgx);
   \end{tikzpicture}
-  \par A global object label should not change when the object is translated in the image.
+
+  \raggedright\small Here $f$ is the model and $x$ its input. Example: the label ``cat'' does not change when the cat is translated.
+  \takeaway{So: invariance suits a single answer per input, such as a class label.}
 \end{frame}
 
-\begin{frame}{Equivariance Transforms the Output Predictably}
-  If $G$ acts on inputs by $\rho_{\mathrm{in}}$ and outputs by $\rho_{\mathrm{out}}$,
+\begin{frame}{Equivariance: The Output Moves with the Input}
+  Sometimes the output should change \emph{in step} with the input. Write $\rho_{\mathrm{in}}(g)$ for
+  ``apply $g$ to an input'' and $\rho_{\mathrm{out}}(g)$ for ``apply $g$ to an output''. Then
   \[
-    \boxed{f(\rho_{\mathrm{in}}(g)x)=\rho_{\mathrm{out}}(g)f(x).}
+    \boxed{f(\rho_{\mathrm{in}}(g)\,x)=\rho_{\mathrm{out}}(g)\,f(x).}
   \]
-  A translated input image should produce a translated segmentation map.
-  Invariance is the special case $\rho_{\mathrm{out}}(g)=I$.
+  Example: translate an image and its segmentation mask must translate with it.
+  Invariance is the special case where $\rho_{\mathrm{out}}(g)$ does nothing.
+  \takeaway{So: equivariance suits outputs that have their own position, such as a mask or one value per node.}
 \end{frame}
 
-\begin{frame}{Equivariant Layers Remain Equivariant When Composed}
-  If
-  \[
-    f(\rho_0(g)x)=\rho_1(g)f(x),
-    \qquad
-    h(\rho_1(g)z)=\rho_2(g)h(z),
-  \]
-  then
-  \[
-    (h\circ f)(\rho_0(g)x)
-    =h(\rho_1(g)f(x))
-    =\rho_2(g)(h\circ f)(x).
-  \]
-  This closure property lets deep architectures preserve a symmetry layer by layer.
-\end{frame}
-
-\begin{frame}{Locality and Weight Sharing Reduce the Hypothesis Class}
-  \begin{itemize}
-    \item \textbf{Locality:} nearby domain elements interact directly.
-    \item \textbf{Weight sharing:} the same local rule is reused across locations.
-    \item \textbf{Symmetry:} transformed inputs produce constrained outputs.
-  \end{itemize}
-  These inductive biases reduce parameters and rule out many functions before seeing data.
-  They help only when the excluded functions are implausible for the task.
-\end{frame}
-
-\begin{frame}{Translation Moves a Signal without Changing Its Values}
-  For a discrete signal $x:\mathbb Z^d\to\mathbb R^c$ and shift $u\in\mathbb Z^d$,
-  \[
-    (T_u x)[v]=x[v-u].
-  \]
-  \centering
-  \begin{tikzpicture}[scale=0.72]
-    \foreach \i in {0,...,4}{\foreach \j in {0,...,3}{\draw[coursegray!60] (\i,\j) rectangle +(1,1);}}
-    \fill[courseorange] (1,1) rectangle +(1,1); \fill[courseorange] (2,1) rectangle +(1,1);
-    \draw[-{Latex[length=3mm]},very thick,courseblue] (5.4,2)--(7,2) node[midway,above]{$T_u$};
-    \foreach \i in {8,...,12}{\foreach \j in {0,...,3}{\draw[coursegray!60] (\i,\j) rectangle +(1,1);}}
-    \fill[courseorange] (10,2) rectangle +(1,1); \fill[courseorange] (11,2) rectangle +(1,1);
-  \end{tikzpicture}
-\end{frame}
-
-\begin{frame}{Convolution Commutes with Translation}
-  For $(k*x)[v]=\sum_s k[s]x[v-s]$,
-  \begin{align*}
-    (k*(T_u x))[v]
-      &=\sum_s k[s](T_u x)[v-s]\\
-      &=\sum_s k[s]x[v-u-s]\\
-      &=(k*x)[v-u]=(T_u(k*x))[v].
-  \end{align*}
-  Therefore $k*(T_u x)=T_u(k*x)$: convolution is translation equivariant on the ideal discrete domain.
-\end{frame}
-
-\begin{frame}{Finite Images Break Ideal Translation Equivariance}
-  \begin{itemize}
-    \item Padding invents values outside the observed boundary.
-    \item Stride observes only one sampling phase; a one-pixel shift can change samples.
-    \item Pooling and discretization introduce aliasing unless signals are suitably filtered.
-    \item Cropping can remove information entirely.
-  \end{itemize}
-  Equivariance claims must name the domain, boundary convention, and sampling operation.
-\end{frame}
-
-\begin{frame}{Pooling Trades Location for Stability}
-  A global symmetric reduction satisfies
-  \[
-    \operatorname{pool}(T_u z)=\operatorname{pool}(z)
-  \]
-  when translation only permutes the pooled locations.
-  Local pooling is not fully invariant: it reduces sensitivity to small shifts while discarding spatial resolution.
-  Dense prediction therefore preserves or reconstructs location rather than globally pooling it away.
-\end{frame}
-
-\begin{frame}{A Set Has No Canonical Ordering}
-  For a permutation matrix $\mathbf P$, reordered features are $\mathbf P\mathbf X$.
-  A set encoder should be invariant:
-  \[
-    f(\mathbf P\mathbf X)=f(\mathbf X).
-  \]
-  The Deep Sets form
-  \[
-    f(\{\mathbf x_i\})=\rho\!\left(\sum_i\phi(\mathbf x_i)\right)
-  \]
-  is invariant because summation is commutative.
-\end{frame}
-
-\begin{frame}{Graph Relabeling Changes Indices, Not the Graph}
-  With adjacency $\mathbf A$ and node features $\mathbf X$, relabeling by $\mathbf P$ gives
-  \[
-    \mathbf A'=\mathbf P\mathbf A\mathbf P^\top,
-    \qquad
-    \mathbf X'=\mathbf P\mathbf X.
-  \]
-  Node predictions must satisfy
-  \[
-    F(\mathbf A',\mathbf X')=\mathbf P F(\mathbf A,\mathbf X),
-  \]
-  while a graph-level prediction should be invariant.
-\end{frame}
-
-\begin{frame}{Symmetric Aggregation Makes Message Passing Equivariant}
-  \[
-    \mathbf m_i=\underset{j\in\mathcal N(i)}{\operatorname{AGG}}
-      \phi(\mathbf h_i,\mathbf h_j,\mathbf e_{ij}),
-    \qquad
-    \mathbf h_i'=\psi(\mathbf h_i,\mathbf m_i).
-  \]
-  If AGG is sum, mean, or max, reordering neighbors does not change $\mathbf m_i$.
-  Relabeling nodes only relabels the resulting states, so the layer is permutation equivariant.
-\end{frame}
-
-\begin{frame}{Self-Attention without Positions Is Permutation Equivariant}
-  Let
-  \[
-    \operatorname{Attn}(\mathbf X)
-    =\operatorname{softmax}_{\mathrm{row}}
-      \!\left(\frac{\mathbf X\mathbf W_Q(\mathbf X\mathbf W_K)^\top}{\sqrt{d_k}}\right)
-      \mathbf X\mathbf W_V.
-  \]
-  Replacing $\mathbf X$ by $\mathbf P\mathbf X$ permutes rows and columns of the score matrix;
-  row-wise softmax respects that permutation. Hence
-  \[
-    \operatorname{Attn}(\mathbf P\mathbf X)=\mathbf P\operatorname{Attn}(\mathbf X).
-  \]
-\end{frame}
-
-\begin{frame}{Position Information Deliberately Breaks Permutation Symmetry}
-  Tokens in a sequence are not an unordered set. Adding position vectors gives
-  \[
-    \mathbf Z=\mathbf X+\mathbf E_{\mathrm{pos}}.
-  \]
-  Permuting tokens without consistently transforming positions changes $\mathbf Z$ and therefore the output.
-  This is desirable: ``dog bites person'' and ``person bites dog'' should not be identical.
-\end{frame}
-
-\begin{frame}{Recurrence Encodes Order and Causality}
-  \[
-    \mathbf h_t=F(\mathbf x_t,\mathbf h_{t-1}).
-  \]
-  The same transition is shared over time, but arbitrary permutation is not a symmetry:
-  changing input order changes the sequence of states.
-  A causal recurrence also prevents future inputs from affecting earlier states.
-\end{frame}
-
-\begin{frame}{Augmentation Learns Approximate Symmetry from Samples}
-  \[
-    \min_\theta\ \mathbb E_{(x,y)}\mathbb E_{g\sim q}
-      [\ell(f_\theta(g\cdot x),y)]
-  \]
-  encourages invariant predictions over sampled transformations.
-  An equivariant architecture enforces a relation for every represented group element.
-  Augmentation is more flexible; architectural symmetry is more exact and data-efficient when correct.
-\end{frame}
-
-\begin{frame}{The Target Determines Invariance or Equivariance}
+\begin{frame}{The Target Decides: Invariant or Equivariant}
   \centering
   \small
   \begin{tabular}{lll}
@@ -240,16 +142,215 @@
     relabel graph nodes & graph property & invariant\\
     \bottomrule
   \end{tabular}
+  \takeaway{So: ask what the output should do when the input is transformed, then pick the matching property.}
+\end{frame}
+
+\begin{frame}{Equivariant Layers Stay Equivariant When Stacked}
+  If every layer is equivariant, so is the whole network: each layer passes the transformation along,
+  and the last layer still reports it correctly.
+  \medskip
+  \begin{center}
+    input $\xrightarrow{\ g\ }$ layer 1 $\xrightarrow{\ g\ }$ layer 2 $\xrightarrow{\ g\ }$ output
+  \end{center}
+  The two-line proof is in the appendix.
+  \takeaway{So: we can build deep networks that respect a symmetry by making each layer respect it.}
+\end{frame}
+
+\begin{frame}{Why Build Symmetry In?}
+  \begin{itemize}
+    \item \textbf{Locality:} nearby elements interact directly.
+    \item \textbf{Weight sharing:} the same local rule is reused at every location.
+    \item \textbf{Symmetry:} transformed inputs give predictably transformed outputs.
+  \end{itemize}
+  These choices cut the number of parameters and rule out many functions before seeing any data.
+  They help only if the excluded functions are implausible for the task.
+  \takeaway{So: structure is a bet that saves data when the bet is right and hurts when it is wrong.}
 \end{frame}
 
 \begin{frame}{A Wrong Symmetry Removes Useful Information}
   \begin{itemize}
-    \item Reflection invariance fails when chirality or handedness matters.
+    \item Reflection invariance fails when handedness matters (a left versus a right hand).
     \item Rotation invariance fails when orientation is the prediction target.
-    \item Permutation invariance fails for language because order changes meaning.
+    \item Permutation invariance fails for language, where order changes meaning.
     \item Translation equivariance is only approximate near physical boundaries.
   \end{itemize}
-  Symmetry is a testable modeling assumption, not a universal virtue.
+  \takeaway{So: a symmetry is a modeling assumption to be checked, not a virtue in itself.}
+\end{frame}
+
+\begin{frame}{Recap: Invariance and Equivariance}
+  We learned that invariance keeps the output fixed, equivariance makes it follow the input,
+  and the target tells us which one we want. Next: where these symmetries occur, on grids, sets, graphs and sequences.
+\end{frame}
+
+% ============================================================ 3
+\section{Where Symmetries Occur}
+\sectiondivider{Where Symmetries Occur}
+
+\begin{frame}{Grids: A Sliding Filter Is Translation Equivariant}
+  \textbf{Convention.} Deep-learning libraries compute \emph{cross-correlation}, $(k\star x)[v]=\sum_s k[s]\,x[v+s]$,
+  and call it convolution. These slides do the same.
+  \medskip
+
+  A small filter $k$ slides over the signal $x$ and takes a weighted sum at each position.
+  Example with $k=(1,-1)$, so the output is $x[v]-x[v+1]$:
+  \begin{center}
+    \small
+    \begin{tabular}{lcccccc}
+      \toprule
+      $x$ & 0 & 0 & 2 & 5 & 1 & 0\ \ 0\\
+      $k\star x$ & 0 & $-2$ & $-3$ & 4 & 1 & 0\\
+      \midrule
+      shifted $x$ & 0 & 0 & 0 & 2 & 5 & 1\ \ 0\\
+      $k\star(\text{shifted }x)$ & 0 & 0 & $-2$ & $-3$ & 4 & 1\\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \takeaway{So: shifting the input shifts the output by the same amount; the same filter finds a pattern anywhere.}
+\end{frame}
+
+\begin{frame}{Finite Images Break Exact Translation Equivariance}
+  \begin{itemize}
+    \item Padding invents values outside the image boundary.
+    \item Stride looks at only some positions; a one-pixel shift can change which ones.
+    \item Pooling and downsampling can alias fine detail.
+    \item Cropping can remove information entirely.
+  \end{itemize}
+  \takeaway{So: state the boundary and sampling rules before claiming equivariance; on real images it is approximate.}
+\end{frame}
+
+\begin{frame}{Pooling Trades Location for Stability}
+  Pooling summarizes a region by one number (for example its maximum or average).
+  \begin{itemize}
+    \item Pooling over the whole image gives the same value wherever the pattern sits: invariant.
+    \item Pooling over small windows tolerates small shifts but discards exact position.
+    \item Dense prediction (such as segmentation) needs positions, so it keeps or rebuilds location.
+  \end{itemize}
+  \takeaway{So: pool when the answer is one label for the whole input, not when location is part of the answer.}
+\end{frame}
+
+\begin{frame}{Sets Have No Canonical Order}
+  A point cloud is a collection, not a list: the same points in another order are the same object.
+  For example, the sum of $(2,5,1)$ is $8$ in any order, but ``first minus last'' changes ($1$ versus $-1$).
+  \medskip
+
+  A \textbf{Deep Sets} model applies the same small network $\phi$ to every element, adds the results,
+  and passes the sum through a readout network $r$:
+  \[
+    f(\{\mathbf x_i\})=r\!\left(\sum_i\phi(\mathbf x_i)\right).
+  \]
+  \takeaway{So: summation does not care about order, so the whole model is permutation invariant.}
+\end{frame}
+
+\begin{frame}{Graphs Admit Relabeling}
+  The node numbering of a graph is arbitrary. If a permutation matrix $\mathbf P$ renumbers the nodes,
+  the adjacency matrix $\mathbf A$ (who is connected to whom) and the node features $\mathbf X$ (one row per node)
+  become
+  \[
+    \mathbf A'=\mathbf P\mathbf A\mathbf P^\top,
+    \qquad
+    \mathbf X'=\mathbf P\mathbf X.
+  \]
+  A node-level prediction $F$ should be relabeled in the same way, $F(\mathbf A',\mathbf X')=\mathbf P F(\mathbf A,\mathbf X)$
+  (equivariant); a graph-level prediction should not change (invariant).
+  \takeaway{So: a graph model must not depend on how its nodes happen to be numbered.}
+\end{frame}
+
+\begin{frame}{Message Passing Respects Relabeling}
+  Each node collects \emph{messages} from its neighbors and updates its own state:
+  \[
+    \mathbf m_i=\underset{j\in\mathcal N(i)}{\operatorname{AGG}}
+      \phi(\mathbf h_i,\mathbf h_j,\mathbf e_{ij}),
+    \qquad
+    \mathbf h_i'=\psi(\mathbf h_i,\mathbf m_i).
+  \]
+  Here $\mathbf h_i$ is the state of node $i$, $\mathbf e_{ij}$ describes the edge, $\mathcal N(i)$ is its neighborhood,
+  $\phi$ builds a message, AGG combines messages, and $\psi$ updates the node.
+  If AGG is a sum, mean or max, the order of the neighbors does not matter.
+  \takeaway{So: symmetric aggregation makes the layer permutation equivariant; the proof sketch is in the appendix.}
+\end{frame}
+
+\begin{frame}{Attention Treats Tokens as a Set}
+  Self-attention lets each token look at all the others. Without position information it has no notion of order:
+  shuffling the tokens just shuffles the outputs in the same way, so it is permutation equivariant.
+  \begin{itemize}
+    \item For a set of items this is what we want.
+    \item For a sentence it is not: ``dog bites person'' and ``person bites dog'' must differ.
+  \end{itemize}
+  \takeaway{So: attention alone is a set model; the next frame adds the order.}
+\end{frame}
+
+\begin{frame}{Position Information Deliberately Breaks the Symmetry}
+  Add a position vector $\mathbf E_{\mathrm{pos}}$ to each token embedding $\mathbf X$:
+  \[
+    \mathbf Z=\mathbf X+\mathbf E_{\mathrm{pos}}.
+  \]
+  Now shuffling the tokens changes which position vector goes with which token, so the output changes.
+  \takeaway{So: for sequences we break permutation symmetry on purpose, because order carries meaning.}
+\end{frame}
+
+\begin{frame}{Recurrence Encodes Order and Causality}
+  \[
+    \mathbf h_t=F(\mathbf x_t,\mathbf h_{t-1}).
+  \]
+  The state $\mathbf h_t$ at time $t$ is computed from the current input $\mathbf x_t$ and the previous state,
+  with the same rule $F$ at every step. Changing the input order changes the states, and the future cannot
+  affect the past.
+  \takeaway{So: a recurrent model shares its rule over time but treats order as essential.}
+\end{frame}
+
+\begin{frame}{Recap: Where Symmetries Occur}
+  We learned that filters give translation equivariance on grids, sums give invariance on sets,
+  symmetric aggregation gives equivariance on graphs, and sequences keep order on purpose.
+  Next: how to choose, and how data augmentation teaches a symmetry when the architecture does not enforce it.
+\end{frame}
+
+% ============================================================ 4
+\section{Choosing an Architecture}
+\sectiondivider{Choosing an Architecture}
+
+\begin{frame}{Augmentation: Learn a Symmetry from Examples}
+  If the model cannot enforce a symmetry, we can \emph{show} it: transform the training examples at random and
+  keep their labels, so the model learns to ignore the change.
+  \[
+    \min_{\boldsymbol\theta}\ \mathbb E_{(x,y)}\,\mathbb E_{g\sim q}\,\ell\big(f_{\boldsymbol\theta}(g\cdot x),\,y\big).
+  \]
+  Read: average the loss over training examples $(x,y)$ and over randomly drawn transformations $g$.
+  Here $q$ is the rule for how often each transformation is drawn, $\ell$ is the loss, and $f_{\boldsymbol\theta}$ the model.
+  \takeaway{So: augmentation teaches approximate invariance; the architecture enforces it exactly.}
+\end{frame}
+
+\begin{frame}{One Cat, Several Label-Preserving Views}
+  \centering
+  \includegraphics[width=0.9\linewidth,height=0.7\textheight,keepaspectratio]{augmentation-grid.png}
+  \takeaway{So: each view is a new training example whose label is still ``cat''.}
+\end{frame}
+
+\begin{frame}{Not Every Transformation Keeps the Label}
+  \centering
+  \includegraphics[height=0.55\textheight,keepaspectratio]{label-changing-transforms.png}
+
+  \raggedright\small Also: cropping that removes the object, noise unlike the real sensor, or mirroring text.
+  \takeaway{So: choose only transformations that keep the label in your task; otherwise augmentation adds label noise.}
+\end{frame}
+
+\begin{frame}{Exact Symmetry or Learned Robustness?}
+  \begin{columns}[T]
+    \column{0.48\textwidth}
+    \textbf{Architecture}
+    \begin{itemize}
+      \item Holds for every transformation in the group.
+      \item Needs fewer examples when the symmetry is correct.
+      \item Fixed at design time.
+    \end{itemize}
+    \column{0.48\textwidth}
+    \textbf{Augmentation}
+    \begin{itemize}
+      \item Holds approximately, on the transformations sampled.
+      \item Works with any model.
+      \item Easy to adapt to the task.
+    \end{itemize}
+  \end{columns}
+  \takeaway{So: use the architecture when the symmetry is exact and known, augmentation when it is approximate.}
 \end{frame}
 
 \begin{frame}{Architecture Follows Domain, Symmetry, and Target}
@@ -261,13 +362,86 @@
     \midrule
     CNN & grid & translation equivariance\\
     RNN & sequence & time-shared causal transition\\
-    Transformer & tokens & equivariance before positions\\
+    Transformer & tokens & equivariance before positions are added\\
     GNN & graph & node-relabeling equivariance\\
     \bottomrule
   \end{tabular}
-  \par
-  \vspace{0.5cm}
-  The following architecture lectures apply this common language to their mechanics and limitations.
+  \takeaway{So: the next lectures apply this common language to each architecture in turn.}
+\end{frame}
+
+\begin{frame}{Recap: Choosing an Architecture}
+  We learned that structure narrows the set of functions the model can express, that augmentation is the flexible
+  alternative, and that each architecture encodes one such structure. Next: the appendix has the proofs.
+\end{frame}
+
+% ============================================================ appendix
+\appendix
+\sectiondivider{Appendix: optional depth}
+
+\begin{frame}{Appendix: Group Actions in Detail}
+  A group $G$ has an identity $e$, inverses, and composition. An \emph{action} of $G$ on data maps $(g,x)\mapsto g\cdot x$ with
+  \[
+    e\cdot x=x,
+    \qquad
+    g_1\cdot(g_2\cdot x)=(g_1g_2)\cdot x .
+  \]
+  Examples: translations of an image, permutations of set elements, relabelings of graph nodes.
+  The action specifies how each transformation changes the representation.
+\end{frame}
+
+\begin{frame}{Appendix: Equivariant Layers Compose}
+  Suppose
+  \[
+    f(\rho_0(g)x)=\rho_1(g)f(x),
+    \qquad
+    h(\rho_1(g)z)=\rho_2(g)h(z).
+  \]
+  Then
+  \[
+    (h\circ f)(\rho_0(g)x)
+    =h(\rho_1(g)f(x))
+    =\rho_2(g)(h\circ f)(x).
+  \]
+  The first equality uses the equivariance of $f$, the second that of $h$.
+\end{frame}
+
+\begin{frame}{Appendix: Sliding Filters Commute with Translation}
+  The operation is the cross-correlation $(k\star x)[v]=\sum_s k[s]\,x[v+s]$ used in the main slides,
+  and $(T_u x)[v]=x[v-u]$. Then
+  \begin{align*}
+    (k\star(T_u x))[v]
+      &=\sum_s k[s](T_u x)[v+s]\\
+      &=\sum_s k[s]\,x[v+s-u]\\
+      &=(k\star x)[v-u]=(T_u(k\star x))[v].
+  \end{align*}
+  So $k\star(T_u x)=T_u(k\star x)$. The same calculation with $x[v-s]$ shows that true convolution
+  $(k*x)[v]=\sum_s k[s]\,x[v-s]$ is also translation equivariant; both hold on the ideal infinite domain.
+\end{frame}
+
+\begin{frame}{Appendix: Message Passing Is Permutation Equivariant}
+  Renumber the nodes by $\pi$. The message for node $\pi(i)$ uses the same neighbors with the same features,
+  only in a different order:
+  \[
+    \mathbf m'_{\pi(i)}=\underset{j\in\mathcal N(i)}{\operatorname{AGG}}\phi(\mathbf h_i,\mathbf h_j,\mathbf e_{ij})=\mathbf m_i .
+  \]
+  Since AGG (sum, mean, max) ignores the order of its inputs, $\mathbf m'_{\pi(i)}=\mathbf m_i$,
+  and therefore $\mathbf h'_{\pi(i)}=\psi(\mathbf h_i,\mathbf m_i)$: node states are simply relabeled.
+\end{frame}
+
+\begin{frame}{Appendix: Self-Attention Is Permutation Equivariant}
+  Let
+  \[
+    \operatorname{Attn}(\mathbf X)
+    =\operatorname{softmax}_{\mathrm{row}}
+      \!\left(\frac{\mathbf X\mathbf W_Q(\mathbf X\mathbf W_K)^\top}{\sqrt{d_k}}\right)
+      \mathbf X\mathbf W_V,
+  \]
+  with token matrix $\mathbf X$, learned projections $\mathbf W_Q,\mathbf W_K,\mathbf W_V$ and key size $d_k$.
+  Replacing $\mathbf X$ by $\mathbf P\mathbf X$ permutes rows and columns of the score matrix;
+  row-wise softmax respects that permutation. Hence
+  \[
+    \operatorname{Attn}(\mathbf P\mathbf X)=\mathbf P\operatorname{Attn}(\mathbf X).
+  \]
 \end{frame}
 
 \end{document}
