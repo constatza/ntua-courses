@@ -30,13 +30,20 @@ from common import (
     to_plot_array,
 )
 from diffusion_core import (
+    DiffusionSchedule,
+    GaussianMixture2D,
     build_linear_schedule,
+    direct_noisy_sample,
+    ddpm_reverse_sample,
     make_default_gmm,
+    noisy_gmm_parameters,
     oracle_reverse_chain,
+    sample_gmm,
     simulate_forward_chain,
     smoothed_gmm_density,
     smoothed_gmm_score,
 )
+from jax import random
 
 
 DIFFUSION_SEED = 20260402
@@ -67,6 +74,17 @@ SCORE_CONTOUR_ALPHA = 0.65
 SCORE_QUIVER_KEY_X = 0.83
 SCORE_QUIVER_KEY_Y = 1.04
 SCORE_QUIVER_KEY_LENGTH = 1.5
+
+TOY_NUM_SAMPLES = 1500
+TOY_STEPS = [0, 150, 350, 600, 1000]
+TOY_LIMIT = 4.5
+TOY_GRID_SIZE = 120
+TOY_FIGSIZE = (15.6, 3.4)
+TOY_POINT_SIZE = 4.0
+TOY_POINT_COLOR = "#3F7CAC"
+TOY_CONTOUR_LEVELS = 6
+TOY_CONTOUR_COLOR = "#667085"
+TOY_CONTOUR_ALPHA = 0.55
 
 CHAIN_FIGSIZE = (15.6, 2.0)
 CHAIN_VMIN = 0.0
@@ -179,12 +197,71 @@ def render_reverse_chain(output_path: Path) -> None:
     save_figure(fig, output_path)
 
 
+def render_particle_row(
+    states: dict[int, jnp.ndarray],
+    steps: list[int],
+    mixture: GaussianMixture2D,
+    schedule: DiffusionSchedule,
+    output_path: Path,
+) -> None:
+    """Draw 2-D particles at the given steps over the contours of the exact p_t."""
+    axis = jnp.linspace(-TOY_LIMIT, TOY_LIMIT, TOY_GRID_SIZE, dtype=jnp.float64)
+    grid_x, grid_y = jnp.meshgrid(axis, axis)
+    grid = jnp.stack([grid_x, grid_y], axis=-1)
+
+    fig, axes = plt.subplots(1, len(steps), figsize=TOY_FIGSIZE)
+    for ax, timestep in zip(axes, steps, strict=True):
+        noisy = noisy_gmm_parameters(mixture, schedule, timestep)
+        density = smoothed_gmm_density(grid, noisy, noise_variance=0.0)
+        ax.contour(
+            to_plot_array(grid_x),
+            to_plot_array(grid_y),
+            to_plot_array(density),
+            levels=TOY_CONTOUR_LEVELS,
+            colors=TOY_CONTOUR_COLOR,
+            alpha=TOY_CONTOUR_ALPHA,
+            linewidths=0.8,
+        )
+        points = to_plot_array(states[timestep])
+        ax.scatter(points[:, 0], points[:, 1], s=TOY_POINT_SIZE, color=TOY_POINT_COLOR)
+        ax.set_xlim(-TOY_LIMIT, TOY_LIMIT)
+        ax.set_ylim(-TOY_LIMIT, TOY_LIMIT)
+        ax.set_aspect("equal")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_title(fr"$t={timestep}$")
+    save_figure(fig, output_path)
+
+
+def render_toy_forward(output_path: Path) -> None:
+    """Noise 2-D data samples directly with the closed form q(x_t | x_0)."""
+    mixture = make_default_gmm()
+    schedule = build_linear_schedule(num_steps=NUM_STEPS, beta_start=BETA_START, beta_end=BETA_END)
+    key_data, key_noise = random.split(make_rng(DIFFUSION_SEED))
+    x0 = sample_gmm(mixture, TOY_NUM_SAMPLES, key_data)
+    noise = random.normal(key_noise, x0.shape, dtype=x0.dtype)
+    states = {t: direct_noisy_sample(x0, schedule, t, noise) for t in TOY_STEPS}
+    render_particle_row(states, TOY_STEPS, mixture, schedule, output_path)
+
+
+def render_toy_reverse(output_path: Path) -> None:
+    """Run the real DDPM sampler (exact score) from pure noise on the same 2-D data."""
+    mixture = make_default_gmm()
+    schedule = build_linear_schedule(num_steps=NUM_STEPS, beta_start=BETA_START, beta_end=BETA_END)
+    key_start, key_steps = random.split(make_rng(DIFFUSION_SEED + 1))
+    x_T = random.normal(key_start, (TOY_NUM_SAMPLES, 2), dtype=jnp.float64)
+    states = ddpm_reverse_sample(x_T, mixture, schedule, key_steps, keep_steps=TOY_STEPS)
+    render_particle_row(states, list(reversed(TOY_STEPS)), mixture, schedule, output_path)
+
+
 def main() -> None:
     """Generate all diffusion figures used by the deck."""
     apply_plot_style()
     render_score_field(generated_path("score_field_gaussian_mixture.png"))
     render_forward_chain(generated_path("diffusion_forward_chain_cat.png"))
     render_reverse_chain(generated_path("diffusion_reverse_chain_cat_oracle.png"))
+    render_toy_forward(generated_path("diffusion_toy_forward.png"))
+    render_toy_reverse(generated_path("diffusion_toy_reverse.png"))
 
 
 if __name__ == "__main__":

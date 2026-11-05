@@ -6,7 +6,9 @@ This module only implements quantities that can be written exactly:
 - the forward schedule,
 - forward and posterior means,
 - oracle reverse denoising,
-- analytic scores for a smoothed Gaussian mixture.
+- analytic scores for a smoothed Gaussian mixture,
+- a real DDPM sampler driven by the exact (analytic) score of a Gaussian
+  mixture, so no network has to be trained.
 """
 
 from dataclasses import dataclass
@@ -31,7 +33,7 @@ GMM_DEFAULT_MEANS = jnp.array(
 GMM_DEFAULT_VARIANCES = jnp.array([0.28, 0.40, 0.30], dtype=jnp.float64)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DiffusionSchedule:
     """Discrete DDPM schedule with per-step and cumulative coefficients."""
     beta: Array
@@ -43,7 +45,7 @@ class DiffusionSchedule:
         return int(self.beta.shape[0] - 1)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class GaussianMixture2D:
     """Simple isotropic Gaussian mixture used for the score-field figure."""
     weights: Array
@@ -207,3 +209,73 @@ def smoothed_gmm_score(points: Array, mixture: GaussianMixture2D, noise_variance
     score = jnp.sum(responsibilities[..., None] * stacked_scores, axis=0)
     assert bool(jnp.all(jnp.isfinite(score)))
     return score
+
+
+def sample_gmm(mixture: GaussianMixture2D, num_samples: int, key: Array) -> Array:
+    """Draw samples from the isotropic Gaussian mixture."""
+    key_component, key_noise = random.split(key)
+    components = random.categorical(key_component, jnp.log(mixture.weights), shape=(num_samples,))
+    stds = jnp.sqrt(mixture.variances[components])[:, None]
+    noise = random.normal(key_noise, shape=(num_samples, mixture.means.shape[1]), dtype=jnp.float64)
+    samples = mixture.means[components] + stds * noise
+    assert bool(jnp.all(jnp.isfinite(samples)))
+    return samples
+
+
+def noisy_gmm_parameters(
+    mixture: GaussianMixture2D,
+    schedule: DiffusionSchedule,
+    timestep: int,
+) -> GaussianMixture2D:
+    """Return the mixture p_t of x_t = sqrt(abar_t) x_0 + sqrt(1-abar_t) eps.
+
+    Each component stays Gaussian: its mean shrinks by sqrt(abar_t) and its
+    variance becomes abar_t * v_k + (1 - abar_t).
+    """
+    alpha_bar_t = schedule.alpha_bar[timestep]
+    return GaussianMixture2D(
+        weights=mixture.weights,
+        means=jnp.sqrt(alpha_bar_t) * mixture.means,
+        variances=alpha_bar_t * mixture.variances + (1.0 - alpha_bar_t),
+    )
+
+
+def noisy_gmm_score(
+    points: Array,
+    mixture: GaussianMixture2D,
+    schedule: DiffusionSchedule,
+    timestep: int,
+) -> Array:
+    """Exact score of p_t for the diffusion of a Gaussian mixture."""
+    noisy = noisy_gmm_parameters(mixture, schedule, timestep)
+    return smoothed_gmm_score(points, noisy, noise_variance=0.0)
+
+
+def ddpm_reverse_sample(
+    x_T: Array,
+    mixture: GaussianMixture2D,
+    schedule: DiffusionSchedule,
+    key: Array,
+    keep_steps: list[int],
+) -> dict[int, Array]:
+    """Run the DDPM sampler from pure noise with the exact score as the denoiser.
+
+    The noise prediction is eps_hat = -sigma_t * score, plugged into the DDPM mean
+    formula; the added noise has the posterior variance. The true data point is
+    never used, so this is a real sampler (with an ideal network).
+    """
+    kept: dict[int, Array] = {}
+    x_t = jnp.asarray(x_T, dtype=jnp.float64)
+    keys = random.split(key, schedule.num_steps)
+    for timestep in range(schedule.num_steps, 0, -1):
+        if timestep in keep_steps:
+            kept[timestep] = x_t
+        sigma_t = jnp.sqrt(1.0 - schedule.alpha_bar[timestep])
+        eps_hat = -sigma_t * noisy_gmm_score(x_t, mixture, schedule, timestep)
+        beta_t = schedule.beta[timestep]
+        mean = (x_t - beta_t / sigma_t * eps_hat) / jnp.sqrt(schedule.alpha[timestep])
+        std = jnp.sqrt(posterior_variance(schedule, timestep)) if timestep > 1 else 0.0
+        x_t = mean + std * random.normal(keys[timestep - 1], x_t.shape, dtype=jnp.float64)
+    kept[0] = x_t
+    assert set(keep_steps) - {0} <= set(kept)
+    return kept
