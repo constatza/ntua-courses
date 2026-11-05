@@ -27,7 +27,7 @@ Pick the newest `ml-course/v…` release and download whichever PDFs you need; n
 13. PCA / POD / ROM
 14. PDF distances
 
-Exercise: toy diffusion and flow matching (pairs with decks 11 and 12).
+Exercises: cantilever neural-network surrogate (pairs with decks 1--3); toy diffusion and flow matching (pairs with decks 11 and 12).
 
 ## Maintaining the course
 

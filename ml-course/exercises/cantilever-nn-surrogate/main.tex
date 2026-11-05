@@ -1,0 +1,248 @@
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,hmargin=0.85in,vmargin=0.7in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta}
+\hypersetup{hidelinks}
+
+\setlist[itemize]{leftmargin=1.3em,itemsep=0.15em,topsep=0.25em}
+\setlist[enumerate]{leftmargin=1.6em,itemsep=0.2em,topsep=0.3em}
+\newcommand{\question}[2]{\par\noindent\textbf{#1.} #2\par}
+\newcommand{\doc}[2]{\href{#1}{\texttt{#2}}}
+
+\begin{document}
+
+\begin{center}
+  {\large Data-Driven Methods in Engineering\par}
+  \vspace{0.4em}
+  {\LARGE\bfseries Neural Network Surrogate for a Cantilever Beam\par}
+  \vspace{0.3em}
+  {NTUA School of Civil Engineering\par}
+\end{center}
+
+\noindent\textbf{Software:} MATLAB or Python. \textbf{Submission:} A 4--6 page technical report.
+
+\section*{Objective}
+Build a neural network surrogate for maximum cantilever deflection. Generate data from the beam equation, study training settings, improve the model, and compare its predictions with the equation. The equation remains the reference answer.
+
+Write the data generation, experiments, evaluation, and plots yourself. You may use a training library; Appendix~\ref{sec:functions} offers function hints.
+
+\section*{Beam model and random inputs}
+For a linear-elastic Euler--Bernoulli cantilever with a vertical point load at its free end, assume the maximum deflection magnitude is
+\[
+  \boxed{\delta=\frac{PL^3}{3EI}}.
+\]
+The beam-theory assumptions are taken as given; cross-section dimensions and strength limits are not provided.
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[x=0.9cm,y=0.9cm,>=Latex]
+    \fill[gray!15] (-0.35,-0.45) rectangle (0,0.45);
+    \draw[thick] (0,-0.45) -- (0,0.45);
+    \foreach \y in {-0.4,-0.2,0,0.2,0.4}
+      \draw[gray] (-0.35,\y-0.08) -- (0,\y+0.08);
+    \draw[line width=1.5pt] (0,0) -- (6,0);
+    \draw[blue!65!black,dashed,thick] (0,0) .. controls (2,0) and (4,-0.25) .. (6,-0.75);
+    \draw[->,very thick] (6,1.05) -- (6,0.12) node[midway,left] {$P$};
+    \draw[densely dotted] (6,0) -- (6.7,0);
+    \draw[densely dotted] (6,-0.75) -- (6.7,-0.75);
+    \draw[<->] (6.55,0) -- (6.55,-0.75) node[midway,right] {$\delta$};
+    \draw (0,-0.55) -- (0,-1.3);
+    \draw (6,-0.85) -- (6,-1.3);
+    \draw[<->] (0,-1.2) -- (6,-1.2) node[midway,fill=white,inner sep=2pt] {$L$};
+    \node[above] at (3,0.05) {$E,\ I$};
+  \end{tikzpicture}
+  \caption{Cantilever model. The dashed deflected shape is exaggerated; $\delta$ is the magnitude of the free-end displacement.}
+\end{figure}
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Input & Independent distribution & Units \\
+\midrule
+$P$ & $\mathcal N(10\,000,700^2)$ & N \\
+$E$ & $\operatorname{Lognormal}(m,s^2)$ & Pa \\
+$L$ & $\mathcal U(2.4,3.6)$ & m \\
+$I$ & $\mathcal U(4\times10^{-5},1.2\times10^{-4})$ & m$^4$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Here $\mathcal N(\mu,\sigma^2)$ uses variance and $\mathcal U(a,b)$ is uniform on $[a,b]$. Choose $m,s$ so that $\log E\sim\mathcal N(m,s^2)$ gives a \emph{physical} mean of $30\times10^9$ Pa and standard deviation of $3\times10^9$ Pa; see Appendix~\ref{sec:lognormal}.
+
+\section*{Part A: Generate the dataset}
+Generate $N=3000$ independent realizations. Row $i$ of the input matrix and entry $i$ of the target vector describe the same beam:
+\[
+X=\begin{bmatrix}
+P_1&E_1&L_1&I_1\\[-2pt]
+\vdots&\vdots&\vdots&\vdots\\[-2pt]
+P_N&E_N&L_N&I_N
+\end{bmatrix}\in\mathbb R^{N\times4},\qquad
+y=\begin{bmatrix}
+P_1L_1^3/(3E_1I_1)\\[-2pt]
+\vdots\\[-2pt]
+P_NL_N^3/(3E_NI_N)
+\end{bmatrix}\in\mathbb R^{N\times1}.
+\]
+Set and report a \textbf{random seed}. Plot histograms for the 4 inputs and $\delta$; tabulate their means and standard deviations. Check the sampled inputs against the stated distributions.
+
+\question{A1}{How close are the sample means and standard deviations to the specified values? Why do they differ?}
+\question{A2}{Describe the deflection histogram. Why can no single input distribution determine its shape?}
+\question{A3}{\emph{Before training}, predict which inputs contribute most to deflection variation. Use the equation and the sizes of the input variations to justify your prediction.}
+
+\section*{Part B: Establish the starting model}
+Fit $\hat\delta=f_\theta(P,E,L,I)$ with this starting configuration.
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Setting & Value \\
+\midrule
+Network & 4 inputs, 1 hidden layer with 4 tanh neurons, 1 linear output \\
+Optimizer and loss & Adam and mean squared error (MSE) \\
+Learning rate & $10^{-4}$ \\
+Training budget & At most 500 epochs\\
+Batch size & Choose a reasonable value and keep it fixed \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Split the dataset \emph{once}: 60\% training, 20\% validation, 20\% test. Keep the same split throughout and leave the \emph{test set untouched} until Part~E. Standardize each input using its \emph{training-set} mean and standard deviation; apply those values to validation and test inputs:
+\[
+  x'_j=\frac{x_j-\mu_{j,\mathrm{train}}}{\sigma_{j,\mathrm{train}}}.
+\]
+The starting network maps standardized inputs to predicted deflection:
+\begin{center}
+\begin{tikzpicture}[x=1cm,y=1cm,>=Latex,every node/.style={font=\small}]
+  \foreach \name/\height in {P/0.9,E/0.3,L/-0.3,I/-0.9}
+    \coordinate (input-\name) at (0,\height);
+  \foreach \i in {1,...,4}
+    \coordinate (hidden-\i) at (3,{0.9-0.6*(\i-1)});
+  \coordinate (output) at (6,0);
+  \foreach \name in {P,E,L,I}
+    \foreach \i in {1,...,4}
+      \draw[gray!45,thin] (input-\name) -- (hidden-\i);
+  \foreach \i in {1,...,4}
+    \draw[gray!45,thin] (hidden-\i) -- (output);
+  \foreach \name in {P,E,L,I}
+    \node[draw,circle,fill=white,minimum size=0.5cm,inner sep=0pt] at (input-\name) {$\name'$};
+  \foreach \i in {1,...,4}
+    \node[draw,circle,fill=white,minimum size=0.25cm,inner sep=0pt] at (hidden-\i) {};
+  \node[draw,circle,fill=white,minimum size=0.7cm,inner sep=0pt] at (output) {$\hat\delta$};
+  \node[above] at (0,1.3) {4 inputs};
+  \node[above] at (3,1.3) {4 tanh neurons};
+  \node[above] at (6,0.45) {1 linear output};
+\end{tikzpicture}
+\end{center}
+\question{B1}{What are the input and target array shapes for the training, validation, and test subsets? For a batch of $b$ input rows, what shape should the network output have?}
+
+\textbf{Train the starting model.} Keep $\delta$ in metres and use at most 500 epochs without validation-based early stopping. Report final training and validation MSE in m$^2$. Plot both loss histories against epoch with a \emph{logarithmic y-axis}. If validation history is unavailable, report its final MSE. Label optimization loss separately if it differs from MSE; report numerical failures.
+
+\question{B2}{Why is a hidden activation needed? What could a network containing only affine layers (weights and biases, but no nonlinear activation) represent?}
+\question{B3}{What does training MSE measure? What does a decrease tell you, and what does it not tell you?}
+\question{B4}{From the theory covered in class, what do Adam's 2 running averages track, and how do they affect parameter updates? Answer briefly in words.}
+\question{B5}{State your batch size. How many batches make 1 epoch, including an incomplete final batch?}
+\question{B6}{Could the starting model learn more? What do its training and validation curves near the final epoch suggest, and what can they not prove?}
+
+\section*{Part C: Controlled training probes}
+First, train the \emph{unchanged 4-neuron model} for 1500 epochs. Compare its loss curves and final MSE with Part~B: did longer training alone help? Use this 1500-epoch run as the reference for every probe below. Change \emph{only the named setting} in each probe and keep all runs at 1500 epochs on the same split. Use \emph{log-y loss plots}; report numerical failures as results.
+
+\subsection*{Learning rate}
+Train the 4-neuron model at learning rates $10^{-5}$ and $10^{-1}$. Keep the other settings fixed. Compare final training and validation MSE and loss curves with the 1500-epoch reference.
+
+\question{C1}{Compare the $10^{-5}$, $10^{-4}$, and $10^{-1}$ runs at 1500 epochs. Which rate learns too slowly, which gives unstable training, and what do their final validation MSE values show? Use the loss curves and your understanding of update size to explain why.}
+
+\subsection*{Input standardization}
+Return to the 1500-epoch reference settings, but use raw inputs instead of normalized. Disable automatic input normalization and keep $\delta$ in metres. If training fails, report the failure rather than a loss value.
+
+\question{C2}{Compare this result with the 1500-epoch reference. How do the very different numerical scales of $P,E,L,I$ help explain what you observe?}
+
+\subsection*{Optimizer}
+Return to the 1500-epoch reference settings, but replace Adam with plain SGD (without momentum). Report final training and validation MSE in m$^2$ and the loss history.
+
+\question{C3}{How does SGD compare with Adam under these settings? Quantify the difference in validation MSE and describe the loss curves. Why might plain SGD perform worse here?}
+\question{C4}{Do any Part~C runs show overfitting? Compare training and validation loss curves. What pattern would indicate overfitting rather than slow or unstable optimization?}
+
+\section*{Part D: Improve the surrogate}
+Keep the same split. You may \emph{increase the epoch budget} and change depth or width (for example, try 2, 3, or 4 hidden layers), activations, learning rate, optimizer, batch size, or scaling. You may also try \emph{target normalization}; Appendix~\ref{sec:target-scaling} explains how to undo it. Fit scalers on \emph{training data only} and report MSE in m$^2$.
+
+Select the winner using \emph{validation MSE}. Evaluate the test set only after that choice, in Part~E. Report only the winner's settings, training and validation MSE, and \emph{log-y loss plot}.
+
+\question{D1}{Describe your winning model completely: hidden-layer widths, activations, optimizer, learning rate, batch size, epoch budget, and any input or target scaling.}
+\question{D2}{Give its final training and validation MSE in m$^2$. How much lower is its validation MSE than the 1500-epoch 4-neuron reference in Part~C, as a ratio or percentage? What does its loss history show?}
+\question{D3}{How many trainable weights and biases does your winning model have, compared with Part~B? Does the larger parameter count alone explain its validation result?}
+\question{D4}{Which changes seem to matter most for your winning model? What evidence supports your answer?}
+
+\section*{Part E: Evaluate the selected surrogate}
+\subsection*{Test accuracy}
+Evaluate the chosen model \emph{once} on the untouched test subset. Report test MSE in m$^2$ so it can be compared with training and validation MSE. Also calculate RMSE in metres and $R^2$:
+\[
+\operatorname{RMSE}=\sqrt{\frac{1}{N_t}\sum_{i=1}^{N_t}(\delta_i-\hat\delta_i)^2},\qquad
+R^2=1-\frac{\sum_i(\delta_i-\hat\delta_i)^2}{\sum_i(\delta_i-\bar\delta_{\rm test})^2}.
+\]
+Make a parity plot of predicted versus analytical deflection with a perfect-prediction diagonal. Also plot the signed error $\hat\delta-\delta$ versus \emph{analytical} deflection; this reveals errors at low and high true deflections. Label deflection and error axes in metres.
+
+\question{E1}{How accurate is the surrogate? Where do its largest errors occur? Use the metrics and plots.}
+
+\subsection*{Fresh Monte Carlo samples}
+Generate 10\,000 new, independent inputs from the same distributions. Evaluate both the analytical model and the chosen network. Compare their output distributions with clearly distinguished KDE curves, or with transparent/outlined density histograms using identical bin edges. Tabulate mean, standard deviation, and 95th percentile for both outputs.
+
+\question{E2}{How accurately does the network reproduce the output distribution? Give at least 2 numerical comparisons.}
+\question{E3}{Does prediction quality change for large deflections? Support your answer with results rather than inferring tail accuracy from overall RMSE.}
+
+\subsection*{Physical response curves}
+For each input in turn, vary that input while holding the others at nominal means. Sweep $L$ and $I$ over their full intervals, and $P$ and $E$ from $\mu-2\sigma$ to $\mu+2\sigma$. Overlay analytical and network deflections on each graph.
+
+\question{E4}{Which input--response relationships are captured well? Where is the greatest disagreement?}
+\question{E5}{Compare the $P$ and $E$ curves. Which analytical dependence is linear and which is nonlinear? Does the network reproduce that distinction?}
+\question{E6}{Revisit A3. How does it compare with the observed curves? Why is a single-input response curve not a decomposition of total output variance?}
+
+\section*{Submission}
+Submit a 4--6 page report with the requested figures, answers, and results from Parts~A--E. Include the Part~B baseline, Part~C probes, Part~D winner, and Part~E test and Monte Carlo results. Label figures, units, and legends. Report test results only for the validation-selected model.
+
+\appendix
+\section{Function hints}\label{sec:functions}
+These examples show useful functions, not a required library or code structure. You may use other suitable tools.
+\begin{center}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+Task & MATLAB & Python (NumPy / scikit-learn) \\
+\midrule
+Sample inputs & \doc{https://www.mathworks.com/help/matlab/ref/double.randn.html}{randn}, \doc{https://www.mathworks.com/help/stats/lognrnd.html}{lognrnd}, \doc{https://www.mathworks.com/help/matlab/ref/double.rand.html}{rand} & \doc{https://numpy.org/doc/stable/reference/random/generated/numpy.random.Generator.normal.html}{normal}, \doc{https://numpy.org/doc/stable/reference/random/generated/numpy.random.Generator.lognormal.html}{lognormal}, \doc{https://numpy.org/doc/stable/reference/random/generated/numpy.random.Generator.uniform.html}{uniform} \\
+Seed and split & \doc{https://www.mathworks.com/help/matlab/ref/rng.html}{rng}, \doc{https://www.mathworks.com/help/matlab/ref/double.randperm.html}{randperm} & \doc{https://numpy.org/doc/stable/reference/random/generator.html}{default\_rng}, \doc{https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html}{train\_test\_split} \\
+Scale inputs & \doc{https://www.mathworks.com/help/matlab/ref/double.mean.html}{mean}, \doc{https://www.mathworks.com/help/matlab/ref/double.std.html}{std} & \doc{https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.StandardScaler.html}{StandardScaler} \\
+Define and train NN & \doc{https://www.mathworks.com/help/deeplearning/ref/nnet.cnn.layer.featureinputlayer.html}{featureInputLayer}, \doc{https://www.mathworks.com/help/deeplearning/ref/trainnet.html}{trainnet} & \doc{https://scikit-learn.org/stable/modules/generated/sklearn.neural_network.MLPRegressor.html}{MLPRegressor.fit} \\
+Predict and measure & \doc{https://www.mathworks.com/help/deeplearning/ref/minibatchpredict.html}{minibatchpredict}, \doc{https://www.mathworks.com/help/matlab/ref/double.mean.html}{mean} & \doc{https://scikit-learn.org/stable/modules/generated/sklearn.neural_network.MLPRegressor.html}{predict}, \doc{https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html}{mean\_squared\_error} \\
+Plot & \doc{https://www.mathworks.com/help/matlab/ref/plot.html}{plot}, \doc{https://www.mathworks.com/help/matlab/ref/scatter.html}{scatter}, \doc{https://www.mathworks.com/help/matlab/ref/matlab.graphics.chart.primitive.histogram.html}{histogram} & \doc{https://matplotlib.org/stable/api/pyplot_summary.html}{matplotlib.pyplot} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent\textbf{MATLAB:} The Deep Learning Toolbox provides \doc{https://www.mathworks.com/help/deeplearning/ref/trainingoptions.html}{trainingOptions("adam",...)} for learning rate and batch size. Set \doc{https://www.mathworks.com/help/deeplearning/ref/nnet.cnn.layer.featureinputlayer.html}{featureInputLayer} normalization explicitly. If validation data are supplied to \doc{https://www.mathworks.com/help/deeplearning/ref/trainnet.html}{trainnet}, \texttt{OutputNetwork="last-iteration"} makes the returned model match the final training result. Training information can provide a loss plot.
+
+\noindent\textbf{Python:} With \doc{https://scikit-learn.org/stable/modules/generated/sklearn.neural_network.MLPRegressor.html}{MLPRegressor}, use \texttt{solver="adam"} and \texttt{activation="tanh"}.
+
+\noindent Set \texttt{hidden\_layer\_sizes} to \texttt{(4,)} initially; for example, \texttt{(8,8)} gives 2 hidden layers. Set the learning rate and \texttt{early\_stopping=False}. The \texttt{max\_iter} option sets the epoch cap. The \texttt{loss\_curve\_} attribute records training optimization loss, not validation MSE. Calculate final train and validation MSE from predictions.
+
+\section{Lognormal parameters}\label{sec:lognormal}
+Many samplers take the mean $m$ and standard deviation $s$ of the underlying normal variable, $\log E\sim\mathcal N(m,s^2)$. For a required physical mean $\mu_E$ and standard deviation $\sigma_E$, use
+\[
+s=\sqrt{\log\!\left(1+\frac{\sigma_E^2}{\mu_E^2}\right)},\qquad
+m=\log\mu_E-\frac{s^2}{2}.
+\]
+
+\section{Optional target normalization}\label{sec:target-scaling}
+If you train on normalized deflection $z=(\delta-\mu_{y,\rm train})/\sigma_{y,\rm train}$, calculate both statistics from \emph{training targets only}. Undo the transformation for every prediction:
+\[
+  \hat\delta=\mu_{y,\rm train}+\sigma_{y,\rm train}\hat z.
+\]
+Use $\hat\delta$ in metres for validation and test MSE, plots, and Monte Carlo comparisons; MSE on $z$ has different units.
+\end{document}
