@@ -29,6 +29,8 @@ Pick the newest `ml-course/v…` release and download whichever PDFs you need; n
 
 Exercises: cantilever neural-network surrogate (pairs with decks 1--3); toy diffusion and flow matching (pairs with decks 11 and 12).
 
+Notebooks: [`notebooks/nn-training/`](notebooks/nn-training/) is a hands-on tutorial on training neural-network surrogates. It comes as a MATLAB Live Script for MATLAB Online (R2025a or later) and a Python/Jupytext twin, and it covers the tools the cantilever exercise needs on a different dataset. Only the `.py` is tracked; `tools/sync-notebooks` creates its `.ipynb`.
+
 ## Maintaining the course
 
 Building, releasing and editing this course is covered in the [repository README](../README.md). Topic ownership is tracked in [`TOPICS.toml`](TOPICS.toml): each concept has one owning deck, and other decks cross-reference it instead of re-explaining. Books, slides, datasets and assignments are not in this repository.
