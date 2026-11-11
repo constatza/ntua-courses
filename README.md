@@ -8,7 +8,7 @@ All NTUA courses, their build tooling and CI in one repository. Each course is a
 |---|---|
 | `ml-course/` | machine learning: decks, notes, exercises |
 | `stochastic-course/` | stochastic methods: decks, notes, exercises |
-| `tools/` | `build-course`, `release-course`, `check-course-layout`, `check-variants`, `ci`, `courses` |
+| `tools/` | `build-course`, `release-course`, `check-course-layout`, `check-variants`, `ci`, `courses`, `sync-notebooks` |
 | `beamer-ntua/` | the Beamer class, a one-way copy of [constatza/beamer-ntua](https://github.com/constatza/beamer-ntua) |
 
 ## Build

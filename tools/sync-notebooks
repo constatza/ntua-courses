@@ -1,0 +1,15 @@
+#!/bin/sh
+# Create or refresh the .ipynb of every Jupytext-paired notebook in the repository.
+#
+#   tools/sync-notebooks
+#
+# A notebook is tracked only as its percent-format .py, whose header pairs it with an .ipynb
+# (formats: ipynb,py:percent). The .ipynb is untracked, so run this on a fresh clone to get the
+# notebook view, and again after editing the .py outside a Jupytext-aware editor.
+# jupytext --sync keeps the newer of the two files and rewrites the other from it.
+set -eu
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+git ls-files -z --cached --others --exclude-standard '*.py' | xargs -0 grep -l --null '^#     formats: ipynb,py:percent$' |
+  xargs -0 -r uvx jupytext --sync
