@@ -33,15 +33,6 @@
 	\end{frame}
 
 	% --- TOC ---
-	\begin{frame}{Roadmap}
-		\small
-		\tableofcontents
-
-		\vspace{0.8em}
-		The parts depend on each other: \textbf{we estimate densities in order to compare them}.
-		A drift alarm or a generative model needs a number for ``how different are these two distributions'', and that number is computed from (estimated) densities or directly from samples.
-	\end{frame}
-
 	% ==============================================================================
 	% SECTION 1: KERNEL DENSITY ESTIMATION
 	% ==============================================================================
@@ -49,26 +40,17 @@
 	\sectiondivider{Estimating a Density (KDE)}
 
 	\begin{frame}{Estimating a Density from Samples}
-		\small
-		\begin{columns}
-			\column{0.5\textwidth}
-			We observe $n$ independent samples $X_1,\dots,X_n$ (``i.i.d.'': independent, all drawn from the same distribution).
-			They come from an \emph{unknown} probability density function (PDF) $f$: a curve whose height says which values are likely.
-
-			\vspace{0.8em}
-			\textbf{Goal:} recover the shape of $f$ from the samples alone.
-
-			\column{0.5\textwidth}
-			\textbf{Why not fit a Normal curve?}
-			\begin{itemize}
-				\item Real data are often skewed, have several peaks, or have heavy tails.
-				\item A fitted Normal (two numbers: mean and spread) cannot show these.
-				\item Such features are exactly what a monitoring system must notice.
-			\end{itemize}
-		\end{columns}
-
-		\takeaway{we need a way to estimate a density without assuming its shape in advance (``non-parametric'').}
-	\end{frame}
+\small
+\[
+ X_1,\ldots,X_n\overset{\mathrm{i.i.d.}}\sim f,\qquad f\text{ unknown}.
+\]
+\begin{itemize}
+\item Independent observations share the same probability density $f$.
+\item Goal: estimate its shape from samples.
+\item A Normal fit can miss skewness, multiple peaks and heavy tails.
+\item KDE estimates the density without choosing a parametric family.
+\end{itemize}
+\end{frame}
 
 	\begin{frame}{The Idea: A Small Bump on Every Sample}
 		\small
@@ -85,36 +67,33 @@
 	\end{frame}
 
 	\begin{frame}{The Estimator in Symbols}
-		\small
-		\begin{block}{Parzen--Rosenblatt estimator}
-			$$ \hat{f}_h(x) = \frac{1}{nh^d} \sum_{i=1}^n K\left( \frac{x - X_i}{h} \right) $$
-		\end{block}
-		\begin{itemize}
-			\item $x \in \R^d$: the point where we evaluate the density ($d=1$ for a single feature)
-			\item $K$: the \textbf{kernel}, the shape of one bump, centered at zero
-			\item $h>0$: the \textbf{bandwidth}, the width of each bump (it stretches $K$ by the factor $h$)
-			\item $1/(nh^d)$: makes the total area equal to 1: $n$ bumps, each rescaled by $h^d$
-		\end{itemize}
-		\takeaway{the estimate at $x$ is the average of bumps centered at the samples; $K$ sets the bump shape and $h$ its width.}
-	\end{frame}
+\small
+\begin{block}{Parzen--Rosenblatt estimator}
+\[
+ \widehat f_h(x)=\frac1{nh^d}\sum_{i=1}^n K\!\left(\frac{x-X_i}{h}\right).
+\]
+\end{block}
+\begin{itemize}
+\item $X_i\in\mathbb R^d$: independent samples from the same distribution.
+\item $x\in\mathbb R^d$: evaluation point; $K$: centered, non-negative, unit-mass kernel.
+\item $h>0$: bandwidth, controlling bump width.
+\item $h^{-d}$ preserves each bump's mass; $1/n$ averages the bumps.
+\end{itemize}
+\end{frame}
 
 	\begin{frame}{What Counts as a Kernel?}
-		\small
-		For $\hat f_h$ to be a valid density, the bump $K(u)$ should satisfy:
-
-		\begin{block}{Requirements (1-D)}
-			\begin{enumerate}
-				\item \textbf{Total area 1:} $\int K(u)\,du = 1$ \quad so that $\hat f_h$ also has area 1.
-				\item \textbf{Non-negative:} $K(u)\ge 0$ \quad so that $\hat f_h(x)\ge 0$ everywhere.
-				\item \textbf{Centered:} $\int u\,K(u)\,du = 0$ \quad so each bump sits on its own sample, with no systematic shift.
-			\end{enumerate}
-		\end{block}
-
-		Usually the kernel is also symmetric about $0$, which gives requirement 3 automatically.
-		The remaining quantities (such as the bump's variance $\mu_2(K)$) are only needed for the error analysis in the appendix.
-
-		\takeaway{any smooth, symmetric, non-negative bump with area 1 is a valid kernel.}
-	\end{frame}
+\small
+\begin{align*}
+ K(u)&\ge0 &&\text{non-negative density estimate},\\
+ \int K(u)\,du&=1 &&\text{unit total mass},\\
+ \int uK(u)\,du&=0 &&\text{centered bump (when the moment exists)}.
+\end{align*}
+\begin{itemize}
+\item Non-negativity and unit mass make the KDE a density.
+\item Centering avoids a systematic shift; symmetry ensures it when the first moment exists.
+\item Kernel variance enters the error analysis in the appendix.
+\end{itemize}
+\end{frame}
 
 	\begin{frame}{Common Kernels}
 		\small
@@ -140,80 +119,72 @@
 	\end{frame}
 
 	\begin{frame}{The Bandwidth Dilemma}
-		\small
-		\begin{figure}
-			\centering
-			\includegraphics[width=0.55\textwidth]{kde_bandwidths.png}
-			\caption{\footnotesize Same data, three bandwidths. $h=0.1$: spiky. $h=1.0$: blurred. Intermediate $h$: close to the true two-peak shape.}
-		\end{figure}
-		\begin{itemize}
-			\item \textbf{$h$ too small:} every sample gets its own spike; the curve is noisy (high variance, overfitting).
-			\item \textbf{$h$ too large:} bumps blur everything; real peaks disappear (high bias, underfitting).
-		\end{itemize}
-		\takeaway{$h$ plays the role of a smoothing knob that trades noise against blur.}
-	\end{frame}
+\small
+\begin{columns}[c]
+\column{0.43\textwidth}
+\[
+ \widehat p_h(x)=\frac1{nh}\sum_{i=1}^n K\!\left(\frac{x-X_i}{h}\right).
+\]
+Small $h$: noisy spikes (high variance).\\[0.5em]
+Large $h$: merged peaks (high bias).
+\column{0.55\textwidth}
+\includegraphics[width=\linewidth]{kde_bandwidths.png}
+\end{columns}
+\takeaway{the same samples give very different density estimates as $h$ changes.}
+\end{frame}
 
 	\begin{frame}{Why a Best Bandwidth Exists}
-		\small
-		Two errors pull $h$ in opposite directions:
-		\begin{itemize}
-			\item \textbf{Noise (variance)} falls as $h$ grows, because wide bumps average many samples; it also falls as $n$ grows.
-			\item \textbf{Blur (squared bias)} grows as $h$ grows, because wide bumps flatten the true peaks.
-		\end{itemize}
-		The best $h$ balances the two. For a smooth 1-D density and a standard (second-order) kernel, the balance gives
-		$$ h_{\mathrm{opt}} \propto n^{-1/5}, $$
-		where $n$ is the number of samples: more data allows narrower bumps, but only slowly.
-		For example, $100\times$ more data shrinks the best $h$ to about $40\%$.
-		The proportionality constant depends on how wiggly the true $f$ is, which we do not know; the derivation is in the appendix.
-
-		\takeaway{there is a best bandwidth, it shrinks slowly as data grow, and it depends on the unknown $f$.}
-	\end{frame}
+\small
+For a smooth 1-D density and a second-order kernel,
+\[
+ \operatorname{AMISE}(h)=\underbrace{\frac{R(K)}{nh}}_{\text{variance}}
+ +\underbrace{\frac{h^4\mu_2(K)^2R(f'')}{4}}_{\text{squared bias}},\qquad
+ h_{\mathrm{opt}}\propto n^{-1/5}.
+\]
+\begin{itemize}
+\item Wider bumps reduce sampling noise but blur peaks.
+\item $R(g)=\int g^2$; $\mu_2(K)=\int u^2K(u)\,du$.
+\item $100\times$ more data permits about $0.40\times$ the bandwidth.
+\item The optimal constant depends on the unknown curvature of $f$.
+\end{itemize}
+\end{frame}
 
 	\begin{frame}{Choosing $h$ in Practice}
-		\small
-		\textbf{Silverman's rule of thumb} assumes the data are roughly Normal and gives a ready formula:
-		$$ h \approx 1.06\,\hat{\sigma}\,n^{-1/5} $$
-		where $\hat{\sigma}$ is the sample standard deviation.
-
-		\medskip
-		\textbf{Example:} $n=100$ samples with $\hat\sigma=2$ give $h\approx 1.06\cdot 2\cdot 100^{-1/5}\approx 0.84$.
-
-		\medskip
-		\textbf{Caveat:} for multi-peaked data the rule oversmooths, because $\hat\sigma$ is inflated by the distance between peaks.
-		A data-driven alternative is \emph{least-squares cross-validation} (LSCV): pick the $h$ whose KDE
-		predicts held-out samples best (details in the appendix).
-
-		\takeaway{use $1.06\,\hat\sigma\,n^{-1/5}$ as a starting point, and check the plot; for several peaks try a smaller $h$ or cross-validation.}
-	\end{frame}
+\small
+\textbf{Gaussian kernel, roughly Normal data: Silverman's rule}
+\[
+ h\approx1.06\,\widehat\sigma n^{-1/5}.
+\]
+\begin{itemize}
+\item $\widehat\sigma$: sample standard deviation.
+\item Example: $n=100$, $\widehat\sigma=2$ gives $h\approx0.84$.
+\item Several peaks inflate $\widehat\sigma$; the rule can oversmooth.
+\item Inspect the KDE; compare bandwidths or use least-squares cross-validation (appendix).
+\end{itemize}
+\end{frame}
 
 	% ==============================================================================
 	% SECTION 2: METRICS ON PROBABILITY SPACES
 	% ==============================================================================
-	\begin{frame}{Recap: Estimating a Density}
-		\small
-		We learned that a KDE adds one bump per sample, that the bandwidth $h$ matters far more than the kernel, and that $h\approx 1.06\,\hat\sigma\,n^{-1/5}$ is a sensible start;
-		next we ask how to measure the difference between two such distributions.
-	\end{frame}
-
 	\section{Comparing Two Distributions}
 	\sectiondivider{Comparing Two Distributions}
 
 	\begin{frame}{What Do We Want from a ``Distance'' Between Distributions?}
-		\small
-		Given two distributions $P$ and $Q$ (for example, last month's data and today's data, or real images and generated images),
-		we want one number that says how different they are.
-
-		\begin{itemize}
-			\item It should be $0$ when $P=Q$, and grow as they differ.
-			\item Ideally it is symmetric, so the order of $P$ and $Q$ does not matter.
-			\item It should stay informative, and not break down, even when $P$ and $Q$ barely overlap.
-		\end{itemize}
-
-		Three standard choices come next, in this order: \textbf{KL divergence}, its smoothed variant \textbf{Jensen--Shannon}, and the \textbf{Wasserstein distance}.
-		In each, $p$ and $q$ denote the densities of $P$ and $Q$.
-
-		\takeaway{the three measures differ mainly in how they behave when the two distributions do not overlap.}
-	\end{frame}
+\small
+\centering
+\begin{tikzpicture}[x=0.8cm,y=0.65cm,>=stealth]
+\foreach \y/\shift/\label in {4/0.5/Overlap,2/2/Disjoint,0/5/Far apart}{
+ \node[anchor=east] at (-0.2,\y+0.5) {\label};
+ \draw[->,gray] (0,\y)--(8,\y);
+ \fill[ntuablue!35] (0.5,\y) rectangle (2,\y+1);
+ \fill[orange!55,opacity=0.65] (0.5+\shift,\y) rectangle (2+\shift,\y+1);
+}
+\node[ntuablue] at (7.8,5) {$P$}; \node[orange!80!black] at (7.8,4.5) {$Q$};
+\end{tikzpicture}
+\par\raggedright
+KL checks whether $Q$ covers $P$; JSD detects overlap but saturates once disjoint.
+$W_1$ also measures the distance between their locations.
+\end{frame}
 
 	% --- KL Divergence ---
 	\begin{frame}{Kullback--Leibler (KL) Divergence}
@@ -244,18 +215,20 @@
 	\end{frame}
 
 	\begin{frame}{KL Can Be Infinite}
-		\small
-		If $Q$ assigns probability $0$ to something that $P$ can produce, then $\log\frac{p(x)}{q(x)}=\log\frac{p(x)}{0}$ is infinite there:
-		$$ D_{KL}(P\|Q)=\infty \quad\text{whenever } q(x)=0 \text{ for some } x \text{ with } p(x)>0 .$$
-		Example: $P=(0.5,0.5)$ and $Q=(1,0)$ give $D_{KL}(P\|Q)=\infty$, but $D_{KL}(Q\|P)=\ln 2\approx 0.69$ is finite.
-
-		\begin{alertblock}{Practical failure}
-			If $P$ and $Q$ have \emph{disjoint supports} (no point where both are positive), the condition above holds, so $D_{KL}(P\|Q)=\infty$ no matter how far apart they are.
-			Estimated densities with $q\approx 0$ somewhere give huge or unstable values.
-		\end{alertblock}
-
-		\takeaway{KL needs $Q$ to cover everything $P$ can produce; otherwise it is infinite and tells us nothing about the size of the gap.}
-	\end{frame}
+\small
+\[
+ P(A)>0,\quad Q(A)=0\quad\Longrightarrow\quad D_{KL}(P\|Q)=\infty.
+\]
+\begin{itemize}
+\item $Q$ must cover the support of $P$; coverage alone does not guarantee finite KL.
+\item Disjoint supports give infinite KL regardless of their separation.
+\item Near-zero estimated $q$ can produce unstable scores.
+\end{itemize}
+\[
+ P=(0.5,0.5),\quad Q=(1,0):\qquad
+ D_{KL}(P\|Q)=\infty,\quad D_{KL}(Q\|P)=\ln2.
+\]
+\end{frame}
 
 	% --- Jensen-Shannon ---
 	\begin{frame}{Jensen--Shannon Divergence (JSD)}
@@ -275,47 +248,52 @@
 	\end{frame}
 
 	\begin{frame}{JSD Saturates for Non-Overlapping Distributions}
-		\small
-		If $P$ and $Q$ do not overlap at all, $JSD=\log 2$, its maximum, \emph{whatever the distance between them}.
-		The number no longer says whether $Q$ is nearby or far away.
-		A model that wants to move $Q$ closer to $P$ then receives no signal from JSD, because small moves leave the value unchanged (a ``vanishing gradient'' for learning).
-
-		\medskip
-		The same issue appears for real data: when new data fall in a region where the reference density is about zero, KL and JSD report ``completely different'' without saying how different.
-
-		\takeaway{KL and JSD detect that distributions differ, but not how far apart they are.}
-	\end{frame}
+\small
+\[
+ \operatorname{supp}(P)\cap\operatorname{supp}(Q)=\varnothing
+ \quad\Longrightarrow\quad JSD(P\|Q)=\log2.
+\]
+\begin{itemize}
+\item Nearby and distant disjoint distributions receive the same maximum score.
+\item Small moves preserving disjointness leave JSD unchanged.
+\item This plateau can deprive a generator of a useful learning signal.
+\item Near-disjoint distributions approach the plateau; KL may instead diverge.
+\end{itemize}
+\end{frame}
 
 	% --- Optimal Transport ---
 	\begin{frame}{Wasserstein Distance: The Idea}
-		\small
-		Think of $P$ as a pile of earth and $Q$ as the shape we want to rebuild with it.
-		Moving mass costs \emph{amount moved} $\times$ \emph{distance moved}.
-
-		\begin{itemize}
-			\item The \textbf{Wasserstein distance} is the cost of the \emph{cheapest} way to reshape $P$ into $Q$ (hence the name ``earth mover's distance'').
-			\item It uses the geometry of the space: moving mass farther costs more, even when $P$ and $Q$ do not overlap.
-		\end{itemize}
-
-		\textbf{Example in 1-D:} $P$ has all its mass at $0$ and $Q$ has all its mass at $a>0$.
-		Moving the mass one unit of distance per unit of mass costs exactly $a$, so $W=a$.
-
-		\takeaway{Wasserstein measures how far mass must travel, so it keeps growing as distributions move apart.}
-	\end{frame}
+\small
+\centering
+\begin{tikzpicture}[>=stealth,scale=1.4,transform shape]
+\fill[ntuablue] (0,0) circle (4pt) node[below] {$P=\delta_0$};
+\fill[orange] (6,0) circle (4pt) node[below] {$Q=\delta_a$};
+\draw[->,thick] (0,0.5)--node[above] {move unit mass a distance $a$} (6,0.5);
+\end{tikzpicture}
+\[
+ \text{transport cost}=\text{mass}\times\text{distance},\qquad W_1(\delta_0,\delta_a)=|a|.
+\]
+\raggedright
+\begin{itemize}
+\item Find the cheapest redistribution of $P$ into $Q$.
+\item Preserve all mass; use the geometry of the underlying space.
+\item Separation remains informative even for disjoint supports.
+\end{itemize}
+\end{frame}
 
 	\begin{frame}{Wasserstein Distance: The Definition}
-		\small
-		\begin{block}{Order-$p$ Wasserstein distance}
-			$$ W_p(P, Q) = \left( \inf_{\gamma \in \Pi(P, Q)} \int d(x, y)^p \, d\gamma(x, y) \right)^{1/p} $$
-		\end{block}
-		\begin{itemize}
-			\item $d(x,y)$: distance between points $x$ and $y$ (e.g.\ Euclidean); it is the cost of moving one unit of mass from $x$ to $y$.
-			\item $\gamma(x,y)$: a \textbf{transport plan}, telling how much mass moves from $x$ to $y$.
-			\item $\Pi(P,Q)$: the set of \emph{allowed} plans: those that take exactly the mass of $P$ and deliver exactly the mass of $Q$.
-			\item $\inf$: take the cheapest allowed plan. $p=1$ ($W_1$) is the most common choice.
-		\end{itemize}
-		\takeaway{$W_p$ is the average cost per unit of mass of the cheapest plan that turns $P$ into $Q$.}
-	\end{frame}
+\small
+For $p\ge1$ and distributions with finite $p$th moments,
+\[
+ W_p(P,Q)=\left(\inf_{\gamma\in\Pi(P,Q)}\int d(x,y)^p\,d\gamma(x,y)\right)^{1/p}.
+\]
+\begin{itemize}
+\item $d(x,y)$: ground metric, such as Euclidean distance.
+\item $\gamma$: transport plan assigning mass to source--destination pairs.
+\item $\Pi(P,Q)$: plans whose marginals equal $P$ and $Q$.
+\item Minimize transport cost, then take the $p$th root; $W_1$ uses cost proportional to distance.
+\end{itemize}
+\end{frame}
 
 	\begin{frame}{Wasserstein Distance: A Picture}
 		\small
@@ -326,6 +304,7 @@
 				\includegraphics[width=\linewidth]{optimal-transport.png}
 			\end{figure}
 			\column{0.58\textwidth}
+\[W_1(P,Q)=\inf_{\gamma\in\Pi(P,Q)}\int d(x,y)\,d\gamma(x,y).\]
 			\begin{itemize}
 				\item Top: source density $P(x)$. Left: target density $Q(y)$.
 				\item The curve shows where the cheapest plan sends mass that starts at $x$.
@@ -353,7 +332,7 @@
 				\bottomrule
 			\end{tabular}
 		\end{table}
-		For real, smooth densities the KL and JSD values are finite but saturate in the same way once the overlap is negligible.
+		For Gaussian densities with equal variance, KL grows quadratically with the shift; JSD approaches its bound. Smoothness alone does not imply finite KL.
 		$W_1$ for a pure translation equals the size of the shift, $|a|$.
 
 		\takeaway{only Wasserstein still reports how far apart two non-overlapping distributions are.}
@@ -362,12 +341,6 @@
 	% ==============================================================================
 	% SECTION 3: APPLICATIONS
 	% ==============================================================================
-	\begin{frame}{Recap: Comparing Two Distributions}
-		\small
-		We learned that KL is asymmetric and can be infinite, JSD is bounded but saturates, and only Wasserstein keeps growing with the gap;
-		next we use these measures for drift detection and for training generative models.
-	\end{frame}
-
 	\section{Applications in ML Engineering}
 	\sectiondivider{Applications in ML Engineering}
 
@@ -379,7 +352,7 @@
 
 			\vspace{0.8em}
 			We compare a \emph{reference} sample (training data) with a \emph{current} sample (live data).
-			If the new data move to where the reference density is about zero, KL and JSD saturate.
+			When overlap vanishes, KL can diverge and JSD saturates.
 
 			\column{0.6\textwidth}
 			\begin{figure}
@@ -392,52 +365,50 @@
 	\end{frame}
 
 	\begin{frame}{Application 1: A Drift Alarm with $W_1$}
-		\small
-		\begin{enumerate}
-			\item At regular intervals (e.g.\ daily), compute $W_1(P_{\mathrm{ref}},P_{\mathrm{curr}})$ between the reference sample and the current sample.
-			\item Choose a threshold $\tau$ from the day-to-day fluctuation of $W_1$ in a period known to be stable.
-			\item Raise an alarm, and consider retraining, when $W_1>\tau$.
-		\end{enumerate}
-
-		\textbf{Reading the number.} $W_1$ is in the units of the feature.
-		For a pure translation of the data by $a$, $W_1=|a|$ exactly, so the alarm level has a direct meaning
-		(``the feature has moved by about $\tau$'').
-		For other changes, such as wider spread or a new mode, $W_1$ still grows with how far mass must move, but not by a simple rule.
-
-		\takeaway{$W_1$ gives a drift score in the feature's own units; set $\tau$ from the normal fluctuation, not by guessing.}
-	\end{frame}
+\small
+\[
+ s_t=W_1(\widehat P_{\mathrm{ref}},\widehat P_t),\qquad
+ \mathrm{alarm}_t=\mathbf1\{s_t>\tau\}.
+\]
+\begin{enumerate}
+\item Compare a fixed reference sample with each current window.
+\item Calibrate $\tau$ using stable periods with comparable window sizes.
+\item Investigate an exceedance before deciding whether to retrain.
+\end{enumerate}
+\begin{itemize}
+\item $W_1$ has the feature's units; a pure translation by $a$ gives $W_1=|a|$.
+\item Spread or mode changes require transport too; the score is not generally a mean shift.
+\end{itemize}
+\end{frame}
 
 	\begin{frame}{Application 2: Wasserstein GANs}
-		\small
-		A \textbf{generative adversarial network (GAN)} trains a generator so that its samples $P_g$ look like real data $P_r$.
-		A second network, the \emph{critic}, scores how real a sample looks, and the generator learns from the critic's feedback.
-
-		\begin{itemize}
-			\item The original GAN loss corresponds to the JSD between $P_r$ and $P_g$ when the critic is optimal.
-			\item Early in training $P_g$ and $P_r$ barely overlap, so JSD is nearly constant and gives the generator little to learn from.
-			\item A \textbf{WGAN} uses $W_1$ instead, which keeps telling the generator how far its samples are from the data.
-		\end{itemize}
-
-		\takeaway{replacing JSD by $W_1$ gives the generator a useful signal even when real and generated data do not overlap.}
-	\end{frame}
+\small
+\[
+ z\sim P_z\ \xrightarrow{\ G_\theta\ }\ G_\theta(z)\sim P_g,
+ \qquad\text{aim: }P_g\approx P_r.
+\]
+\begin{itemize}
+\item Generator: produces samples. Critic: scores real and generated samples.
+\item The original minimax GAN objective corresponds to JSD for an optimal discriminator.
+\item With little overlap, JSD approaches a plateau.
+\item WGAN uses a constrained critic to approximate $W_1$, retaining sensitivity to separation.
+\end{itemize}
+\end{frame}
 
 	\begin{frame}{WGAN: The Critic Must Be 1-Lipschitz}
-		\small
-		$W_1$ is not computed from the plan directly. The critic $f$ is trained so that the average score on real data exceeds the average score on generated data by as much as possible,
-		\emph{provided $f$ is not allowed to change too fast}. That condition is called \textbf{1-Lipschitz}:
-		if the input moves by a distance $\delta$, the output changes by at most $\delta$ (the slope never exceeds 1).
-		The exact statement is in the appendix.
-
-		\medskip
-		Two common ways to enforce it in a neural-network critic:
-		\begin{itemize}
-			\item \textbf{Gradient penalty:} add a loss term that punishes the critic wherever its slope differs from 1 on sampled points.
-			\item \textbf{Spectral normalization:} rescale every weight matrix by its largest stretching factor, so that no layer can amplify differences.
-		\end{itemize}
-		Reported benefit: more stable training, and a loss value that tracks sample quality better than the original GAN loss.
-
-		\takeaway{the 1-Lipschitz limit is what turns the critic's score gap into the Wasserstein distance.}
-	\end{frame}
+\small
+For distributions with finite first moments,
+\[
+ W_1(P_r,P_g)=\sup_{\|f\|_L\le1}\big(\E_{P_r}f-\E_{P_g}f\big),\qquad
+ |f(x)-f(y)|\le d(x,y)\quad\forall x,y.
+\]
+\begin{itemize}
+\item Train a neural critic to maximize the score gap under this constraint.
+\item Gradient penalty encourages unit gradient norm on sampled interpolants; it is not a global guarantee.
+\item Spectral normalization bounds layer amplification; the complete network must respect the Lipschitz bound.
+\item A restricted, imperfectly optimized critic approximates the supremum.
+\end{itemize}
+\end{frame}
 
 	\begin{frame}{Which Measure for Which Job?}
 		\small
@@ -463,12 +434,6 @@
 	% ==============================================================================
 	% APPENDIX
 	% ==============================================================================
-	\begin{frame}{Recap: Applications}
-		\small
-		We learned that $W_1$ gives a drift score in the feature's own units and a training signal for generators when distributions do not overlap;
-		the appendix holds the derivations and formulations left out above.
-	\end{frame}
-
 	\appendix
 	\sectiondivider{Appendix: optional depth}
 
@@ -478,8 +443,7 @@
 		The \emph{mean integrated squared error} (MISE) is the average, over samples, of $\int(\hat f_h-f)^2dx$.
 		For large $n$ and small $h$ it is approximated by the \textbf{AMISE} (``asymptotic'' MISE):
 		$$ \text{AMISE}(h) = \underbrace{\frac{R(K)}{nh}}_{\text{variance}} + \underbrace{\tfrac{1}{4} h^4 \mu_2(K)^2 R(f'')}_{\text{squared bias}} $$
-		where $R(g)=\int g(x)^2dx$ measures the size (roughness) of a function $g$,
-		$\mu_2(K)=\int u^2K(u)\,du$ is the variance of the bump, and $f''$ is the curvature of the true density.
+		where $R(g)=\int g^2$, $\mu_2(K)=\int u^2K(u)\,du$, and $f''$ is the density curvature.
 
 		\medskip
 		Setting $\frac{d}{dh}\text{AMISE}(h) = -\frac{R(K)}{nh^2} + h^3 \mu_2(K)^2 R(f'') = 0$ gives
@@ -502,17 +466,14 @@
 
 	\begin{frame}{Appendix: Robust Silverman Rule and LSCV}
 		\small
-		\textbf{Robust rule.} The sample standard deviation $\hat\sigma$ is inflated by outliers.
-		The \emph{interquartile range} (IQR) is the distance between the 75th and 25th percentiles of the sample;
-		for a Normal distribution $\mathrm{IQR}\approx 1.34\,\sigma$. A robust rule is
+		\textbf{Robust rule.} IQR is the 75th minus 25th percentile; for Normal data, $\mathrm{IQR}\approx1.34\sigma$. Use
 		$$ h = 0.9\,\min\!\left(\hat\sigma,\ \frac{\mathrm{IQR}}{1.34}\right) n^{-1/5}. $$
 
 		\medskip
 		\textbf{Least-squares cross-validation (LSCV).} Choose the $h$ that minimizes
 		$$ \mathrm{LSCV}(h)=\int \hat f_h(x)^2\,dx-\frac{2}{n}\sum_{i=1}^n \hat f_{h,-i}(X_i), $$
 		where $\hat f_{h,-i}$ is the KDE built \emph{without} sample $X_i$.
-		The sum rewards bandwidths that predict each left-out sample well; the first term penalizes overly spiky curves.
-		LSCV does not assume a Normal shape, so it copes better with several peaks, but it is noisier.
+		The first term penalizes roughness; the second rewards leave-one-out fit. LSCV avoids the Normal assumption but can be noisy.
 	\end{frame}
 
 	\begin{frame}{Appendix: Marginal Constraints of the Transport Plan}
@@ -541,8 +502,8 @@
 		\small
 		For $p=1$, the Wasserstein distance has the dual form
 		$$ W_1(P_r, P_g) = \sup_{\|f\|_L \le 1} \ \E_{x \sim P_r}[f(x)] - \E_{x \sim P_g}[f(x)], $$
-		where $\|f\|_L\le 1$ means $f$ is \textbf{1-Lipschitz}: $|f(x)-f(y)|\le d(x,y)$ for all $x,y$.
-		In a WGAN the critic is a neural network $f_w$ that approximates the maximizing $f$.
+		with the \textbf{1-Lipschitz} constraint $|f(x)-f(y)|\le d(x,y)$ for all $x,y$.
+		A neural critic $f_w$ approximates the maximizer.
 
 		\begin{itemize}
 			\item \textbf{Gradient penalty:} add $\lambda\,\E_{\hat x}\big[(\|\nabla_{\hat x} f_w(\hat x)\|_2-1)^2\big]$ to the critic loss, with $\hat x$ sampled between real and generated points.

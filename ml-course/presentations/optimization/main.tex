@@ -33,37 +33,23 @@
   \makepresentationtitle
 \end{frame}
 
-\begin{frame}{Roadmap}
-  \begin{enumerate}
-    \item Training as a search for the lowest loss
-    \item Gradient descent: walk downhill
-    \item Curvature: why one step size does not fit all
-    \item Mini-batches: cheaper, noisier gradients
-    \item Momentum: remember the direction
-    \item Per-parameter step sizes: AdaGrad and RMSProp
-    \item Adam: momentum and per-parameter step sizes together
-    \item Why Adam: a fair experiment
-    \item What to use in practice
-  \end{enumerate}
-  \takeaway{Each part fixes a problem of the part before it; Adam is where they meet.}
-\end{frame}
-
 % ------------------------------------------------------------ 1. The search
 \section{The search}
 \sectiondivider{1. Training Is a Search for the Lowest Loss}
 
 \begin{frame}{Training Means Finding Good Parameters}
+  \small
   A model has \textbf{parameters} $\boldsymbol\theta$ (all its weights and biases).
   The \textbf{loss} measures how badly the model does on the training data:
   \[
-    L(\boldsymbol\theta)=\frac1n\sum_{i=1}^{n}\ell\bigl(f_{\boldsymbol\theta}(\mathbf x_i),y_i\bigr)
+    \boldsymbol\theta^\star\in\arg\min_{\boldsymbol\theta}L(\boldsymbol\theta),\qquad L(\boldsymbol\theta)=\frac1n\sum_{i=1}^{n}\ell\bigl(f_{\boldsymbol\theta}(\mathbf x_i),y_i\bigr)
   \]
-  the average error over the $n$ training samples.
+  Here $f_{\boldsymbol\theta}$ is the model, $(\mathbf x_i,y_i)$ is one input--target pair, and $\ell$ is its prediction loss; $L$ averages the $n$ losses.
   \begin{itemize}
     \item Different $\boldsymbol\theta$ give different losses; small loss means a good fit.
     \item \textbf{Optimization} is the search for the $\boldsymbol\theta$ with the smallest $L$.
   \end{itemize}
-  \takeaway{So: training is minimizing a function, and the rest of this lecture is how to do it well.}
+
 \end{frame}
 
 \begin{frame}{The Loss Is a Landscape}
@@ -77,15 +63,22 @@
 \end{frame}
 
 \begin{frame}{Minima, Saddles, and What We Can See}
-  \begin{itemize}
-    \item A \textbf{minimum} is a point lower than everything around it. With several valleys, the
-      lowest one is the \textbf{global} minimum and the others are \textbf{local} minima.
-    \item A \textbf{saddle} is flat in the middle but goes down one way and up the other,
-      like a mountain pass.
-    \item We cannot see the whole landscape. At each point we can only measure the
-      \emph{slope under our feet}, and that is all an optimizer gets.
-  \end{itemize}
-  \takeaway{So: every method in this lecture is a rule for turning the local slope into the next step.}
+  \begin{center}
+  \begin{tikzpicture}[scale=0.85]
+    \draw[->] (-2.4,0)--(2.4,0) node[right] {\(\theta\)};
+    \draw[courseblue,thick,domain=-2:2,samples=50] plot (\x,{0.5*\x*\x});
+    \fill[coursegreen] (0,0) circle (3pt) node[below] {minimum: \(L=\theta^2/2\)};
+    \draw[->,coursered,thick] (1.2,0.72)--(1.9,1.56) node[right] {\(\nabla L\): uphill};
+    \begin{scope}[xshift=7cm]
+      \draw[courseblue,thick,domain=-1.8:1.8] plot (\x,{0.45*\x*\x});
+      \draw[courseorange,thick,domain=-1.8:1.8] plot ({0.6*\x},{-0.45*\x*\x});
+      \fill (0,0) circle (3pt) node[right] {saddle};
+      \node[below,align=center] at (0,-1.7) {\(L=(\theta_1^2-\theta_2^2)/2\)\\up one direction, down the other};
+    \end{scope}
+  \end{tikzpicture}
+  \end{center}
+  \[\nabla L=\mathbf0\text{ at both};\qquad H_{ij}=\frac{\partial^2L}{\partial\theta_i\partial\theta_j}.\]
+  Positive Hessian eigenvalues give a bowl; mixed signs give a saddle. The Hessian measures how the gradient changes.
 \end{frame}
 
 % ------------------------------------------------------------ 2. Gradient descent
@@ -122,21 +115,19 @@
 \end{frame}
 
 \begin{frame}{A Worked Example with One Parameter}
-  Take $L(\theta)=\theta^2$, so the slope is $2\theta$. Start at $\theta^{(0)}=3$ with $\eta=0.1$.
+  \(L(\theta)=\theta^2\), \(\nabla L=2\theta\); start at \(\theta^{(0)}=3\), \(\eta=0.1\).
   \begin{center}
-    \begin{tabular}{rrrr}
-      \toprule
-      update $t$ & $\theta^{(t)}$ & slope $2\theta^{(t)}$ & loss $\theta^2$ \\
-      \midrule
-      0 & 3.000 & 6.000 & 9.00 \\
-      1 & 2.400 & 4.800 & 5.76 \\
-      2 & 1.920 & 3.840 & 3.69 \\
-      3 & 1.536 & 3.072 & 2.36 \\
-      \bottomrule
-    \end{tabular}
+  \begin{tikzpicture}[x=1.6cm,y=0.35cm]
+    \draw[->] (-0.4,0)--(3.7,0) node[right] {\(\theta\)};
+    \draw[->] (0,0)--(0,11) node[above] {\(L\)};
+    \draw[courseblue,thick,domain=0:3.2,samples=60] plot (\x,{\x*\x});
+    \fill[courseorange] (3,9) circle (2pt) node[right] {\((3,9)\)};
+    \fill[coursegreen] (2.4,5.76) circle (2pt) node[left] {\((2.4,5.76)\)};
+    \draw[-{Latex},very thick,coursered] (3,9)--(2.4,5.76);
+    \draw[<->] (2.4,1)--node[above] {\(\eta\nabla L=0.6\)} (3,1);
+  \end{tikzpicture}
   \end{center}
-  Each step is $\eta\times$ slope: $0.1\times 6=0.6$, then $0.1\times4.8=0.48$, and so on.
-  \takeaway{So: steps shrink on their own as the slope flattens near the minimum.}
+  \[\theta^{(1)}=3-0.1\times6=2.4,\qquad L(2.4)=5.76<9.\]
 \end{frame}
 
 \begin{frame}{The Learning Rate Sets the Step Size}
@@ -173,19 +164,24 @@
 \end{frame}
 
 \begin{frame}{The Hessian Collects the Curvature}
-  With many parameters the curvature can differ from direction to direction. The matrix of all
-  second derivatives, the \textbf{Hessian} $\mathbf H$, records it.
+  \[H_{ij}=\frac{\partial^2L}{\partial\theta_i\partial\theta_j},\qquad
+    H\mathbf q_j=\lambda_j\mathbf q_j\]
+  \[L(\boldsymbol\theta+\boldsymbol\delta)\approx
+    L(\boldsymbol\theta)+\nabla L^\top\boldsymbol\delta+	frac12\boldsymbol\delta^\top H\boldsymbol\delta\]
   \begin{itemize}
-    \item Large curvature along a direction: steep walls; only small steps are safe there.
-    \item Small curvature along a direction: a flat floor; progress is slow unless steps are large.
-    \item The loss near a minimum looks like a bowl whose shape is given by $\mathbf H$.
+    \item Eigenvector \(\mathbf q_j\): a curvature direction; \(\lambda_j\): its curvature.
+    \item Large positive \(\lambda_j\): steep wall, small stable step.
+    \item Small positive \(\lambda_j\): flat floor, slow progress.
+    \item Near a nondegenerate minimum, \(H\succ0\) gives a local bowl.
   \end{itemize}
-  \takeaway{So: curvature decides how large a step can be and how the valley is shaped; the Hessian is just its bookkeeping.}
 \end{frame}
 
 \begin{frame}{Steep and Flat Together Make a Narrow Valley}
+  \small
   \centering
-  \includegraphics[width=0.96\linewidth,height=0.58\textheight,keepaspectratio]{conditioning.png}
+  \includegraphics[width=0.90\linewidth,height=0.43\textheight,keepaspectratio]{conditioning.png}
+  \[L=\tfrac12\boldsymbol\theta^\top H\boldsymbol\theta,\quad H\succ0,\quad\kappa=\frac{\lambda_{\max}(H)}{\lambda_{\min}(H)}.\]
+  \small Round: \(\kappa=1\). Narrow: \(\kappa\gg1\), so steep curvature limits the step.
   \begin{itemize}
     \item In the round bowl one step goes straight to the minimum.
     \item In the narrow valley the steep direction forces a small $\eta$; gradient descent bounces
@@ -194,32 +190,22 @@
 \end{frame}
 
 \begin{frame}{Standardizing Inputs Rounds the Valley}
-  Features measured in very different units create a narrow valley: a weight on a
-  feature in the thousands has a steep loss, a weight on a feature near $0.01$ has a flat one.
+  \[\boxed{x_j^{\mathrm{std}}=\frac{x_j-\mu_j}{s_j}}\qquad(s_j>0)\]
   \begin{itemize}
-    \item \textbf{Standardizing} the features (subtract the mean, divide by the standard deviation)
-      puts them on one scale and makes the valley rounder.
-    \item It is a cheap, reliable fix and is covered in the supervised-learning lecture.
-    \item It cannot remove all curvature differences, for example between layers of a network.
+    \item Fit feature means \(\mu_j\) and standard deviations \(s_j\) on the training set.
+    \item Unequal feature units can create unequal curvature; standardization often rounds the valley.
+    \item Constant features need separate handling (no division by zero).
+    \item Correlations and unequal layer scales can remain; coordinate scaling cannot remove every narrow valley.
   \end{itemize}
-  \takeaway{So: standardize inputs first; the optimizers that follow help with what is left.}
+  Preprocessing details: supervised-learning lecture.
 \end{frame}
 
 % ------------------------------------------------------------ 4. Mini-batches
 \section{Mini-batches}
 \sectiondivider{4. Mini-Batches: Cheaper, Noisier Gradients}
 
-\begin{frame}{The Exact Gradient Is Expensive}
-  The loss is an average over all $n$ training samples, so its gradient is too:
-  \[
-    \nabla L(\boldsymbol\theta)=\frac1n\sum_{i=1}^{n}\nabla\ell_i(\boldsymbol\theta).
-  \]
-  With millions of samples, one exact gradient means one pass over all the data, just to take a
-  single small step.
-  \takeaway{So: we want a cheaper estimate of the gradient.}
-\end{frame}
-
 \begin{frame}{A Mini-Batch Estimates the Gradient}
+  \small
   Average the gradient over a random subset $\mathcal B$ of $b$ samples instead:
   \[
     \mathbf g=\frac1b\sum_{i\in\mathcal B}\nabla\ell_i(\boldsymbol\theta)
@@ -240,13 +226,15 @@
 \end{frame}
 
 \begin{frame}{Noise Buys Speed and Costs Precision}
+  \small
   \centering
-  \includegraphics[width=0.92\linewidth,height=0.44\textheight,keepaspectratio]{gd-vs-sgd.png}
+  \[\underbrace{\nabla L=\frac1n\sum_{i=1}^n\nabla\ell_i}_{\text{full batch: exact}}\qquad\underbrace{\mathbf g=\frac1b\sum_{i\in\mathcal B}\nabla\ell_i}_{\text{mini-batch: cheap, noisy}}\]
+  \includegraphics[width=0.86\linewidth,height=0.30\textheight,keepaspectratio]{gd-vs-sgd.png}
   \begin{itemize}
     \item Mini-batch paths wander but head the right way, at a fraction of the cost per update.
     \item With a constant $\eta$ they never settle exactly; a larger batch gives less noise.
   \end{itemize}
-  \takeaway{So: mini-batches make progress cheaply, but need a way to settle near the end.}
+
 \end{frame}
 
 \begin{frame}{Shrink the Learning Rate to Settle Down}
@@ -262,16 +250,6 @@
 % ------------------------------------------------------------ 5. Momentum
 \section{Momentum}
 \sectiondivider{5. Momentum: Remember the Direction}
-
-\begin{frame}{Momentum: A Rolling Ball}
-  In a narrow valley the gradient across the valley flips sign every step, while the gradient
-  along the valley keeps pointing the same way.
-  \begin{itemize}
-    \item Idea: average the recent gradients, like a ball that keeps rolling.
-    \item The back-and-forth parts cancel; the consistent part adds up.
-  \end{itemize}
-  \takeaway{So: remembering past gradients damps the zig-zag and speeds up the steady direction.}
-\end{frame}
 
 \begin{frame}{The Momentum Update}
   \[
@@ -289,8 +267,10 @@
 \end{frame}
 
 \begin{frame}{Momentum in the Valley}
+  \small
   \centering
-  \includegraphics[width=0.96\linewidth,height=0.58\textheight,keepaspectratio]{momentum-paths.png}
+  \[\mathbf v^{(t)}=\beta\mathbf v^{(t-1)}+\mathbf g^{(t)},\qquad\boldsymbol\theta^{(t+1)}=\boldsymbol\theta^{(t)}-\eta\mathbf v^{(t)}\]
+  \includegraphics[width=0.90\linewidth,height=0.43\textheight,keepaspectratio]{momentum-paths.png}
   \begin{itemize}
     \item Same valley, same $\eta$, same 25 updates: gradient descent is still crawling,
       momentum has arrived (and overshoots a little on the way).
@@ -319,6 +299,7 @@
 \end{frame}
 
 \begin{frame}{AdaGrad: Divide by the History of Gradient Size}
+  \small
   \[
     \mathbf s^{(t)}=\mathbf s^{(t-1)}+\mathbf g^{(t)}\odot\mathbf g^{(t)}
   \]
@@ -326,7 +307,7 @@
     \boldsymbol\theta^{(t+1)}=\boldsymbol\theta^{(t)}-\eta\,\frac{\mathbf g^{(t)}}{\sqrt{\mathbf s^{(t)}}+\varepsilon}
   \]
   $\mathbf s$ adds up the squared gradient of each parameter ($\odot$ is element-wise product),
-  so $\sqrt{\mathbf s}$ is the typical gradient size of that parameter. Example, gradients
+  so $\sqrt{\mathbf s}$ is the accumulated gradient magnitude of that parameter. Example, gradients
   $10,8,9$ for A and $0.1,0.08,0.09$ for B:
   \begin{center}
     \begin{tabular}{lccc}
@@ -352,7 +333,8 @@
   \[
     \mathbf s^{(t)}=\rho\,\mathbf s^{(t-1)}+(1-\rho)\,\mathbf g^{(t)}\odot\mathbf g^{(t)}
   \]
-  and uses the same update as AdaGrad. $\rho$ (typically $0.9$) sets the memory.
+  \[\boldsymbol\theta^{(t+1)}=\boldsymbol\theta^{(t)}-\eta\,\frac{\mathbf g^{(t)}}{\sqrt{\mathbf s^{(t)}}+\varepsilon}.\]
+  $\rho$ (typically $0.9$) sets the memory; old large gradients fade rather than shrinking all later steps.
   \takeaway{So: RMSProp keeps AdaGrad's per-parameter scaling without the permanent slowdown.}
 \end{frame}
 
@@ -363,13 +345,13 @@
 \begin{frame}{Adam Combines Both Ideas}
   \centering
   \begin{tikzpicture}[
-    box/.style={draw,rounded corners,text width=3.7cm,minimum height=0.95cm,align=center,very thick,font=\small},
+    box/.style={draw,rounded corners,text width=4.4cm,minimum height=0.95cm,align=center,very thick,font=\small},
     flow/.style={-{Latex[length=3mm]},very thick,courseblue}
   ]
     \node[box,fill=courselightblue] (gradient) at (0,0) {gradient $\mathbf g^{(t)}$};
-    \node[box,fill=coursegreen!18] (first) at (-2.5,-1.8) {$\mathbf m$: smoothed gradient\\(momentum: direction)};
-    \node[box,fill=coursepurple!18] (second) at (2.5,-1.8) {$\mathbf v$: average of $\mathbf g^2$\\(RMSProp: scale)};
-    \node[box,fill=courselightorange] (update) at (0,-3.6) {update $-\eta\,\mathbf m/\sqrt{\mathbf v}$};
+    \node[box,fill=coursegreen!18] (first) at (-2.5,-1.8) {$\mathbf m_t=\beta_1\mathbf m_{t-1}+(1-\beta_1)\mathbf g_t$\\smoothed direction};
+    \node[box,fill=coursepurple!18] (second) at (2.5,-1.8) {$\mathbf v_t=\beta_2\mathbf v_{t-1}+(1-\beta_2)\mathbf g_t^2$\\recent squared scale};
+    \node[box,fill=courselightorange] (update) at (0,-3.6) {update $-\eta\,\widehat{\mathbf m}/(\sqrt{\widehat{\mathbf v}}+\varepsilon)$};
     \draw[flow] (gradient) -- (first);
     \draw[flow] (gradient) -- (second);
     \draw[flow] (first) -- (update);
@@ -413,8 +395,8 @@
     \end{tabular}
   \end{center}
   The corrected values are the true ones ($2$ and $2^2$), so the first step is
-  $\eta\cdot2/\sqrt4=\eta$ instead of a tiny, misleading number. The correction fades as $t$ grows.
-  \takeaway{So: the hats make Adam's very first steps as trustworthy as its later ones.}
+  $\eta\cdot2/\sqrt4=\eta$ instead of the uncorrected step of approximately $3.16\eta$. The correction fades as $t$ grows.
+  \takeaway{So: the hats make Adam's very first steps correctly normalized despite zero-initialized moment estimates.}
 \end{frame}
 
 % ------------------------------------------------------------ 8. Why Adam
@@ -422,16 +404,21 @@
 \sectiondivider{8. Why Adam: A Fair Experiment}
 
 \begin{frame}{The Test: Same Budget, Each Method Tuned}
-  \begin{itemize}
-    \item \textbf{Task:} a small network (two hidden layers of 24 tanh units) fits noisy samples of
-      a smooth curve with two inputs. 256 training samples, 512 test samples.
-    \item \textbf{Budget:} 40 epochs, mini-batches of 32, identical data, start and batch order for
-      every method; results averaged over 5 random starts.
-    \item \textbf{Fairness:} each method gets its own best learning rate from a log-spaced grid
-      ($10^{-4}$ to $1$). GD, momentum ($\beta=0.9$), RMSProp ($\rho=0.9$) and Adam (defaults) compete.
-    \item \textbf{Two versions:} the second input is either as large as the first, or 50 times smaller.
-  \end{itemize}
-  \takeaway{So: any difference in the result comes from the method, not from tuning luck or budget.}
+  \small
+  \begin{center}
+  \begin{tabular}{@{}lp{8.0cm}@{}}
+    \toprule
+    Task & Two-input smooth-curve regression; noisy samples; two hidden layers, 24 tanh units each.\\
+    Data & 256 training and 512 test samples.\\
+    Budget & 40 epochs, batch size 32; average over 5 starts.\\
+    Controls & Same data, initialization and batch order for all methods.\\
+    Methods & GD; momentum (\(\beta=0.9\)); RMSProp (\(\rho=0.9\)); Adam (defaults).\\
+    Tuning & Each method searches learning rates \(10^{-4}\) to \(1\) on a log grid.\\
+    Scale test & Second input: same scale, or \(50\) times smaller.\\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  Test loss selects the rate: this is an illustrative comparison, not an unbiased final evaluation.
 \end{frame}
 
 \begin{frame}{Result: Test Loss against Learning Rate}
@@ -443,40 +430,26 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}{The Numbers}
-  \centering
-  \small
-  \input{assets/generated/adam-table.tex}
-
-  \normalsize
-  \begin{itemize}
-    \item Inputs of very different size: Adam's loss is about $6$ times smaller than GD's and
-      momentum's, and $3.5$ times smaller than RMSProp's.
-    \item Inputs of similar size: Adam is still best, but the others are close; tuned momentum is a strong competitor.
-  \end{itemize}
-\end{frame}
-
 \begin{frame}{Training Curves at Each Method's Best Rate}
+  \small
   \centering
   \includegraphics[width=0.98\linewidth,height=0.56\textheight,keepaspectratio]{adam-curves.png}
   \begin{itemize}
-    \item Left: GD and momentum stall; RMSProp helps; Adam keeps improving.
+    \item Unequal scales (left): Adam keeps improving while GD and momentum stall. Its final test loss is about $6$ times smaller than theirs and $3.5$ times smaller than RMSProp's.
   \end{itemize}
   \takeaway{So: the advantage is not only at the end; Adam gets there faster.}
 \end{frame}
 
 \begin{frame}{Why Adam Wins Here, and What This Does Not Show}
+  \[\text{tiny input}\ \longrightarrow\ \text{small gradients}
+    \ \longrightarrow\ \text{slow unscaled updates}\]
   \begin{itemize}
-    \item The weights on the tiny input see tiny gradients. GD and momentum take tiny steps on
-      them; RMSProp and Adam divide by the gradient's own size, so those weights learn as fast
-      as the rest. Adam adds momentum on top.
-    \item Inputs could be standardized to avoid this particular case. Inside a network
-      we cannot: layers and weights end up with very different gradient sizes anyway, and
-      Adam handles that automatically.
-    \item This is one small task. With similar scales the gap was small, and a well-tuned
-      momentum method can match Adam. No optimizer wins everywhere.
+    \item \textbf{Mechanism:} RMSProp rescales coordinates; Adam also smooths directions.
+    \item \textbf{Alternative:} standardize inputs; internal scale differences can remain.
+    \item \textbf{Limit:} per-coordinate scaling cannot fully correct rotated valleys.
+    \item \textbf{Evidence:} one small task; similar scales give a smaller gap and competitive tuned momentum.
+    \item \textbf{Caveat:} rates were selected using test loss; a separate held-out evaluation is needed for an unbiased estimate.
   \end{itemize}
-  \takeaway{So: Adam is the best default because it copes with uneven scales and needs little care, not because it always wins.}
 \end{frame}
 
 % ------------------------------------------------------------ 9. Practice
@@ -533,15 +506,15 @@
 \end{frame}
 
 \begin{frame}{Step-Size Limit on a Quadratic Bowl (Special Case)}
-  \textbf{Scope: this holds exactly for a quadratic} $L=\tfrac12\boldsymbol\theta^\top\mathbf H\boldsymbol\theta$
-  with $\mathbf H$ positive definite, not for general losses. Along an eigenvector of $\mathbf H$ with
-  eigenvalue $\lambda_j$ (curvature in that direction), gradient descent multiplies the error by $1-\eta\lambda_j$.
+  \textbf{Exact scope:} \(L=\tfrac12\boldsymbol\theta^\top H\boldsymbol\theta\), \(H\succ0\).
+  \[e_{j,t+1}=(1-\eta\lambda_j)e_{j,t},\qquad
+    \text{convergence}\iff0<\eta<\frac{2}{\lambda_{\max}}\]
+  \[\eta_\star=\frac{2}{\lambda_{\min}+\lambda_{\max}},\qquad
+    \frac{\|\mathbf e_{t+1}\|_2}{\|\mathbf e_t\|_2}\le\frac{\kappa-1}{\kappa+1},\quad
+    \kappa=\frac{\lambda_{\max}}{\lambda_{\min}}\]
   \begin{itemize}
-    \item It converges in every direction iff $0<\eta<2/\lambda_{\max}$.
-    \item The best constant step is $\eta=2/(\lambda_{\min}+\lambda_{\max})$; the error then shrinks
-      by $(\kappa-1)/(\kappa+1)$ per update, with condition number $\kappa=\lambda_{\max}/\lambda_{\min}$.
-    \item For a general smooth loss only a local version holds near a minimum, where $\mathbf H$
-      is the Hessian at that minimum. A global, sufficient bound exists if $\nabla L$ is $M$-Lipschitz: any $\eta<2/M$ decreases $L$.
+    \item General smooth loss: quadratic behavior is a \textbf{local approximation} near a nondegenerate minimum.
+    \item Global sufficient descent bound: \(0<\eta<2/M\) when \(\nabla L\) is \(M\)-Lipschitz; this alone does not imply convergence to a global minimum.
   \end{itemize}
 \end{frame}
 

@@ -25,13 +25,6 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.7cm,min
 \begin{document}
 \begin{frame}[plain]\makepresentationtitle\end{frame}
 
-\begin{frame}{Roadmap}
-  \tableofcontents
-  \vspace{0.3cm}
-
-  \textbf{So:} first the picture (points moving), then how to learn the motion, then how to use it.
-\end{frame}
-
 \section{Generation as Transport}
 \sectiondivider{Part 1: Generation as Transport}
 
@@ -44,9 +37,9 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.7cm,min
   \]
   \centering
   \begin{tikzpicture}[node distance=0.9cm]
-    \node[box,fill=courselightblue] (base) {noise\\\(p_0\)};
+    \node[box,fill=courselightblue] (base) {noise, \(t=0\)\\\(p_0\)};
     \node[box,fill=courselightorange,right=of base] (field) {time-dependent\\velocity field};
-    \node[box,fill=coursegreen!18,right=of field] (data) {data\\\(p_1\)};
+    \node[box,fill=coursegreen!18,right=of field] (data) {data, \(t=1\)\\\(p_1\)};
     \draw[flow] (base)--(field)--(data);
   \end{tikzpicture}
 
@@ -57,30 +50,17 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.7cm,min
   \textbf{So:} a generator is a rule for moving each noise point to a data point.
 \end{frame}
 
-\begin{frame}{Time Convention (Opposite to the Diffusion Deck)}
-  \begin{itemize}
-    \item \textbf{This deck:} \(t=0\) is \textbf{noise}, \(t=1\) is \textbf{data}; generation runs forward from \(0\) to \(1\).
-    \item \textbf{Diffusion deck:} \(t=0\) is data and \(t=T\) is noise; generation runs backward.
-    \item To translate: flow time \(t\) corresponds to diffusion step \(T(1-t)\).
-  \end{itemize}
-  The two decks use the same ideas with the clock running in opposite directions.
-
-  \medskip
-  \textbf{So:} whenever a formula here says \(t=1\), think ``finished sample''.
-\end{frame}
-
 \begin{frame}{A Velocity Field Tells Every Point Where to Go}
-  \[
-    \boxed{\frac{d\mathbf x_t}{dt}=\mathbf v_t(\mathbf x_t)},\qquad t\in[0,1].
-  \]
-  \begin{itemize}
-    \item \(\mathbf v_t(\mathbf x)\) is the \textbf{velocity field}: at time \(t\) and position \(\mathbf x\) it gives the speed and direction of motion.
-    \item Like wind on a map: a leaf dropped at \(\mathbf x_0\) is carried along.
-  \end{itemize}
-  \textbf{Example} (1D, constant field \(v_t(x)=2\)): a point starting at \(x_0=0.5\) is at \(x_t=0.5+2t\), so at \(x_1=2.5\).
-
-  \medskip
-  \textbf{So:} given the field and a starting point, the whole path is determined.
+  \begin{columns}[c]
+  \begin{column}{0.42\textwidth}
+    \[\boxed{\frac{d\mathbf x_t}{dt}=\mathbf v_t(\mathbf x_t)}\]
+    At position \(\mathbf x\) and time \(t\), the field gives a direction and speed. Following its arrows traces a path from noise to data.
+  \end{column}
+  \begin{column}{0.58\textwidth}
+    \includegraphics[width=\linewidth]{flow_matching_marginal_field.png}
+    \small Arrows: velocity; black curves: trajectories.
+  \end{column}
+  \end{columns}
 \end{frame}
 
 \begin{frame}{The Flow Map and the Learned Field}
@@ -111,15 +91,6 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.7cm,min
   \textbf{So:} choosing a velocity field is the same as choosing how the density changes in time.
 \end{frame}
 
-\begin{frame}{Recap of Part 1}
-  \begin{itemize}
-    \item Generating = moving noise points to data points along a velocity field.
-    \item The field fixes every path and how the density changes.
-    \item In this deck \(t=0\) is noise and \(t=1\) is data.
-  \end{itemize}
-  \textbf{Next:} how to train a network to represent a field that carries \(p_0\) to \(p_1\).
-\end{frame}
-
 \section{Learning the Velocity Field}
 \sectiondivider{Part 2: Learning the Velocity Field}
 
@@ -147,31 +118,21 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.7cm,min
   \textbf{So:} replace one hard global question by many easy per-pair questions.
 \end{frame}
 
-\begin{frame}{Conditional Paths: Pick a Pair, Pick a Path}
-  Let \(Z\) be a helper random variable that fixes one simple path (for us: a pair \(Z=(\mathbf x_0,\mathbf x_1)\)).
-  \begin{itemize}
-    \item \(p_t(\mathbf x\mid Z)\): where a point is at time \(t\) if it follows the path chosen by \(Z\).
-    \item \(\mathbf u_t(\mathbf x\mid Z)\): its velocity, known exactly because we chose the path.
-  \end{itemize}
-  Train on samples: draw \(Z\), draw a time \(t\), compute the point on the path, regress onto the pair's velocity:
-  \[
-    L_{\mathrm{CFM}}=\mathbb E\,\|\mathbf v_\theta(\mathbf x_t,t)-\mathbf u_t(\mathbf x_t\mid Z)\|^2.
-  \]
-  \textbf{So:} every training example is a point on a simple path with a known velocity.
-\end{frame}
-
 \begin{frame}{Rectified Flow: The Simplest Choice Is a Straight Line}
-  For a pair \((\mathbf x_0,\mathbf x_1)\) take the straight line between them:
-  \[
-    \boxed{\mathbf x_t=(1-t)\,\mathbf x_0+t\,\mathbf x_1},\qquad
-    \frac{d\mathbf x_t}{dt}=\mathbf x_1-\mathbf x_0 .
-  \]
-  \textbf{Example} (1D): \(x_0=-1\), \(x_1=3\). At \(t=0.25\) the point is at \(0\); its velocity is \(3-(-1)=4\) at all times.
-
-  \medskip
-  The loss becomes \(\mathbb E\|\mathbf v_\theta(\mathbf x_t,t)-(\mathbf x_1-\mathbf x_0)\|^2\): predict the displacement.
-
-  \textbf{So:} the training target is simply ``end minus start''.
+  Draw endpoints \(\mathbf x_0\sim p_0\), \(\mathbf x_1\sim p_1\) independently and \(t\sim U[0,1]\).
+  \begin{center}
+  \begin{tikzpicture}
+    \coordinate (a) at (0,0); \coordinate (b) at (8,0);
+    \draw[flow] (a)--(b);
+    \fill[courseblue] (a) circle (3pt) node[below] {noise \(\mathbf x_0\)};
+    \fill[coursegreen] (b) circle (3pt) node[below] {data \(\mathbf x_1\)};
+    \fill[courseorange] (3,0) circle (4pt) node[below] {\(\mathbf x_t\)};
+    \draw[flow,courseorange] (3,0.6)--node[above] {target velocity \(\mathbf x_1-\mathbf x_0\)} (6,0.6);
+  \end{tikzpicture}
+  \end{center}
+  \[\mathbf x_t=(1-t)\mathbf x_0+t\mathbf x_1,\qquad \frac{d\mathbf x_t}{dt}=\mathbf x_1-\mathbf x_0.\]
+  \[\boxed{L_{\mathrm{CFM}}=\mathbb E\|\mathbf v_\theta(\mathbf x_t,t)-(\mathbf x_1-\mathbf x_0)\|^2}\]
+  Each training pair supplies an intermediate point and its exact velocity target.
 \end{frame}
 
 \begin{frame}{Coupling: How Noise Points Are Paired With Data Points}
@@ -207,7 +168,8 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.7cm,min
 
 \begin{frame}{The Averaged Field and the Paths It Creates}
   \centering
-  \includegraphics[width=0.85\textwidth]{flow_matching_marginal_field.png}
+  \includegraphics[width=0.78\textwidth,height=0.43\textheight,keepaspectratio]{flow_matching_marginal_field.png}
+  \[\boxed{\mathbf u_t(\mathbf x)=\mathbb E[\mathbf X_1-\mathbf X_0\mid\mathbf X_t=\mathbf x]}\]
 
   \raggedright
   \small Exact averaged field for the same independent coupling (no network trained). Black curves follow the field from 13 starting points.
@@ -215,29 +177,24 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.7cm,min
   \textbf{So:} the paths of the averaged field never cross and bend gently, unlike the straight pair paths.
 \end{frame}
 
-\begin{frame}{Recap of Part 2}
-  \begin{itemize}
-    \item Training target: a velocity; we cannot compute the global one, but we can for each pair.
-    \item Rectified flow: straight line per pair, target \(\mathbf x_1-\mathbf x_0\).
-    \item The coupling decides which pairs are drawn; regression averages their velocities.
-  \end{itemize}
-  \textbf{Next:} turn the learned field into samples by solving an ODE.
-\end{frame}
-
 \section{Sampling and Its Errors}
 \sectiondivider{Part 3: Sampling and Its Errors}
 
 \begin{frame}{Sampling: Follow the Learned Field Step by Step}
-  Draw \(\mathbf x_0\sim p_0\) and solve
-  \(\dfrac{d\mathbf x_t}{dt}=\mathbf v_\theta(\mathbf x_t,t)\) from \(t=0\) to \(1\).
-  The simplest solver is \textbf{Euler's method}: with step \(\Delta t\),
-  \[
-    \mathbf x_{n+1}=\mathbf x_n+\Delta t\,\mathbf v_\theta(\mathbf x_n,t_n).
-  \]
-  \textbf{Example:} \(\Delta t=0.25\), four steps; at each one ask the network for the velocity and move by \(0.25\) times it.
-
-  \medskip
-  \textbf{So:} sampling needs one network evaluation per step; fewer steps are cheaper but less accurate.
+  Draw \(\mathbf x_0\sim p_0\); integrate the learned field from \(t=0\) to \(1\).
+  \[\boxed{\mathbf x_{n+1}=\mathbf x_n+\Delta t\,\mathbf v_\theta(\mathbf x_n,t_n)}\]
+  \begin{center}
+  \begin{tikzpicture}
+    \draw[coursegray,dashed,thick] (0,0) .. controls (2,1.5) and (5,0.2) .. (8,1.8);
+    \draw[flow] (0,0)--(2,1.5);
+    \draw[flow] (2,1.5)--(4,1.1);
+    \draw[flow] (4,1.1)--(6,1.3);
+    \draw[flow] (6,1.3)--(8,1.7);
+    \foreach \x/\y/\n in {0/0/0,2/1.5/1,4/1.1/2,6/1.3/3,8/1.7/4}
+      \fill (\x,\y) circle (2pt) node[below=4pt] {\(\mathbf x_{\n}\)};
+  \end{tikzpicture}
+  \end{center}
+  \(\Delta t=0.25\): four network evaluations. Blue segments use the velocity at the start of each step; dashed curve sketches the exact learned ODE path.
 \end{frame}
 
 \begin{frame}{The Cloud Turns Into the Data Distribution}
@@ -259,7 +216,7 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.7cm,min
   Smaller steps reduce solver error only. Better regression reduces model error only.
 
   \medskip
-  \textbf{So:} to diagnose a bad sample, change the step count first: if it improves, it was solver error.
+  \textbf{So:} to diagnose a bad sample, change the step count first: improvement indicates a solver contribution; remaining error can still be model error.
 \end{frame}
 
 \begin{frame}{Why Straight Paths Can Need Fewer Steps}
@@ -269,14 +226,6 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.7cm,min
     \item A pair's path is straight, but the averaged field's paths can still bend (previous figure), so fewer steps help only if the learned paths are nearly straight.
   \end{itemize}
   \textbf{So:} straighter learned paths allow larger steps; straightness of training pairs alone does not guarantee it.
-\end{frame}
-
-\begin{frame}{Recap of Part 3}
-  \begin{itemize}
-    \item Sampling = solving the learned ODE, here with Euler steps.
-    \item Quality = model error plus solver error; they are checked separately.
-  \end{itemize}
-  \textbf{Next:} how flow matching relates to diffusion, where it is used, and its limits.
 \end{frame}
 
 \section{Context: Diffusion, Uses and Limits}
@@ -298,22 +247,21 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.7cm,min
   \end{tabular}
   \end{center}
   \normalsize
-  Both learn a time-dependent vector field over intermediate states.
+  Flow time \(t\) corresponds to diffusion time \(T(1-t)\): the clocks run in opposite directions. Both learn a time-dependent field.
 
   \textbf{So:} same family of ideas; the difference is the path and what the network is asked to predict.
 \end{frame}
 
 \begin{frame}{A Bridge From Diffusion}
-  Diffusion can also be written in continuous time as a random motion (an SDE).
-  \begin{itemize}
-    \item A deterministic ODE with the \emph{same} density at every time exists; its velocity is built from the learned score.
-    \item So a trained diffusion model also defines a velocity field to follow.
-    \item Flow matching instead regresses a velocity for a path we choose.
-  \end{itemize}
-  The formulas for the SDE and this ODE are in the appendix; this deck owns the continuous-time view.
-
-  \medskip
-  \textbf{So:} diffusion samplers and flow matching both move points along a velocity field.
+  \begin{center}
+    \begin{tikzpicture}[node distance=0.7cm]
+      \node[box,fill=courselightblue] (score) {diffusion score\\\(\nabla\log p_t\)};
+      \node[box,right=of score] (ode) {probability-flow\\ODE velocity};
+      \node[box,fill=coursegreen!18,right=of ode] (data) {transport\\noise to data};
+      \draw[flow] (score)--(ode); \draw[flow] (ode)--(data);
+    \end{tikzpicture}
+  \end{center}
+  A diffusion SDE and its probability-flow ODE share the same time marginals, but different individual paths. Flow matching learns a chosen path's velocity directly. Continuous-time formulas are in the appendix.
 \end{frame}
 
 \begin{frame}{Flow Matching Supports Many Data Domains}
@@ -342,15 +290,6 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.7cm,min
   \textbf{So:} always report quality together with the number of network evaluations.
 \end{frame}
 
-\begin{frame}{Summary}
-  \begin{itemize}
-    \item A velocity field moves noise points to data points; the continuity equation tracks the density.
-    \item Per-pair straight paths give simple regression targets; the learned field is their average.
-    \item Sampling solves the ODE; model and solver errors are separate.
-  \end{itemize}
-  \textbf{So:} flow matching learns directly how to move noise into data.
-\end{frame}
-
 \appendix
 \sectiondivider{Appendix: optional depth}
 
@@ -364,6 +303,7 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.7cm,min
 \end{frame}
 
 \begin{frame}{Log Density Changes Through the Divergence}
+  \small
   Along one trajectory,
   \[
     \frac{d}{dt}\log p_t(\mathbf x_t)=-\nabla_{\mathbf x}\!\cdot\mathbf v_t(\mathbf x_t),
@@ -411,6 +351,7 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.7cm,min
 \end{frame}
 
 \begin{frame}{Continuous-Time Diffusion: the SDE and the Probability-Flow ODE}
+  \small
   \textbf{Convention here:} diffusion time (\(t=0\) data, \(t=T\) noise), opposite to the main text.
   A forward stochastic differential equation, with drift \(\mathbf f\), noise strength \(g(t)\) and Brownian motion \(\mathbf W_t\), is
   \[

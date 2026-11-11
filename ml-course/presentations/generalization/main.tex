@@ -35,35 +35,16 @@
 \end{frame}
 
 % ------------------------------------------------------------------ fitting vs generalizing
-\begin{frame}{Roadmap}
-  We start from one question: why can a model that fits the training data well still fail on new data?
-  \medskip
-  \tableofcontents
-  \takeaway{So: first see the problem, then name its two sources, then meet the tools that control it.}
-\end{frame}
-
 \section{Underfitting and Overfitting}
 \sectiondivider{Underfitting and Overfitting}
 
 \begin{frame}{What We Really Want: Good Predictions on New Data}
-  We train a model on examples we already have. We use it on inputs we have not seen.
-  \begin{itemize}
-    \item \textbf{Training error:} how wrong the model is on the examples it learned from.
-    \item \textbf{Generalization error:} how wrong it is on new examples from the same source.
-  \end{itemize}
-  We can measure the first directly. We estimate the second on held-out data
-  (train/validation/test splits and cross-validation are explained in the supervised-learning lecture).
-  \takeaway{So: a low training error alone tells us little; what matters is the error on new data.}
-\end{frame}
-
-\begin{frame}{A Model Can Memorize Instead of Learn}
-  Imagine studying for an exam by memorizing last year's answers.
-  You score perfectly on last year's paper and badly on this year's.
-  \begin{itemize}
-    \item A flexible model can pass through every training point, including the random errors in them.
-    \item Those errors will not repeat in new data, so the memorized wiggles are wrong there.
-  \end{itemize}
-  \takeaway{So: fitting the training data perfectly can mean the model learned the noise, not the pattern.}
+  \[
+    L_D(\theta)=\frac1n\sum_{i=1}^n\ell(f_\theta(x_i),y_i),
+    \qquad R(\theta)=\mathbb E_{(X,Y)}\ell(f_\theta(X),Y).
+  \]
+  $L_D$ is measured on the examples used for fitting; $R$ is the loss on a new draw from the same source. A held-out set estimates $R$.
+  \takeaway{Low training loss can coexist with high new-data loss when a flexible fit follows sample noise.}
 \end{frame}
 
 \begin{frame}{Underfit, Good Fit, Overfit}
@@ -75,26 +56,6 @@
   \takeaway{So: too rigid misses the pattern, too flexible chases the noise.}
 \end{frame}
 
-\begin{frame}{Underfitting and Overfitting in Words}
-  \begin{columns}[T]
-    \column{0.48\textwidth}
-    \textbf{Underfitting}
-    \begin{itemize}
-      \item The model is too simple for the pattern.
-      \item It is wrong on the training data \emph{and} on new data.
-      \item Example: a straight line through a curve.
-    \end{itemize}
-    \column{0.48\textwidth}
-    \textbf{Overfitting}
-    \begin{itemize}
-      \item The model is flexible enough to follow the noise.
-      \item It is right on the training data but wrong on new data.
-      \item Example: a degree-9 curve through 12 points.
-    \end{itemize}
-  \end{columns}
-  \takeaway{So: underfitting fails everywhere; overfitting fails only on data it has not seen.}
-\end{frame}
-
 \begin{frame}{More Flexibility Always Helps Training, Not New Data}
   \centering
   \includegraphics[width=0.9\linewidth,height=0.54\textheight,keepaspectratio]{learning-curves.png}
@@ -103,78 +64,33 @@
   \takeaway{So: training error keeps falling with capacity, validation error falls and then rises; we want the bottom.}
 \end{frame}
 
-\begin{frame}{Recap: Underfitting and Overfitting}
-  We learned that a low training error can hide a model that memorized noise, and that the best model sits at a middle level of flexibility. Next: why that happens, through bias and variance.
-\end{frame}
-
 
 % ------------------------------------------------------------------ bias and variance
 \section{Bias and Variance}
 \sectiondivider{Bias and Variance}
 
-\begin{frame}{A Thought Experiment: Many Training Sets}
-  Our one dataset is a random sample. A different sample would have given a different fitted model.
-  \begin{enumerate}
-    \item Collect many training sets from the same source.
-    \item Train the same model on each one.
-    \item Look at how the fitted models compare with the truth and with each other.
-  \end{enumerate}
-  In practice we only ever have one dataset. The experiment is a way to \emph{think} about two different kinds of error.
-  \takeaway{So: judge a learning method by what it does across datasets, not by one lucky or unlucky fit.}
-\end{frame}
-
 \begin{frame}{Bias: The Average Fit Misses the Truth}
-  \textbf{Bias} is the systematic error: the gap between the \emph{average} fitted model (over many training sets)
-  and the true relationship.
-  \begin{itemize}
-    \item Where it comes from: a model too simple to represent the truth, such as a line for a curve.
-    \item Why it matters: more data does not remove it; every fit misses in the same direction.
-  \end{itemize}
+  At a fixed input $x$, let $f(x)=\mathbb E[Y\mid X=x]$ and
+  $\bar f(x)=\mathbb E_D[\widehat f_D(x)]$, the average fit over random training sets $D$.
   \[
-    \text{bias}\;=\;(\text{average fitted value})-(\text{true value}).
+    \operatorname{Bias}[\widehat f(x)]=\bar f(x)-f(x).
   \]
-  \takeaway{So: high bias means the model is consistently wrong in the same way.}
+  A rigid model can miss $f(x)$ in the same direction across datasets. More samples alone do not repair an inadequate model class.
 \end{frame}
 
 \begin{frame}{Variance: The Fit Changes with the Dataset}
-  \textbf{Variance} measures how much the fitted model changes from one training set to another.
-  \begin{itemize}
-    \item Where it comes from: a flexible model that follows the noise of whichever sample it saw.
-    \item Why it matters: the model you hold is one random draw, and it may be far from the average.
-  \end{itemize}
+  Refit the same learning procedure on a new sample $D$: its prediction at $x$ may move.
   \[
-    \text{variance}\;=\;\text{spread of the fitted values around their average.}
+    \operatorname{Var}[\widehat f(x)]
+    =\mathbb E_D\!\left[(\widehat f_D(x)-\bar f(x))^2\right].
   \]
-  \takeaway{So: high variance means the model is unstable; a new sample gives a different answer.}
-\end{frame}
-
-\begin{frame}{Three Easily Confused Words}
-  \begin{itemize}
-    \item \textbf{Bias of an estimator} is not the \textbf{intercept} $b$ in $\hat y=\mathbf w\cdot\mathbf x+b$.
-          The intercept is a parameter; the bias is an error.
-    \item \textbf{Variance of the fit} (changes between datasets) is not the spread of the data around the truth.
-    \item \textbf{Noise} is the randomness of $y$ itself (measurement error, unmodelled factors).
-          No model can remove it, however good.
-  \end{itemize}
-  \takeaway{So: bias and variance are properties of the learning method; noise is a property of the problem.}
+  High variance means that the fitted prediction is sensitive to which training examples happened to be observed.
 \end{frame}
 
 \begin{frame}{The Four Cases as a Target}
   \centering
   \includegraphics[height=0.66\textheight,keepaspectratio]{bias-variance-targets.png}
   \takeaway{So: low bias means the cloud is centered on the bullseye; low variance means the cloud is tight.}
-\end{frame}
-
-\begin{frame}{How to Read the Target}
-  Take a linear model $\hat y=w_1x_1+w_2x_2+b$ with two weights.
-  \begin{itemize}
-    \item Each dot is the pair of weights $(w_1,w_2)$ fitted on \emph{one} training set.
-    \item The star is the best weights $\mathbf w^*$, the ones we would find with unlimited data.
-    \item The plot is a schematic with seeded random clouds, not measured data.
-  \end{itemize}
-  Since $\hat y=\mathbf w\cdot\mathbf x+b$ is linear in the weights, the cloud of fitted weights
-  gives the same cloud of predictions at any fixed input $\mathbf x$: the same picture holds for the prediction.
-  \takeaway{So: weight space and prediction space tell the same story.}
 \end{frame}
 
 \begin{frame}{The Same Idea in Prediction Space}
@@ -204,27 +120,18 @@
 \end{frame}
 
 \begin{frame}{Total Error Has Three Parts}
-  For squared error, the expected error on a new example splits into three pieces:
+  Assume $Y=f(X)+\varepsilon$ with $\mathbb E[\varepsilon\mid X]=0$, and let the new observation be independent of the training set $D$.
+  At a fixed $x$, write $\sigma^2(x)=\operatorname{Var}(Y\mid X=x)$. Then:
   \[
-    \text{total error}\;=\;\text{bias}^2\;+\;\text{variance}\;+\;\text{noise}.
+    \begin{aligned}
+    \mathbb E_{D,Y\mid x}[(Y-\widehat f_D(x))^2]
+      ={}&(\bar f(x)-f(x))^2\\
+       &+\mathbb E_D[(\widehat f_D(x)-\bar f(x))^2]+\sigma^2(x)\\
+      ={}&\operatorname{Bias}[\widehat f(x)]^2
+       +\operatorname{Var}[\widehat f(x)]+\sigma^2(x).
+    \end{aligned}
   \]
-  \begin{itemize}
-    \item Noise is fixed by the problem. We can only trade the other two.
-    \item The best model makes the \emph{sum} of bias$^2$ and variance smallest.
-  \end{itemize}
-  The short derivation is in the appendix.
-  \takeaway{So: neither bias nor variance should be driven to zero on its own; the sum is what counts.}
-\end{frame}
-
-\begin{frame}{Which Do We Prefer?}
-  Rule of thumb for limited data: \textbf{when in doubt, accept some bias to get low variance.}
-  \begin{itemize}
-    \item Bias is consistent and diagnosable: the model is wrong in a repeatable way we can see and partly correct.
-    \item Variance is erratic, and we hold only one dataset, so we cannot tell which way our fit has strayed.
-    \item Regularization buys a large drop in variance for a small rise in bias.
-  \end{itemize}
-  \small A rule of thumb, not a theorem: with plenty of data, variance shrinks by itself and a richer model can pay off.
-  \takeaway{So: with little data, prefer a slightly too simple model over a very flexible one.}
+  The learning method can trade the first two terms; it cannot remove randomness in $Y$ given $X=x$.
 \end{frame}
 
 \begin{frame}{Diagnose Before You Fix}
@@ -270,35 +177,25 @@
   \takeaway{So: the rest of the lecture is the right-hand column; the wrong remedy makes things worse.}
 \end{frame}
 
-\begin{frame}{Recap: Bias and Variance}
-  We learned that error has a systematic part (bias) and an unstable part (variance), and that the two errors on training and validation data tell us which one to fix. Next: the first tool for lowering variance, penalties on the weights.
-\end{frame}
-
 
 % ------------------------------------------------------------------ regularization
 \section{Controlling Variance with Penalties}
 \sectiondivider{Controlling Variance with Penalties}
 
-\begin{frame}{Regularization: A Reason to Stay Simple}
-  An overfit model often uses large, finely balanced weights to bend through every point.
-  \begin{itemize}
-    \item \textbf{Idea:} add a cost for large weights, so the model prefers the simple explanation unless the data insists.
-    \item \textbf{Effect:} the fit is a little worse on the training data (more bias), and much more stable (less variance).
-  \end{itemize}
-  \takeaway{So: regularization deliberately accepts a small bias to remove a large variance.}
-\end{frame}
-
 \begin{frame}{The Regularized Objective}
   \[
-    \underbrace{L_\lambda(\boldsymbol\theta)}_{\text{what we minimize}}
-    =\underbrace{L_{\mathrm{data}}(\boldsymbol\theta)}_{\text{misfit to the training data}}
-    +\lambda\,\underbrace{\Omega(\boldsymbol\theta)}_{\text{penalty on large weights}}
+    L_\lambda(\mathbf w,b)=L_{\mathrm{data}}(\mathbf w,b)+\lambda\Omega(\mathbf w),
+    \qquad \lambda\ge0.
   \]
-  \begin{itemize}
-    \item $\boldsymbol\theta$ are the model parameters; $\Omega$ is large when the weights are large.
-    \item $\lambda\ge0$ sets the price of the penalty. It is chosen by us, not learned from the data.
-  \end{itemize}
-  \takeaway{So: the optimizer now balances fitting the data against keeping the weights small.}
+  \begin{center}
+    \begin{tabular}{ll}
+      \toprule
+      L2 (ridge) & $\Omega(\mathbf w)=\|\mathbf w\|_2^2$\\
+      L1 (lasso) & $\Omega(\mathbf w)=\|\mathbf w\|_1$\\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  Choose $\lambda$ on validation data. The intercept $b$ is excluded from the penalty, while the weights must earn their size through a better fit.
 \end{frame}
 
 \begin{frame}{Choosing the Strength $\lambda$}
@@ -319,25 +216,6 @@
   \takeaway{So: $\lambda$ is itself a bias-variance dial, set with validation data.}
 \end{frame}
 
-\begin{frame}{A Good Point Needs Both Terms Small}
-  Total loss = data misfit + $\lambda\times$ size of the weight. Take one weight $w$, with $\lambda=2$,
-  where the data alone would choose $w=2$.
-  \begin{center}
-    \small
-    \begin{tabular}{lccc}
-      \toprule
-      $w$ & misfit $\tfrac12(w-2)^2$ & penalty $\tfrac{\lambda}{2}w^2$ & total\\
-      \midrule
-      $2$ & $0$ & $4$ & $4$\\
-      $0$ & $2$ & $0$ & $2$\\
-      $2/3$ & $0.89$ & $0.44$ & $1.33$\\
-      \bottomrule
-    \end{tabular}
-  \end{center}
-  Neither extreme wins: $w=2$ fits the data but is penalized, $w=0$ is free but misfits.
-  \takeaway{So: the best weight is a compromise between the data-only optimum and zero.}
-\end{frame}
-
 \begin{frame}{The Compromise as a Picture}
   \centering
   \includegraphics[width=0.8\linewidth,height=0.62\textheight,keepaspectratio]{l2-one-weight.png}
@@ -350,7 +228,7 @@
   \]
   Big weights are punished heavily, small ones barely. The result: \emph{all} weights shrink smoothly toward zero
   (in linear models this is called ridge regression).
-  \takeaway{So: L2 pulls every weight toward zero a little, and none exactly to zero.}
+  \takeaway{So: L2 shrinks weights smoothly; it does not generally create exact zeros.}
 \end{frame}
 
 \begin{frame}{L2 Picture: The Minimum Moves Toward Zero}
@@ -470,10 +348,6 @@
   \takeaway{So: shrink the weights that control the shape of the fit; leave the intercept free.}
 \end{frame}
 
-\begin{frame}{Recap: Penalties}
-  We learned that adding L2 or L1 penalty to the loss shrinks the weights, trading a little bias for much less variance, with the strength $\lambda$ chosen on validation data. Next: three other ways to control variance that do not change the loss.
-\end{frame}
-
 
 % ------------------------------------------------------------------ early stopping
 \section{Controlling Variance by Other Means}
@@ -585,7 +459,7 @@
 
 \begin{frame}{Dropout: A Different Smaller Network Each Step}
   \centering
-  \begin{tikzpicture}[unit/.style={circle,draw,minimum size=0.65cm,very thick},
+  \begin{tikzpicture}[scale=0.85,transform shape,unit/.style={circle,draw,minimum size=0.65cm,very thick},
     kept/.style={unit,fill=courselightblue},dropped/.style={unit,fill=coursegray!30,draw=coursegray},
     edge/.style={courseblue!55,thick}]
     \foreach \y in {0,1,2}{\node[kept] (i\y) at (0,1.1*\y) {};}
@@ -598,47 +472,12 @@
     \node[below=0.15cm of o] {output};
   \end{tikzpicture}
 
-  Each unit is dropped with probability $p$ (for example $p=0.5$). A fresh random choice is made at every step;
-  no unit is deleted for good.
-  \takeaway{So: training averages over many thinned networks that share their weights.}
-\end{frame}
-
-\begin{frame}{Dropout Numbers: Why Divide by $1-p$}
-  A layer has four units with activations $2,4,6,8$ (total $20$). Drop each with $p=0.5$.
-  Without correction the total would shrink; so divide the survivors by $1-p=0.5$.
-  \begin{center}
-    \small
-    \begin{tabular}{lcc}
-      \toprule
-      \textbf{kept units} & \textbf{after dividing by 0.5} & \textbf{total}\\
-      \midrule
-      1st, 3rd & $4,\ 0,\ 12,\ 0$ & 16\\
-      2nd, 4th & $0,\ 8,\ 0,\ 16$ & 24\\
-      1st, 2nd & $4,\ 8,\ 0,\ 0$ & 12\\
-      3rd, 4th & $0,\ 0,\ 12,\ 16$ & 28\\
-      \midrule
-      \multicolumn{2}{l}{average of the four draws} & \textbf{20}\\
-      \bottomrule
-    \end{tabular}
-  \end{center}
-  \takeaway{So: on average only half the units survive, and doubling the survivors restores the original total of 20.}
-\end{frame}
-
-\begin{frame}{Dropout at Test Time}
-  \begin{center}
-    \small
-    \begin{tabular}{lp{3.4cm}p{3.4cm}}
-      \toprule
-      & \textbf{units} & \textbf{scaling}\\
-      \midrule
-      Training & each dropped with probability $p$ & survivors divided by $1-p$\\
-      Test & all units used & none\\
-      \bottomrule
-    \end{tabular}
-  \end{center}
-  Because training already restored the average size, the full network at test time gives activations of the
-  size the next layer is used to.
-  \takeaway{So: drop units only while training; at test time use the whole network unchanged.}
+  \[
+    m_j\sim\operatorname{Bernoulli}(1-p),\qquad
+    \widetilde h_j=\frac{m_jh_j}{1-p},\qquad
+    \mathbb E_m[\widetilde h_j]=h_j.
+  \]
+  \small A fresh mask is sampled at each training step. The scaling preserves each activation's mean; at test time all units are used.
 \end{frame}
 
 % ------------------------------------------------------------------ summary
@@ -659,49 +498,10 @@
   \takeaway{So: diagnose from the train and validation errors first, then apply the matching control.}
 \end{frame}
 
-\begin{frame}{Recap: Other Controls}
-  We learned that stopping early, averaging many models and dropping units while training all reduce variance, and that the diagnosis from the previous part selects the control. Next: the appendix has the derivations behind these results.
-\end{frame}
-
 
 % ------------------------------------------------------------------ appendix
 \appendix
 \sectiondivider{Appendix: optional depth}
-
-\begin{frame}{Appendix: Bias and Variance at a Fixed Input}
-  Let $\widehat f_D$ be the model trained on a random dataset $D$ and $f$ the true function. At input $x$,
-  \[
-    \operatorname{Bias}[\widehat f(x)]=\mathbb E_D[\widehat f_D(x)]-f(x),
-  \]
-  \[
-    \operatorname{Var}[\widehat f(x)]
-    =\mathbb E_D\!\left[\left(\widehat f_D(x)-\mathbb E_D[\widehat f_D(x)]\right)^2\right].
-  \]
-  Here $\mathbb E_D$ is the average over many random training sets, as in the thought experiment.
-\end{frame}
-
-\begin{frame}{Appendix: The Noise Term}
-  Assume
-  \[
-    Y=f(X)+\varepsilon,
-    \qquad \mathbb E[\varepsilon\mid X]=0,
-    \qquad \operatorname{Var}(\varepsilon\mid X=x)=\sigma^2(x).
-  \]
-  Even the true regression function $f(x)=\mathbb E[Y\mid X=x]$ has squared error $\sigma^2(x)$ at $x$.
-  Better data can reduce uncertainty about $f$; it cannot remove randomness in $Y$ given $X$.
-\end{frame}
-
-\begin{frame}{Appendix: The Three-Term Decomposition}
-  At a fixed $x$, with training data independent of the new observation,
-  \[
-    \boxed{
-    \mathbb E_{D,Y\mid x}[(Y-\widehat f_D(x))^2]
-    =\sigma^2(x)
-    +\operatorname{Bias}[\widehat f(x)]^2
-    +\operatorname{Var}[\widehat f(x)]}.
-  \]
-  Noise belongs to the data-generating process. Bias and variance belong to the learning procedure and its data.
-\end{frame}
 
 \begin{frame}{Appendix: The Cross Terms Vanish by Centering}
   Add and subtract $f(x)$ and $\bar f(x)=\mathbb E_D[\widehat f_D(x)]$:

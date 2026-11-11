@@ -29,14 +29,7 @@
   state/.style={circle,draw,very thick,minimum size=0.85cm,inner sep=0pt}
 }
 
-\newcommand{\recap}[2]{%
-  \begin{frame}{Recap: #1}
-    \vfill
-    \centering
-    {\color{courseblue}\large\bfseries #2\par}
-    \vfill
-  \end{frame}%
-}
+
 
 \begin{document}
 
@@ -44,11 +37,7 @@
   \makepresentationtitle
 \end{frame}
 
-\begin{frame}{Roadmap}
-  We ask how a network can read a sequence, why it is hard to train, and how gated cells help.
-  \medskip
-  \tableofcontents
-\end{frame}
+
 
 % ---------------------------------------------------------------- sequences and state
 
@@ -81,46 +70,23 @@
   The order of the steps carries information.
 \end{frame}
 
-\begin{frame}{Why a Sequence Model Needs Memory}
-  \begin{itemize}
-    \item To predict the next word of ``the clouds are in the \dots'', the earlier words matter.
-    \item The stress in a beam now depends on the whole loading history, not only on the load at this instant.
-    \item A dense network with a fixed number of inputs cannot handle sequences of varying length, and it does not share what it learns across time steps.
-  \end{itemize}
-  A sequence model must carry a summary of what it has seen so far from one step to the next.
+\begin{frame}{Memory Combines the Current Input with the Past}
+  Earlier words constrain the next word; a beam's response depends on its loading history.
+  \begin{center}
+  \begin{tikzpicture}[node distance=0.8cm]
+    \node[box,fill=courselightorange] (old) {past summary\\$\mathbf h_{t-1}$};
+    \node[box,fill=coursegreen!18,right=of old] (new) {new summary\\$\mathbf h_t=f_\theta(\mathbf x_t,\mathbf h_{t-1})$};
+    \node[box,fill=courselightblue,below=of new] (x) {current input $\mathbf x_t$};
+    \draw[flow] (old)--(new); \draw[flow] (x)--(new);
+  \end{tikzpicture}
+  \end{center}
+  $\mathbf h_t$ compresses inputs up to time $t$ into a fixed-size vector.
+  Start from $\mathbf h_0$ (zero or learned); retain what helps the task.
 \end{frame}
 
-\begin{frame}{A Hidden State Summarizes the Past}
-  The network keeps a vector $\mathbf{h}_t$, the hidden state: a learned, compressed summary of the inputs up to time $t$.
-  At each step it combines the new input with the previous summary.
-  \begin{itemize}
-    \item $\mathbf{h}_0$ is the starting summary (zeros, or learned).
-    \item The summary need not keep every detail of the past, only what is useful for the task.
-  \end{itemize}
-  The hidden state is the network's running memory.
-\end{frame}
 
-\begin{frame}{The Recurrent Update}
-  \[
-    \boxed{
-      \mathbf{h}_t
-      =\phi\!\left(
-        \mathbf{W}_{xh}\mathbf{x}_t
-        +\mathbf{W}_{hh}\mathbf{h}_{t-1}
-        +\mathbf{b}_h
-      \right)
-    },
-    \qquad
-    \widehat{\mathbf{y}}_t
-    =g\!\left(\mathbf{W}_{hy}\mathbf{h}_t+\mathbf{b}_y\right)
-  \]
-  \begin{itemize}
-    \item $\phi$ is the activation function (usually $\tanh$), as in the dense-network lecture.
-    \item $\mathbf{W}_{xh}$ reads the input, $\mathbf{W}_{hh}$ reads the previous state, $\mathbf{W}_{hy}$ reads the state to produce the output.
-    \item $g$ is the output function chosen by the task: identity for regression, softmax for classes.
-  \end{itemize}
-  The new state is a nonlinear mix of the current input and the old state.
-\end{frame}
+
+
 
 \begin{frame}{A Hidden State in Numbers}
   One-dimensional state: $h_t=\tanh(0.5\,x_t+0.8\,h_{t-1})$, with $h_0=0$ and the inputs $x_1=1$, $x_2=x_3=0$.
@@ -175,6 +141,11 @@
   \end{tikzpicture}
 
   \vspace{0.2cm}
+  \[
+    \mathbf h_t=\phi(\mathbf W_{xh}\mathbf x_t+\mathbf W_{hh}\mathbf h_{t-1}+\mathbf b_h),\qquad
+    \widehat{\mathbf y}_t=g(\mathbf W_{hy}\mathbf h_t+\mathbf b_y).
+  \]
+  $\phi$ is usually $\tanh$; $g$ is identity for regression or softmax for classes.
   Unrolling draws one copy of the cell per time step: a deep network whose layers are the time steps.
   Every copy uses the same $\boldsymbol{\theta}$.
 \end{frame}
@@ -212,7 +183,6 @@
   The same cell serves both; only when we read the output changes.
 \end{frame}
 
-\recap{Sequences and the Hidden State}{A recurrent network carries a hidden state through time and reuses one cell at every step; next, how it is trained.}
 
 % ---------------------------------------------------------------- training
 
@@ -250,18 +220,7 @@
   Shared weights get one total gradient assembled from all time steps; the formula is in the appendix.
 \end{frame}
 
-\begin{frame}{Long Dependencies: Many Small Factors Multiply}
-  To learn that an early input matters for a late output, the error signal must travel back through every step in between.
-  At each step it is multiplied by a factor: the Jacobian $\mathbf J_k=\partial\mathbf h_k/\partial\mathbf h_{k-1}$,
-  which says how strongly the previous state influences the next one.
-  \[
-    \frac{\partial\mathbf{h}_T}{\partial\mathbf{h}_t}
-    =\mathbf{J}_T\mathbf{J}_{T-1}\cdots\mathbf{J}_{t+1}
-  \]
-  Intuition with one number per step: if every factor is $0.5$, then after $20$ steps the signal is
-  $0.5^{20}\approx10^{-6}$; if every factor is $1.5$, it is $1.5^{20}\approx3300$.
-  A long product shrinks to almost nothing or blows up, unless the factors stay close to one.
-\end{frame}
+
 
 \begin{frame}{Vanishing and Exploding Gradients}
   \centering
@@ -283,11 +242,13 @@
     \node[right] at (5.9,-0.8) {$t$};
   \end{tikzpicture}
 
-  \vspace{0.1cm}
-  Arrow thickness shows the size of the error signal as it travels back from step $T$ to step $t$.
-  For the simple recurrent cell above, $\mathbf J_k$ is the recurrent weight matrix times the activation slopes.
-  Rough rule (intuition, not an exact law): factors below one make the signal vanish, above one make it explode.
-  Either way, early inputs get little useful learning signal, so long dependencies are hard to learn.
+  \[
+    \frac{\partial\mathbf h_T}{\partial\mathbf h_t}=\mathbf J_T\mathbf J_{T-1}\cdots\mathbf J_{t+1},
+    \qquad \mathbf J_k=\frac{\partial\mathbf h_k}{\partial\mathbf h_{k-1}}.
+  \]
+  Arrow width represents the backward signal. For scalar factors over $20$ steps:
+  $0.5^{20}\approx10^{-6}$, while $1.5^{20}\approx3300$.
+  Matrix products depend on directions as well as scales (appendix).
 \end{frame}
 
 \begin{frame}{Gradient Clipping Limits Exploding Updates}
@@ -309,7 +270,6 @@
   Clipping prevents a single huge step; it does not fix vanishing gradients.
 \end{frame}
 
-\recap{Training Through Time}{Backpropagation through time works on the unrolled network, but long products of factors make gradients vanish or explode; next, a cell design that protects the memory.}
 
 % ---------------------------------------------------------------- LSTM
 
@@ -323,12 +283,16 @@
     \node[box,fill=courseorange!18,minimum width=1.3cm,right=of previous] (forget) {$\odot$\\$\mathbf{f}_t$};
     \node[box,fill=coursegreen!18,minimum width=1.3cm,right=of forget] (add) {$+$\\$\mathbf{i}_t\odot\widetilde{\mathbf{c}}_t$};
     \node[box,fill=coursepurple!18,minimum width=1.3cm,right=of add] (current) {$\mathbf{c}_t$};
+    \node[below=0.2cm of forget,font=\small] {forget: retain};
+    \node[below=0.2cm of add,font=\small] {input: write};
+    \node[box,below=1.0cm of current] (hidden) {$\mathbf h_t=\mathbf o_t\odot\tanh(\mathbf c_t)$};
+    \draw[flow] (current)--node[right,font=\small]{output: reveal}(hidden);
     \draw[flow] (previous) -- (forget);
     \draw[flow] (forget) -- (add);
     \draw[flow] (add) -- (current);
   \end{tikzpicture}
-  \vspace{0.3cm}
-  \begin{itemize}
+  \vspace{0.1cm}
+  \begin{itemize}\small
     \item A second state, the cell state $\mathbf c_t$, is the long-term memory. It is updated by scaling (forgetting) and adding, not by squashing it through an activation each step.
     \item Learned gates $\mathbf f_t$ (forget) and $\mathbf i_t$ (input) decide what to keep and what to write.
   \end{itemize}
@@ -336,24 +300,23 @@
 \end{frame}
 
 \begin{frame}{LSTM Gates Read the Current Input and Previous State}
-  Let $\mathbf{q}_t=[\mathbf{x}_t;\mathbf{h}_{t-1}]$ be the current input stacked on top of the previous state. Each gate is a small dense layer on $\mathbf q_t$ with a sigmoid, so its entries lie between $0$ (closed) and $1$ (open):
+  Stack input and previous state: $\mathbf q_t=[\mathbf x_t;\mathbf h_{t-1}]$.
   \[
-    \mathbf{f}_t=\sigma(\mathbf{W}_f\mathbf{q}_t+\mathbf{b}_f),
-    \qquad
-    \mathbf{i}_t=\sigma(\mathbf{W}_i\mathbf{q}_t+\mathbf{b}_i),
-    \qquad
-    \mathbf{o}_t=\sigma(\mathbf{W}_o\mathbf{q}_t+\mathbf{b}_o)
-  \]
-  \[
-    \widetilde{\mathbf{c}}_t
-    =\tanh(\mathbf{W}_c\mathbf{q}_t+\mathbf{b}_c)
+    \begin{aligned}
+      \mathbf f_t&=\sigma(\mathbf W_f\mathbf q_t+\mathbf b_f)
+        &&\text{retain old memory},\\
+      \mathbf i_t&=\sigma(\mathbf W_i\mathbf q_t+\mathbf b_i)
+        &&\text{write candidate},\\
+      \mathbf o_t&=\sigma(\mathbf W_o\mathbf q_t+\mathbf b_o)
+        &&\text{reveal memory},\\
+      \widetilde{\mathbf c}_t&=\tanh(\mathbf W_c\mathbf q_t+\mathbf b_c)
+        &&\text{candidate content}.
+    \end{aligned}
   \]
   \begin{itemize}
-    \item Forget gate $\mathbf{f}_t$: how much of the old memory to keep.
-    \item Input gate $\mathbf{i}_t$: how much of the new candidate $\widetilde{\mathbf c}_t$ to write.
-    \item Output gate $\mathbf{o}_t$: how much of the memory to reveal as the state.
+    \item Sigmoid gates lie in $(0,1)$: near $0$ closes a path; near $1$ opens it.
+    \item Separate learned projections choose what to retain, write and reveal.
   \end{itemize}
-  The gates are learned soft switches that depend on the current input and the past.
 \end{frame}
 
 \begin{frame}{LSTM Updates Memory Before Exposing State}
@@ -398,7 +361,6 @@
   Both LSTM and GRU use learned gates to control what is remembered.
 \end{frame}
 
-\recap{Gated Memory}{Gated cells keep memory on an additive path and learn when to keep, write and reveal it; next, where recurrent models fit among alternatives.}
 
 % ---------------------------------------------------------------- use
 
@@ -432,16 +394,7 @@
   Transformers replace recurrence with attention (the next topic); for large offline datasets this is often preferable.
 \end{frame}
 
-\begin{frame}{Summary: Recurrent Models Share Computation Across Time}
-  \begin{itemize}
-    \item A hidden state summarizes the sequence so far, updated by one shared cell.
-    \item Unrolling shows parameter sharing and the long gradient paths.
-    \item Long products can make gradients vanish or explode; clipping limits the exploding case.
-    \item LSTMs and GRUs add learned gates to protect memory.
-    \item Attention is a different route to long-range interaction.
-  \end{itemize}
-  Recurrence suits streaming data; attention suits long-range links in large offline datasets.
-\end{frame}
+
 
 \appendix
 

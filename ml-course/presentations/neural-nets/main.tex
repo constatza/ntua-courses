@@ -22,31 +22,25 @@
 \definecolor{courselightblue}{HTML}{DCE9F5}
 \definecolor{courselightorange}{HTML}{F9E4C8}
 
-\newcommand{\recap}[2]{%
-  \begin{frame}{Recap: #1}
-    \vfill
-    \centering
-    {\color{courseblue}\large\bfseries #2\par}
-    \vfill
-  \end{frame}%
-}
-
 \begin{document}
 
 \begin{frame}[plain]
   \makepresentationtitle
 \end{frame}
 
-\begin{frame}{Roadmap}
-  We build a neural network from one neuron, then see how it predicts, how it learns, and what it can represent.
-  \medskip
-  \tableofcontents
-\end{frame}
-
 % ---------------------------------------------------------------- why layers
 
 \section{Neurons and Layers}
 \sectiondivider{Neurons and Layers}
+
+\begin{frame}{The Task: Classify a Point from Its Features}
+  Given measured features $\mathbf x=(x_1,x_2)$, predict a class $y\in\{0,1\}$.
+  A linear classifier uses a score $s(\mathbf x)=w_1x_1+w_2x_2+b$ and predicts class 1 when $s(\mathbf x)>0$.
+  \[
+    \underbrace{w_1x_1+w_2x_2+b=0}_{\text{decision boundary: a straight line}}
+  \]
+  The next dataset asks whether a point belongs to the center or the surrounding ring. Its shape will tell us what the straight line is missing.
+\end{frame}
 
 \begin{frame}{A Line Cannot Separate a Ring from Its Center}
   \centering
@@ -64,99 +58,92 @@
 \end{frame}
 
 \begin{frame}{The Fix: Compute New Features First}
-  A straight line works if we first replace $(x_1,x_2)$ by a useful feature,
-  for example the squared distance from the center,
-  \[
-    r^2=x_1^2+x_2^2 .
-  \]
-  \begin{itemize}
-    \item Blue points have $r^2=1$; orange points have $r^2\approx 4.6$.
-    \item In the single feature $r^2$, one threshold (a point on a line) separates them.
-  \end{itemize}
-  A neural network learns such features instead of having us design them by hand.
-  Each feature is computed by a small unit called a neuron.
+  \centering
+  \begin{tikzpicture}[scale=0.8]
+    \node[font=\bfseries] at (-3.1,3.0) {input space $(x_1,x_2)$};
+    \draw[->] (-5.4,0)--(-0.8,0);
+    \node[below] at (-0.8,0) {$x_1$};
+    \draw[->] (-3.1,-2.4)--(-3.1,2.45);
+    \node[left] at (-3.1,1.5) {$x_2$};
+    \foreach \a in {0,45,...,315}{
+      \fill[courseblue] ({-3.1+1.0*cos(\a)},{1.0*sin(\a)}) circle (2pt);
+      \fill[courseorange] ({-3.1+2.15*cos(\a)},{2.15*sin(\a)}) circle (2pt);
+    }
+    \draw[-{Latex[length=3mm]},coursepurple,very thick] (-0.45,0.2)--(0.65,0.2)
+      node[midway,above,font=\small] {$r^2=x_1^2+x_2^2$};
+    \node[font=\bfseries] at (3.25,3.0) {transformed feature $r^2$};
+    \draw[->] (0.9,0)--(5.7,0) node[right] {$r^2$};
+    \foreach \x in {1.7,1.78,1.86,1.94,2.02,2.10,2.18,2.26}{\fill[courseblue] (\x,0.13) circle (2pt);}
+    \foreach \x in {4.25,4.33,4.41,4.49,4.57,4.65,4.73,4.81}{\fill[courseorange] (\x,0.13) circle (2pt);}
+    \draw[coursered,very thick,dashed] (3.2,-0.65)--(3.2,0.8) node[above] {$c$};
+    \node[courseblue] at (1.95,-0.7) {$r^2=1$};
+    \node[courseorange] at (4.5,-0.7) {$r^2\approx4.6$};
+  \end{tikzpicture}
+
+  \vspace{0.2cm}
+  Now $y=0$ for $r^2<c$ and $y=1$ for $r^2>c$. A neural network learns useful feature transforms instead of requiring us to specify $r^2$ by hand.
 \end{frame}
 
 % ---------------------------------------------------------------- neuron
 
 \begin{frame}{A Neuron: Weighted Sum, Then a Bend}
-  A neuron has two steps.
-  \begin{enumerate}
-    \item Score: $z=\mathbf w^\top\mathbf x+b$, a weighted sum of the inputs. The weights $\mathbf w$ say how much each input matters; the bias $b$ shifts the threshold.
-    \item Activation: $a=\sigma(z)$, a fixed nonlinear function that bends the score.
-  \end{enumerate}
   \centering
-  \begin{tikzpicture}[
-    box/.style={draw,rounded corners,minimum width=2.1cm,minimum height=0.9cm,align=center,very thick},
-    flow/.style={-{Latex[length=3mm]},very thick,courseblue},node distance=0.8cm
-  ]
-    \node[box,fill=courselightblue] (x) {input\\$\mathbf x$};
-    \node[box,right=of x] (affine) {score\\$z=\mathbf w^\top\mathbf x+b$};
-    \node[box,fill=courselightorange,right=of affine] (activation) {activation\\$a=\sigma(z)$};
-    \draw[flow] (x)--(affine);
-    \draw[flow] (affine)--(activation);
+  \begin{tikzpicture}[unit/.style={circle,draw,very thick,minimum size=0.75cm},
+    flow/.style={-{Latex[length=2.5mm]},thick,courseblue}]
+    \node[unit,fill=courselightblue] (x1) at (0,1.2) {$x_1$};
+    \node[unit,fill=courselightblue] (x2) at (0,0) {$x_2$};
+    \node at (0,-0.9) {$\vdots$};
+    \node[unit,fill=courselightblue] (xd) at (0,-1.8) {$x_d$};
+    \node[unit,fill=courselightorange,minimum size=1.1cm] (n) at (4,0) {$\sigma$};
+    \node[unit,fill=coursegreen!18] (a) at (7,0) {$a$};
+    \draw[flow] (x1)--(n) node[midway,above] {$w_1$};
+    \draw[flow] (x2)--(n) node[midway,above] {$w_2$};
+    \draw[flow] (xd)--(n) node[midway,below] {$w_d$};
+    \draw[flow] (n)--(a);
+    \node[above=0.35cm of n] {$z=\sum_{i=1}^{d}w_ix_i+b$};
+    \node[below=0.4cm of n] {$a=\sigma(z)$};
   \end{tikzpicture}
 
-  \vspace{0.2cm}
-  The weights and bias are learned; the activation function is chosen by us.
-\end{frame}
-
-\begin{frame}{A Neuron with Numbers}
-  Take $\mathbf x=(2,1)$, $\mathbf w=(1,-1)$, $b=0.5$, and the sigmoid activation
-  $\sigma(z)=1/(1+e^{-z})$, which squeezes any score into $(0,1)$.
-  \[
-    z = 1\cdot 2+(-1)\cdot 1+0.5=1.5,
-    \qquad
-    a=\sigma(1.5)\approx 0.82 .
-  \]
-  \begin{itemize}
-    \item The first input pushes the score up, the second pushes it down, and the bias adds a little.
-    \item The activation turns the score $1.5$ into a number between 0 and 1.
-  \end{itemize}
-  One neuron is a simple, adjustable test: how strongly does this input match my pattern?
+  The circle is one neuron; incoming edges carry learned weights. The learned bias $b$ shifts its score, and the chosen nonlinear activation $\sigma$ gives its output.
 \end{frame}
 
 \begin{frame}{A Dense Layer Is Many Neurons Side by Side}
-  Give every neuron in the layer the same inputs but its own weights:
+  \centering
+  \begin{tikzpicture}[unit/.style={circle,draw,very thick,minimum size=0.75cm},edge/.style={courseblue,thick}]
+    \foreach \i in {1,2}{\node[unit,fill=courselightblue] (x\i) at (0,{1.5-1.2*\i}) {$x_\i$};}
+    \foreach \j in {1,2,3}{\node[unit,fill=courselightorange] (h\j) at (4,{2.1-1.2*\j}) {$a_{\j}^{(1)}$};}
+    \foreach \i in {1,2}{\foreach \j in {1,2,3}{\draw[edge] (x\i)--(h\j);}}
+    \node at (2,-2.25) {every input connects to every neuron};
+  \end{tikzpicture}
   \[
-    \mathbf z^{(\ell)}
-      =\mathbf W^{(\ell)}\mathbf a^{(\ell-1)}+\mathbf b^{(\ell)},
-    \qquad
-    \mathbf a^{(\ell)}=\sigma(\mathbf z^{(\ell)}).
+    \mathbf z^{(1)}=\mathbf W^{(1)}\mathbf x+\mathbf b^{(1)},
+    \quad\mathbf a^{(1)}=\sigma(\mathbf z^{(1)}),
+    \quad\mathbf W^{(1)}\in\mathbb R^{3\times2}.
   \]
-  \begin{itemize}
-    \item $\ell=1,\dots,M$ numbers the layers, so $M$ is the depth. $\mathbf a^{(0)}=\mathbf x$ is the input.
-    \item $\mathbf a^{(\ell)}$ lists the outputs (activations) of layer $\ell$; $\mathbf W^{(\ell)}$ and $\mathbf b^{(\ell)}$ hold its weights and biases.
-    \item ``Dense'' means each neuron sees every output of the previous layer.
-  \end{itemize}
-  Example: 2 inputs and 3 neurons give a $3\times2$ weight matrix and 3 biases, so $9$ parameters.
+  Three neurons have three distinct weight rows and biases: $2\cdot3+3=9$ learned parameters.
 \end{frame}
 
 \begin{frame}{Layers Stack: Each One Re-describes the Data}
-  \[
-    f_{\boldsymbol\theta}(\mathbf x)
-    =f^{(M)}\!\circ f^{(M-1)}\!\circ\cdots\circ f^{(1)}(\mathbf x).
-  \]
   \centering
-  \begin{tikzpicture}[scale=0.86,transform shape,node distance=0.55cm,
-    box/.style={draw,rounded corners,minimum width=1.65cm,minimum height=0.85cm,very thick},
-    flow/.style={-{Latex[length=2.5mm]},very thick,courseblue}]
-    \node[box,fill=courselightblue] (x) {$\mathbf a^{(0)}$};
-    \node[box,right=of x] (h1) {$f^{(1)}$};
-    \node[box,right=of h1] (h2) {$f^{(2)}$};
-    \node[right=0.35cm of h2] (dots) {$\cdots$};
-    \node[box,right=0.35cm of dots] (hl) {$f^{(M)}$};
-    \node[box,fill=courselightorange,right=of hl] (y) {$\hat{\mathbf y}$};
-    \draw[flow] (x)--(h1); \draw[flow] (h1)--(h2); \draw[flow] (h2)--(dots);
-    \draw[flow] (dots)--(hl); \draw[flow] (hl)--(y);
+  \begin{tikzpicture}[unit/.style={circle,draw,very thick,minimum size=0.65cm},edge/.style={courseblue!75,thick}]
+    \foreach \i in {1,2}{\node[unit,fill=courselightblue] (x\i) at (0,{1.1-1.2*\i}) {$x_\i$};}
+    \foreach \j in {1,2,3}{\node[unit,fill=courselightorange] (h\j) at (2.6,{1.7-1.2*\j}) {$a_{\j}^{(1)}$};}
+    \foreach \j in {1,2}{\node[unit,fill=courselightorange] (g\j) at (5.2,{1.1-1.2*\j}) {$a_{\j}^{(2)}$};}
+    \node[unit,fill=coursegreen!18] (y) at (7.8,-0.7) {$\hat y$};
+    \foreach \i in {1,2}{\foreach \j in {1,2,3}{\draw[edge] (x\i)--(h\j);}}
+    \foreach \i in {1,2,3}{\foreach \j in {1,2}{\draw[edge] (h\i)--(g\j);}}
+    \foreach \j in {1,2}{\draw[edge] (g\j)--(y);}
+    \node[font=\small] at (0,-2.8) {input}; \node[font=\small] at (2.6,-2.8) {hidden layer 1};
+    \node[font=\small] at (5.2,-2.8) {hidden layer 2}; \node[font=\small] at (7.8,-2.8) {output};
   \end{tikzpicture}
 
-  \vspace{0.2cm}
-  Here $f^{(\ell)}$ is layer $\ell$ and $\hat{\mathbf y}$ is the final prediction.
-  Early layers detect simple patterns; later layers combine them into richer ones.
+  \[
+    \mathbf a^{(0)}=\mathbf x,\quad
+    \mathbf a^{(\ell)}=\sigma(\mathbf W^{(\ell)}\mathbf a^{(\ell-1)}+\mathbf b^{(\ell)}),\quad
+    \hat y=f_{\boldsymbol\theta}(\mathbf x).
+  \]
+  Each circle computes one activation; later layers combine the features learned earlier.
 \end{frame}
-
-\recap{Neurons and Layers}{A neuron is a weighted sum followed by an activation and a layer is many neurons side by side; next, why the activation must be nonlinear.}
 
 % ---------------------------------------------------------------- activations
 
@@ -226,8 +213,6 @@
   \end{itemize}
   Prefer ReLU in hidden layers; keep sigmoid for outputs that must be probabilities.
 \end{frame}
-
-\recap{Activation Functions}{Nonlinear activations keep depth useful and saturating ones weaken learning; next, how a network turns an input into a prediction.}
 
 % ---------------------------------------------------------------- forward pass
 
@@ -319,22 +304,18 @@
   The hidden layers can be shared across tasks; only the output layer and the loss change.
 \end{frame}
 
-\recap{The Forward Pass}{The forward pass computes the prediction and the loss, with an output layer matched to the task; next, how to get the gradients that training needs.}
-
 % ---------------------------------------------------------------- backprop
 
 \section{Backpropagation}
 \sectiondivider{Backpropagation}
 
 \begin{frame}{Training Needs the Gradient of the Loss}
-  To lower the loss, we need to know, for every weight, how the loss changes when that weight is nudged:
-  this list of slopes is the gradient $\nabla_{\boldsymbol\theta}L$.
+  For $P$ learned parameters, training needs all $P$ derivatives in $\nabla_{\boldsymbol\theta}L$.
   \begin{itemize}
-    \item Brute force: nudge one weight, rerun the forward pass, see how $L$ moved. With a million weights, that is a million forward passes per update.
-    \item Backpropagation: one backward pass returns all the slopes together, at a cost similar to a few forward passes.
+    \item Finite differences: perturb each parameter and evaluate the loss again, costing $O(P)$ forward passes.
+    \item Backpropagation: reuse local derivatives in one reverse pass to obtain all components of the gradient.
   \end{itemize}
-  This is called reverse mode: one backward pass gives the gradient of one loss with respect to all parameters.
-  Backpropagation is what makes training networks with millions of weights affordable.
+  This reverse-mode calculation has cost comparable to a small number of forward passes for one scalar loss.
 \end{frame}
 
 \begin{frame}{A Computation Graph Splits the Work into Steps}
@@ -351,50 +332,62 @@
     \node[node,right=of act] (loss) {$L$};
     \draw[flow] (x)--(mul); \draw[flow] (w)--(mul); \draw[flow] (mul)--(add);
     \draw[flow] (b)--(add); \draw[flow] (add)--(act); \draw[flow] (act)--(loss);
+    \draw[-{Latex[length=2.5mm]},very thick,coursered] (loss.south) to[out=-100,in=-80] (act.south);
+    \draw[-{Latex[length=2.5mm]},very thick,coursered] (act.south) to[out=-100,in=-80] (add.south);
+    \draw[-{Latex[length=2.5mm]},very thick,coursered] (add.south) to[out=-100,in=-80] (mul.south);
+    \node[coursered] at (4.3,-1.55) {backward error signal};
   \end{tikzpicture}
 
   \vspace{0.2cm}
-  Each node is one simple operation (multiply, add, activation, loss) and knows only its own slope.
-  Backpropagation walks the graph from $L$ back to $w$ and $b$, passing a signal along each arrow.
-  Complicated gradients are assembled from simple local pieces.
+  Blue: compute values toward the loss. Red: propagate the loss derivative backward, multiplying by each operation's local derivative.
 \end{frame}
 
 \begin{frame}{The Chain Rule: Multiply the Slopes Along the Path}
   For one neuron with $z=wx+b$, $a=\sigma(z)$ and loss $L=\tfrac12(a-y)^2$, the change of $L$ with $w$ is a product of three local slopes:
   \[
     \frac{\partial L}{\partial w}
-    =\underbrace{(a-y)}_{\text{loss vs.\ output}}\cdot
-     \underbrace{\sigma'(z)}_{\text{output vs.\ score}}\cdot
-     \underbrace{x}_{\text{score vs.\ weight}} .
+    =\underbrace{\frac{\partial L}{\partial a}}_{a-y}
+     \underbrace{\frac{\partial a}{\partial z}}_{\sigma'(z)}
+     \underbrace{\frac{\partial z}{\partial w}}_{x}
+    =(a-y)\sigma'(z)x .
   \]
-  Numbers: $x=1$, $w=0.5$, $b=0$, $y=1$. Then $z=0.5$, $a=0.62$, and
-  \[
-    \frac{\partial L}{\partial w}=(-0.38)\cdot 0.24\cdot 1\approx-0.09 .
-  \]
-  The gradient is negative, so increasing $w$ lowers the loss: the output $0.62$ is too small and a larger weight raises it.
-  When several paths reach a weight, their contributions add.
+  Each factor is a slope on one edge of the computation graph. At a branch, add the derivatives contributed by all paths.
 \end{frame}
 
 \begin{frame}{Layer Error Signals Are Passed Backward}
-  To handle whole layers, give each layer an error signal $\boldsymbol\delta^{(\ell)}$:
-  how much the loss changes if the layer's scores $\mathbf z^{(\ell)}$ change.
+  \centering
+  \begin{tikzpicture}[layerbox/.style={draw,rounded corners,very thick,minimum height=0.75cm,minimum width=1.35cm},
+    unit/.style={circle,draw,very thick,minimum size=0.75cm},
+    forward/.style={-{Latex[length=2.5mm]},courseblue,very thick},
+    backward/.style={-{Latex[length=2.5mm]},coursered,very thick}]
+    \node[layerbox,fill=courselightblue] (x) at (0,0) {$\mathbf x$};
+    \node[layerbox,fill=courselightorange] (h) at (2.6,0) {$\mathbf a^{(\ell)}$};
+    \node[layerbox,fill=courselightorange] (g) at (5.6,0) {$\mathbf a^{(\ell+1)}$};
+    \node[unit,fill=coursegreen!18] (loss) at (8.3,0) {$L$};
+    \draw[forward] (x.north east) to[out=45,in=135] (h.north west);
+    \draw[forward] (h.north east) to[out=45,in=135] node[above] {$\mathbf W^{(\ell+1)}$} (g.north west);
+    \draw[forward] (g.north east) to[out=45,in=135] (loss.north west);
+    \draw[backward] (loss.south west) to[out=-135,in=-45] (g.south east);
+    \draw[backward] (g.south west) to[out=-135,in=-45] node[below] {$\boldsymbol\delta^{(\ell+1)}$} (h.south east);
+    \draw[backward] (h.south west) to[out=-135,in=-45] (x.south east);
+  \end{tikzpicture}
   \[
-    \boxed{
+    \delta_j^{(\ell)}=\frac{\partial L}{\partial z_j^{(\ell)}}
+      =\sigma'(z_j^{(\ell)})
+       \sum_k W_{kj}^{(\ell+1)}\delta_k^{(\ell+1)}.
+  \]
+  The sum collects every path from neuron $j$ to the next layer. In vector form:
+  \[
     \boldsymbol\delta^{(\ell)}
     =\left(\mathbf W^{(\ell+1)}\right)^\top
       \boldsymbol\delta^{(\ell+1)}
-      \odot\sigma'(\mathbf z^{(\ell)})}
+      \odot\sigma'(\mathbf z^{(\ell)}).
   \]
-  \begin{itemize}
-    \item $\mathbf W^\top$ sends the next layer's error signal back through the weights.
-    \item $\odot$ (Hadamard product) multiplies two vectors entry by entry, here applying each neuron's activation slope.
-    \item The last layer starts the chain: for squared error with a linear output, $\delta=\hat y-y$.
-  \end{itemize}
-  Each layer's error signal is computed from the next layer's, one step at a time, so no work is repeated.
+  Here $\odot$ multiplies entries; for squared error and a linear output, $\delta^{(M)}=\hat y-y$.
 \end{frame}
 
 \begin{frame}{From Error Signals to Weight Gradients}
-  Once a layer's $\boldsymbol\delta^{(\ell)}$ is known, its gradients follow directly:
+  A weight $W_{ji}^{(\ell)}$ connects activation $a_i^{(\ell-1)}$ to neuron $j$:
   \[
     \boxed{
     \frac{\partial L}{\partial\mathbf W^{(\ell)}}
@@ -404,11 +397,10 @@
       =\boldsymbol\delta^{(\ell)}} .
   \]
   \begin{itemize}
-    \item A weight's gradient is the error signal of the neuron it feeds, times the activation it reads. (A column times a row is called an outer product.)
-    \item A weight matters most when its input was large and its neuron is blamed for a lot of the error.
-    \item With a mini-batch of examples, average these gradients over the examples.
+    \item Entrywise: $\partial L/\partial W_{ji}^{(\ell)}=\delta_j^{(\ell)}a_i^{(\ell-1)}$.
+    \item For a mini-batch, average each example's outer-product gradient.
   \end{itemize}
-  So the forward values $\mathbf a^{(\ell-1)}$ and the error signals $\boldsymbol\delta^{(\ell)}$ are all the backward pass needs.
+  Stored forward activations and backward error signals are sufficient for this layer's gradients.
 \end{frame}
 
 \begin{frame}{Worked Backward Pass: Output Layer}
@@ -479,8 +471,6 @@
   Backpropagation only computes gradients; the optimizer decides how to use them.
 \end{frame}
 
-\recap{Backpropagation}{Backpropagation obtains every gradient in one backward pass by multiplying local slopes; next, what such networks can represent.}
-
 % ---------------------------------------------------------------- capacity
 
 \section{What Networks Can Represent}
@@ -506,29 +496,20 @@
 \end{frame}
 
 \begin{frame}{Universal Approximation: Existence, Not Learning}
-  With enough hidden units, one hidden layer can approximate any continuous function on a bounded region as closely as we like.
-  \vspace{0.2cm}
-
-  This says a good network exists. It does \emph{not} say:
+  For continuous $f$ on compact $K\subset\mathbb R^d$ and any $\varepsilon>0$,
+  a \emph{single hidden layer} of sufficient width $N$ can satisfy
+  \[
+    \sup_{\mathbf x\in K}\left|f(\mathbf x)-
+      \left(c+\sum_{j=1}^{N}\alpha_j
+        \operatorname{ReLU}(\mathbf w_j^\top\mathbf x+b_j)\right)\right|<\varepsilon.
+  \]
+  This existence result does not specify:
   \begin{itemize}
-    \item how many units we need for a useful accuracy;
-    \item how to find the weights;
-    \item that training will be stable or data-efficient;
-    \item that the model works outside the observed data.
+    \item the required width or how to find the weights;
+    \item whether training is stable or data-efficient;
+    \item behavior beyond $K$ or on unseen data.
   \end{itemize}
-  Depth can represent some structured functions far more efficiently than one huge layer,
-  but approximation power alone does not choose an architecture.
-\end{frame}
-
-\begin{frame}{Summary: Representation Versus Training}
-  \begin{itemize}
-    \item Neurons apply a weighted sum and a nonlinear activation; layers stack them to build features.
-    \item The forward pass computes the prediction and the loss.
-    \item Backpropagation computes all gradients in one backward pass by passing error signals layer by layer.
-    \item An optimizer uses the gradients to update the parameters.
-    \item Approximation theorems establish capacity, not trainability or generalization.
-  \end{itemize}
-  The generalization lecture asks how capacity, data, and regularization determine performance on unseen examples.
+  Approximation capacity alone does not select an architecture or establish generalization.
 \end{frame}
 
 \appendix
@@ -536,14 +517,13 @@
 \sectiondivider{Appendix: optional depth}
 
 \begin{frame}{Forward Mode Versus Reverse Mode}
-  For a map $\mathbf y=f(\mathbf x)$, the Jacobian $\mathbf J_f$ is the matrix of all partial derivatives $\partial y_i/\partial x_j$:
-  how each output reacts to each input.
-  \begin{itemize}
-    \item Forward mode (a Jacobian--vector product, $\mathbf J_f\mathbf v$) pushes one input direction $\mathbf v$ forward through the network.
-    \item Reverse mode (a vector--Jacobian product, $\mathbf u^\top\mathbf J_f$) pulls one output weighting $\mathbf u$ backward.
-  \end{itemize}
-  A network has millions of parameters but one scalar loss, so one reverse pass with $\mathbf u=1$ returns the whole gradient
-  $\nabla_{\boldsymbol\theta}L$. Forward mode would need one pass per parameter.
+  The Jacobian $J_{ij}=\partial y_i/\partial x_j$ contains all input--output derivatives.
+  \[
+    \underbrace{\mathbf J_f\mathbf v}_{\text{forward: one input direction}}
+    \qquad\qquad
+    \underbrace{\mathbf u^\top\mathbf J_f}_{\text{reverse: one output weighting}}.
+  \]
+  A scalar loss has one output and many parameters. Reverse mode with $\mathbf u=1$ returns $\nabla_{\boldsymbol\theta}L$ in one pass; forward mode needs one direction per parameter.
 \end{frame}
 
 \begin{frame}{Finite Differences Check a Gradient}
@@ -586,19 +566,6 @@
   \]
   Function values anchor height; derivatives constrain local shape. The weight $\lambda$ balances the two terms.
   This Sobolev-style objective helps only when derivative information is reliable and consistently scaled.
-\end{frame}
-
-\begin{frame}{Universal Approximation: Formal Statement}
-  Let $K\subset\mathbb R^d$ be compact and $f$ continuous on $K$. For every $\varepsilon>0$,
-  there exist a width $N$ and parameters $\alpha_j,\mathbf w_j,b_j,c$ such that
-  \[
-    \sup_{\mathbf x\in K}
-    \left|f(\mathbf x)-
-    \left(c+\sum_{j=1}^{N}\alpha_j
-      \operatorname{ReLU}(\mathbf w_j^\top\mathbf x+b_j)\right)\right|
-    <\varepsilon.
-  \]
-  So one sufficiently wide hidden layer is dense in the continuous functions on a compact domain.
 \end{frame}
 
 \end{document}

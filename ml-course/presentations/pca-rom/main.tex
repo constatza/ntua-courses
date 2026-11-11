@@ -22,136 +22,87 @@
   \makepresentationtitle
 \end{frame}
 
-\begin{frame}{Roadmap}
-  \small
-  \tableofcontents
-
-  \vspace{0.6em}
-  The question that drives the deck: \emph{how can we replace an expensive simulation by a much smaller model that is almost as accurate?}
-  We first see why this is useful, then how PCA finds the few shapes that matter, then how to use them inside the governing equations.
-\end{frame}
-
 \section{Why a Reduced-Order Model?}
 \sectiondivider{Why a Reduced-Order Model?}
 
 \begin{frame}{Why Reduced-Order Modeling?}
-  \small
-  Many tasks need the \emph{same} simulation again and again for different inputs:
-  design optimization, uncertainty analysis, real-time monitoring.
-  Each input is a \textcolor{ntuablue}{query}.
-
-  \begin{itemize}
-    \item \(\xi\): the parameters of one query, e.g.\ a load magnitude and a material stiffness
-    \item \(\bd{u}(\xi)\): the computed state for that query, e.g.\ all nodal displacements of a finite-element model
-    \item \(D\): number of numbers in \(\bd{u}\) (one per unknown), often thousands to millions; so \(\bd{u}(\xi)\in\mathbb{R}^{D}\)
-  \end{itemize}
-
-  \vspace{0.3em}
-  Example: if one full solve takes 1 hour, then 10\,000 queries take more than a year.
-
-  \takeaway{if every query needs a full solve, many-query tasks are out of reach.}
+\small
+\[
+ \xi\ \longmapsto\ \bd u(\xi)\in\mathbb R^D.
+\]
+\begin{itemize}
+\item $\xi$: one query's parameters, such as load and stiffness.
+\item $\bd u$: state, such as all finite-element nodal displacements.
+\item $D$: full number of unknowns, often thousands to millions.
+\item Optimization, uncertainty analysis and monitoring require repeated queries.
+\end{itemize}
+\textbf{Cost example:} $10\,000$ one-hour solves exceed one year.
+\takeaway{many-query workloads make the cost of each full solve decisive.}
 \end{frame}
 
 \begin{frame}{The Key Observation}
-  \small
-  Take one structure and vary only the load magnitude \(\xi\).
-  The response is linear in the load, so
-  \[
-    \bd{u}(\xi)=\xi\,\bd{u}(1).
-  \]
-  All \(D\) displacements, for every \(\xi\), are described by \emph{one} number \(\xi\) times a fixed shape.
-
-  \vspace{0.4em}
-  With several parameters, or a nonlinear response, the states are no longer on a line,
-  but they still tend to lie near a thin, low-dimensional set inside \(\mathbb{R}^{D}\):
-  nearby queries give similar states.
-
-  \takeaway{we do not need all \(D\) numbers to describe every state; a handful of shapes can be enough.}
+\small
+Vary only the load magnitude $\xi$ of a linear structure:
+\[
+ \bd u(\xi)=\xi\bd u(1).
+\]
+\begin{itemize}
+\item One fixed response shape and one scalar describe all $D$ displacements.
+\item Several parameters may require several shapes.
+\item Nonlinear responses may still lie near a low-dimensional set, but this must be checked from snapshots.
+\end{itemize}
+\takeaway{a large state dimension need not imply a large number of independent response shapes.}
 \end{frame}
 
 \begin{frame}{What a Reduced-Order Model Does}
-  \small
-  A reduced-order model (ROM) describes each state by \(r\ll D\) numbers and rebuilds the full state from them:
-  \[
-    \bd{u}(\xi)\in\mathbb{R}^{D}
-    \;\xrightarrow{\;\mathrm{Enc}_r\;}\;
-    \bd{u}_r\in\mathbb{R}^{r}
-    \;\xrightarrow{\;\mathrm{Dec}_r\;}\;
-    \widehat{\bd{u}}(\xi)\in\mathbb{R}^{D}
-  \]
-
-  \begin{itemize}
-    \item \(r\): reduced dimension, the number of numbers we keep
-    \item \(\mathrm{Enc}_r\) (encoder): compresses a full state to \(r\) numbers \(\bd{u}_r\)
-    \item \(\mathrm{Dec}_r\) (decoder): rebuilds an approximate full state \(\widehat{\bd{u}}\approx\bd{u}\)
-  \end{itemize}
-
-  \vspace{0.3em}
-  Compression alone is not enough: for a new query we do not know \(\bd{u}\) yet.
-  The ROM must therefore \emph{compute} \(\bd{u}_r\) directly, by solving a small problem in \(\mathbb{R}^{r}\).
-  Methods that use the model's internal matrices to do this are called \emph{intrusive}
-  (this deck); data-only variants are \emph{non-intrusive}\framecite{bai2021}.
-
-  \takeaway{a ROM is a cheap compressor plus a cheap solver for the compressed numbers.}
+\small
+\[
+ \bd u\in\mathbb R^D\xrightarrow{\mathrm{Enc}_r}\bd u_r\in\mathbb R^r
+ \xrightarrow{\mathrm{Dec}_r}\widehat{\bd u}\in\mathbb R^D,\qquad r\ll D.
+\]
+\begin{itemize}
+\item Encoder: compress a known state to $r$ coordinates.
+\item Decoder: reconstruct an approximate full state.
+\item New query: solve directly for $\bd u_r$; the full state is still unknown.
+\item Intrusive ROMs use the governing matrices (here); non-intrusive variants learn reduced maps from data\framecite{bai2021}.
+\end{itemize}
+\takeaway{compression alone does not solve a new problem.}
 \end{frame}
 
 \begin{frame}{High-Level Workflow}
-  \small
-  Expensive work is done once offline on \(N_{\mathrm{train}}\) training queries;
-  then \(N_{\mathrm{deploy}}\) new queries are answered online.
-
-  \threecols
-  {
-    \textcolor{ntuablue}{Offline: data}
-    \begin{itemize}
-      \item Sample \(\xi_1,\dots,\xi_{N_{\mathrm{train}}}\)
-      \item Run the full model for each
-      \item Store the states \(\bd{u}(\xi_j)\in\mathbb{R}^D\) (\emph{snapshots})
-    \end{itemize}
-  }
-  {
-    \textcolor{ntuablue}{Offline: model}
-    \begin{itemize}
-      \item Build a reduced basis of size \(r\ll D\)
-      \item Form \(\mathrm{Enc}_r,\,\mathrm{Dec}_r\)
-      \item Assemble the reduced model
-    \end{itemize}
-  }
-  {
-    \textcolor{ntuablue}{Online: deploy}
-    \begin{itemize}
-      \item New query \(\xi_i\)
-      \item Solve the small reduced model in \(\mathbb{R}^r\)
-      \item Reconstruct \(\widehat{\bd{u}}(\xi_i)=\mathrm{Dec}_r(\bd{u}_r(\xi_i))\)
-    \end{itemize}
-  }
-
-  \takeaway{we pay for training once, then every new query is cheap.}
+\centering
+\begin{tikzpicture}[>=stealth,scale=1.3,transform shape,every node/.style={align=center,font=\small}]
+\node[draw,fill=ntuablue!10] (snap) at (0,0) {Offline snapshots\\$\bd u(\xi_j)$};
+\node[draw,fill=ntuablue!10] (basis) at (3,0) {PCA basis\\$\bar{\bd u},\bd V_r$};
+\node[draw,fill=orange!15] (solve) at (6,0) {Online reduced solve\\$\xi\mapsto\bd u_r$};
+\node[draw,fill=orange!15] (decode) at (9,0) {Decode\\$\widehat{\bd u}$};
+\draw[->,thick] (snap)--(basis); \draw[->,thick] (basis)--(solve); \draw[->,thick] (solve)--(decode);
+\end{tikzpicture}
+\[
+ \bd u(\xi)\approx\bar{\bd u}+\bd V_r\bd u_r(\xi),\qquad r\ll D.
+\]
+\raggedright\small
+Full solves build the basis once. A new query supplies the load and stiffness;
+the reduced equations compute its coordinates without first knowing the full state.
+\takeaway{compression describes known states; a reduced solve predicts a new one.}
 \end{frame}
 
 \begin{frame}{When Does a ROM Pay Off?\framecite{sandia2014}}
-  \small
-  Offline cost \(T_{\mathrm{off}}\): the \(N_{\mathrm{train}}\) full solves plus the time to build the basis.
-  Each later query saves \(t_{\mathrm{HF}}-t_{\mathrm{ROM}}\), where \(t_{\mathrm{HF}}\) is the time of one full
-  (high-fidelity) solve and \(t_{\mathrm{ROM}}\ll t_{\mathrm{HF}}\) the time of one ROM solve.
-  The ROM wins once the number of queries \(N_{\mathrm{use}}\) satisfies
-  \[
-    N_{\mathrm{use}}
-    >
-    \frac{T_{\mathrm{off}}}
-         {t_{\mathrm{HF}} - t_{\mathrm{ROM}}}.
-  \]
-
-  \textcolor{ntuablue}{Example.} \(t_{\mathrm{HF}}=1\) h, \(N_{\mathrm{train}}=100\), basis building 2 h, \(t_{\mathrm{ROM}}=1\) s:
-  \(T_{\mathrm{off}}=100+2=102\) h, so \(N_{\mathrm{use}}>102\,\mathrm{h}/(1\,\mathrm{h}-1\,\mathrm{s})\approx 102\) queries.
-  After the 103rd query every further query is almost free.
-
-  \takeaway{a ROM pays off only if it will be used for many more queries than were needed to train it.}
-\end{frame}
-
-\begin{frame}{Recap: Why a ROM?}
-  \small
-  We learned that similar states can be described by a few numbers, so a ROM (encoder, decoder and small solver) pays off when used many times; next, principal component analysis finds those few numbers from data.
+\small
+\[
+ N_{\mathrm{use}}>\frac{T_{\mathrm{off}}}{t_{\mathrm{HF}}-t_{\mathrm{ROM}}},\qquad
+ t_{\mathrm{ROM}}<t_{\mathrm{HF}}.
+\]
+\begin{itemize}
+\item $T_{\mathrm{off}}$: training solves and basis construction.
+\item $t_{\mathrm{HF}},t_{\mathrm{ROM}}$: full and reduced cost per query, including assembly and decoding.
+\item Savings per query must recover the offline cost.
+\end{itemize}
+\textbf{Example:} 100 one-hour training solves, 2 hours basis building, 1-second ROM queries:
+\[
+ T_{\mathrm{off}}=102\text{ h},\qquad N_{\mathrm{use}}>102.03.
+\]
+Break-even occurs at 103 deployment queries under these cost assumptions.
 \end{frame}
 
 \section{PCA: Finding the Important Directions}
@@ -159,9 +110,7 @@
 
 \begin{frame}{PCA Snapshot Basis\framecite{kutz2016}}
   \small
-  In the ROM literature this construction is often called
-  \textcolor{ntuablue}{proper orthogonal decomposition (POD)}; we use the name
-  \textcolor{ntuablue}{principal component analysis (PCA)}.
+  Also called \textcolor{ntuablue}{proper orthogonal decomposition (POD)} in ROMs.
 
   Stack the snapshots as rows, compute their mean, and subtract it:
   \[
@@ -185,7 +134,7 @@
     \item \(\bar{\bd{u}}\in\mathbb{R}^{D}\): the mean state, the ``typical'' snapshot
     \item \(\bd{U}_c\): the \emph{centered snapshot matrix}, one row per training query
   \end{itemize}
-  We subtract the mean so that what remains is only the \emph{variation} between snapshots.
+  Centering isolates variation around the mean.
 
   \takeaway{PCA will describe how snapshots differ from the mean, not the mean itself.}
 \end{frame}
@@ -193,8 +142,7 @@
 \begin{frame}{PCA Intuition}
   \begin{figure}
     \includegraphics[width=0.85\textwidth,height=0.60\textheight,keepaspectratio]{principal-axes.png}
-    \caption{\footnotesize Each snapshot \(\bd{u}(\xi_j)\) is a point in \(\mathbb{R}^D\) (drawn here for \(D=2\)).
-      The arrows are the principal axes: the first points along the direction of largest spread, the second is perpendicular to it.}
+    \caption{\footnotesize Centered snapshots in \(\mathbb{R}^2\); arrows show the principal axes.}
   \end{figure}
   \small
   \takeaway{when the points cluster near a line or plane, a few axes describe them well.}
@@ -247,29 +195,24 @@
     \text{decode: } & \widehat{\bd{u}}=\bar{\bd{u}}+u_r\bd{v}_1\approx(1.06,\,1.14)
       && \text{(back in } \mathbb{R}^2\text{)}
   \end{align*}
-  The error is \(\|\widehat{\bd{u}}-\bd{u}\|\approx 0.09\), small compared with the data spread (about 4).
+  Reconstruction error: \(\|\widehat{\bd{u}}-\bd{u}\|\approx0.09\); data spread: about 4.
 
-  \takeaway{one number per snapshot reproduces the data to within a few percent, because the discarded axis carries only 0.5\% of the variance.}
+  \takeaway{one coordinate retains 99.5\% of the snapshot variance.}
 \end{frame}
 
 \begin{frame}{PCA Basis Construction}
-  \small
-  The principal axes are found from the \emph{covariance matrix}, which records how the state entries vary together over the snapshots:
-  \[
-    \bd{C}=\frac{1}{N_{\mathrm{train}}}\bd{U}_c^{\top}\bd{U}_c\in\mathbb{R}^{D\times D},
-    \qquad
-    \bd{C}\bd{v}_i=\lambda_i\bd{v}_i .
-  \]
-  The second equation says: \(\bd{v}_i\) is an \emph{eigenvector} of \(\bd{C}\) (a direction that \(\bd{C}\) only stretches)
-  and \(\lambda_i\) the \emph{eigenvalue} (the stretch factor).
-
-  \begin{itemize}
-    \item \(\bd{v}_i\): principal axis \(i\); the axes are perpendicular to each other and ordered by \(\lambda_i\)
-    \item \(\lambda_i\): the variance of the snapshots along \(\bd{v}_i\); large \(\lambda_i\) means an important direction
-  \end{itemize}
-  Why the eigenvectors are the right directions: see the appendix.
-
-  \takeaway{PCA reduces to one standard computation: the eigenvectors of \(\bd{C}\) with the largest eigenvalues.}
+\small
+\[
+ \bd C=\frac1{N_{\mathrm{train}}}\bd U_c^\top\bd U_c\in\mathbb R^{D\times D},\qquad
+ \bd C\bd v_i=\lambda_i\bd v_i.
+\]
+\begin{itemize}
+\item $\bd U_c$: centered snapshots, one row per query.
+\item $\bd C$: covariance, measuring which state entries vary together.
+\item $\bd v_i$: orthonormal principal axes; $\lambda_i$: variance along axis $i$.
+\item Order $\lambda_1\ge\lambda_2\ge\cdots\ge0$; keep the first $r$ axes.
+\end{itemize}
+\takeaway{the leading eigenvectors capture the largest snapshot variation.}
 \end{frame}
 
 \begin{frame}{PCA Encoder and Decoder}
@@ -330,29 +273,22 @@
   \takeaway{here 5 modes instead of 30 numbers keep 95\% of the variance; the target sets the accuracy.}
 \end{frame}
 
-\begin{frame}{Recap: PCA}
-  \small
-  We learned that PCA turns snapshots into a mean and ordered axes whose first $r$ give an encoder, a decoder and a rule for choosing $r$; next we put this basis into the equation \(\bd{K}\bd{u}=\bd{f}\) so new queries are solved with $r$ unknowns.
-\end{frame}
-
 \section{Using PCA Inside the Equations}
 \sectiondivider{Using PCA Inside the Equations}
 
 \begin{frame}{Why We Need More Than Compression}
-  \small
-  Encoding a state needs the state: \(\bd{u}_r=\bd{V}_r^{\top}(\bd{u}-\bar{\bd{u}})\).
-  For a new query \(\xi\) we do not have \(\bd{u}(\xi)\) (that is what the full solve would give).
-  We need an equation that tells us \(\bd{u}_r\) directly.
-
-  \vspace{0.3em}
-  The equation comes from the physics. For a linear structural model it reads
-  \[
-    \bd{K}(\xi)\,\bd{u}(\xi) = \bd{f}(\xi),
-  \]
-  with \(\bd{K}\in\mathbb{R}^{D\times D}\) the \emph{stiffness matrix} (how strongly the structure resists being displaced),
-  \(\bd{f}\) the load vector, and \(\bd{u}\) the displacements. For a single spring this is \(k\,u=f\): stiffness times displacement equals force.
-
-  \takeaway{we will insert the PCA decoder into \(\bd{K}\bd{u}=\bd{f}\) to get an equation for the \(r\) numbers \(\bd{u}_r\).}
+\small
+\[
+ \underbrace{\bd u_r=\bd V_r^\top(\bd u-\bar{\bd u})}_{\text{requires an already-known full state}}
+ \qquad\text{versus}\qquad
+ \underbrace{\bd K(\xi)\bd u(\xi)=\bd f(\xi)}_{\text{determines a new state}}.
+\]
+\begin{itemize}
+\item $\bd K\in\mathbb R^{D\times D}$: stiffness matrix; $\bd f$: load; $\bd u$: displacement.
+\item One spring gives the familiar equation $ku=f$.
+\item Substitute $\bd u\approx\bar{\bd u}+\bd V_r\bd u_r$ into the governing equation.
+\item Project to obtain $r$ equations for the unknown reduced coordinates.
+\end{itemize}
 \end{frame}
 
 \begin{frame}{PCA-ROM: Substituting the Basis}
@@ -382,9 +318,10 @@
   {
     \textcolor{ntuablue}{Galerkin} means: pick \(\bd{u}_r\) so that the residual is perpendicular to every kept axis,
     \[
-      \bd{V}_r^{\top}\bd{r}=\bd{0}.
+      \begin{gathered}\bd V_r^{\top}\bd r=0,\\
+    \bd V_r^{\top}\bd K\bd V_r\bd u_r=\bd V_r^{\top}(\bd f-\bd K\bar{\bd u}).\end{gathered}
     \]
-    This is \(r\) equations for \(r\) unknowns, so a solution exists (for the usual stiffness matrices).
+    For symmetric positive-definite \(\bd K\) and independent basis columns, the reduced system is also positive definite.
 
     \medskip
     In words: whatever error is left lies \emph{outside} the space spanned by the basis, so the reduced model cannot detect it and has no further reason to change \(\bd{u}_r\).
@@ -432,8 +369,7 @@
 
   \begin{figure}
     \includegraphics[width=\textwidth,height=0.48\textheight,keepaspectratio]{3d-original-space.png}
-    \caption{\footnotesize All snapshots in \(\mathbb{R}^3\)
-      (\textcolor{ntuablue}{blue}: train, \textcolor{orange}{orange}: deploy). Arrows: principal axes from \(\bar{\bd{u}}\).}
+    \caption{\footnotesize Snapshots in \(\mathbb{R}^3\): \textcolor{ntuablue}{blue} training, \textcolor{orange}{orange} deployment; arrows show principal axes.}
   \end{figure}
   \takeaway{the cloud is nearly flat, so a 2-D plane (\(r=2\)) already holds most of it; the third axis is short.}
 \end{frame}
@@ -453,7 +389,6 @@
   {
     \begin{figure}
       \includegraphics[width=\textwidth,height=0.62\textheight,keepaspectratio]{2d-reduced-space.png}
-      \caption{\footnotesize The same snapshots encoded to \(\mathbb{R}^2\).}
     \end{figure}
   }
   \takeaway{two numbers per query describe the state; the training basis generalizes to unseen queries here.}
@@ -503,11 +438,6 @@
     \end{figure}
   }
   \takeaway{the ROM is accurate to a few percent, limited by truncation, if the mean term is included.}
-\end{frame}
-
-\begin{frame}{Recap: PCA-Galerkin ROM}
-  \small
-  We learned that substituting the decoder and demanding a residual perpendicular to the basis gives an \(r\times r\) system (in the example, \(3\times3\) became \(2\times2\) at about 1.6\% error); the appendix collects the linear algebra behind PCA.
 \end{frame}
 
 \appendix

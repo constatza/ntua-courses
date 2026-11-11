@@ -34,14 +34,11 @@
 
 % ---------------------------------------------------------------- A. The task
 
-\begin{frame}{Roadmap}
-  \tableofcontents
-\end{frame}
-
 \section{What Is Supervised Learning?}
 \sectiondivider{What Is Supervised Learning?}
 
 \begin{frame}{Learning From Solved Examples}
+  \textbf{Task: regression.} Predict a measured number---beam deflection---from a known load.
   A beam is loaded in the lab and its midspan deflection is measured
   (illustrative numbers):
   \begin{center}
@@ -59,19 +56,28 @@
     \end{tabular}
   \end{center}
   We know the answer for four loads and want it for a load never tested.
-  \takeaway{supervised learning uses examples with known answers to predict the answer for a new input.}
+  \takeaway{supervised learning uses examples with known answers to predict an answer for a new input; classification predicts a category instead.}
 \end{frame}
 
 \begin{frame}{Inputs, Targets, Predictions, and the Model}
-  \begin{itemize}
-    \item \textbf{Input} $\mathbf{x}$: what we measure (the load).
-    \item \textbf{Target} $y$: the answer we want (the deflection); known for the solved examples.
-    \item \textbf{Model} $f_{\boldsymbol{\theta}}$: a rule that turns an input into an answer.
-    \item \textbf{Parameters} $\boldsymbol{\theta}$: the numbers that tune the rule (for a line: slope and intercept).
-    \item \textbf{Prediction} $\hat y=f_{\boldsymbol{\theta}}(\mathbf{x})$: the model's answer; the hat means ``estimated''.
-    \item \textbf{Training set} $\mathcal{D}=\{(\mathbf{x}_i,y_i)\}_{i=1}^{n}$: the $n$ solved examples; $i$ numbers them.
-  \end{itemize}
-  \takeaway{learning means choosing $\boldsymbol\theta$ so that the predictions $\hat y_i$ match the known targets $y_i$.}
+  \[
+    \mathcal D=\{(\mathbf x_i,y_i)\}_{i=1}^n
+    \quad\text{(input, known target pairs).}
+  \]
+  \centering
+  \begin{tikzpicture}[scale=0.94,transform shape,node distance=0.7cm,
+    box/.style={draw,rounded corners,very thick,minimum width=2.2cm,minimum height=0.9cm,align=center},
+    flow/.style={-{Latex[length=2.5mm]},very thick,courseblue}]
+    \node[box,fill=courselightblue] (input) {input\\$\mathbf x_i$};
+    \node[box,right=of input] (model) {model\\$f_{\boldsymbol\theta}$};
+    \node[box,right=of model,fill=courselightorange] (prediction) {prediction\\$\hat y_i$};
+    \node[box,right=of prediction] (loss) {loss\\$\ell(\hat y_i,y_i)$};
+    \node[below=0.55cm of loss] (target) {known target $y_i$};
+    \draw[flow] (input)--(model); \draw[flow] (model)--(prediction);
+    \draw[flow] (prediction)--(loss); \draw[flow] (target)--(loss);
+  \end{tikzpicture}
+  \raggedright
+  \takeaway{learning chooses $\boldsymbol\theta$ to match predictions to the $n$ known targets.}
 \end{frame}
 
 \begin{frame}{With Several Features the Data Form a Table}
@@ -146,17 +152,16 @@
 
 \begin{frame}{A Model Class Is the Set of Rules We Allow}
   \[
-    \mathcal H=\{f_{\boldsymbol\theta}:\boldsymbol\theta\in\Theta\}
+    \mathcal H=\{f_{\boldsymbol\theta}:\boldsymbol\theta\in\Theta\},
+    \qquad
+    \hat{\boldsymbol\theta}=\operatorname*{arg\,min}_{\boldsymbol\theta\in\Theta}L(\boldsymbol\theta).
   \]
   \begin{itemize}
-    \item $\Theta$ (capital theta) is the set of allowed parameter values; $\mathcal H$ is the set of rules they define.
-    \item Example: all straight lines $\hat y=wx+b$; here $\boldsymbol\theta=(w,b)$ and $\Theta$ is every pair of numbers.
-    \item Example: all polynomials of degree 9 (ten parameters).
-    \item Training picks the member with the smallest training loss, written
-      $\hat{\boldsymbol\theta}=\operatorname*{arg\,min}_{\boldsymbol\theta\in\Theta}L(\boldsymbol\theta)$
-      (``the $\boldsymbol\theta$ that gives the smallest $L$'').
+    \item $\Theta$ specifies allowed parameters; $\mathcal H$ is the set of predictions they can produce.
+    \item Lines $wx+b$ form a small class; degree-9 polynomials form a richer one.
+    \item Training selects the member with the lowest observed loss.
   \end{itemize}
-  \takeaway{the choice of model class fixes what the learner can express before it sees any data.}
+  \takeaway{the model class sets what can be learned before any data are fitted.}
 \end{frame}
 
 \begin{frame}{Small and Rich Model Classes Fail in Different Ways}
@@ -179,51 +184,31 @@
 
 % ---------------------------------------------------------------- B. Honest evaluation
 
-\begin{frame}{Recap}
-  We learned what a supervised problem, a loss and a model class are. Next: how to measure honestly whether a model has learned anything.
-\end{frame}
-
 \section{Honest Evaluation: Splits, Cross-Validation, Leakage}
 \sectiondivider{Honest Evaluation: Splits, Cross-Validation, Leakage}
 
 \begin{frame}{Low Training Error Is Not the Goal}
-  A student who memorizes last year's exam gets full marks on it and may fail a new exam.
-  \begin{itemize}
-    \item $L(\boldsymbol\theta)$: average loss on the \textbf{training} examples. We can compute it.
-    \item $R(\boldsymbol\theta)$: average loss on \textbf{new} examples from the same source (the ``risk''). We care about it.
-    \item A model that memorizes can have $L\approx 0$ and a large $R$.
-  \end{itemize}
-  \takeaway{we must measure error on data the model did not train on, because only that error tells us how it will behave in use.}
-\end{frame}
-
-\begin{frame}{Experiment: Polynomials of Increasing Degree}
-  \begin{itemize}
-    \item Data: 12 noisy points from a sine curve (the dashed truth, unknown to the model).
-    \item A degree-$p$ polynomial $\theta_0+\theta_1x+\dots+\theta_px^p$ is a curve with up to $p-1$ bends;
-      a larger $p$ means a richer class.
-    \item Fit $p=1,3,9$ by least squares (the method is explained later in this lecture).
-    \item Measure the error (RMSE, defined in the regression section) on the 12 training points
-      and on 400 fresh points.
-  \end{itemize}
-  \takeaway{we will compare the error on the points used for fitting with the error on points the fit never saw.}
+  \[
+    L(\boldsymbol\theta)=\text{average training loss},\qquad
+    R(\boldsymbol\theta)=\mathbb E_{(X,Y)\sim P}\,\ell(f_{\boldsymbol\theta}(X),Y).
+  \]
+  We can measure $L$ on the examples used to fit the model. We estimate the new-data risk $R$ with held-out examples from the same source.
+  \takeaway{a model can fit its training examples closely and still predict new examples poorly.}
 \end{frame}
 
 \begin{frame}{Fitting the Sample Is Not Enough}
-  \centering
-  \includegraphics[width=0.96\linewidth,height=0.68\textheight,keepaspectratio]{polynomial-fit.png}
-  \takeaway{training error keeps falling, fresh-data error falls and then explodes.}
-\end{frame}
-
-\begin{frame}{Reading the Experiment: Underfitting and Overfitting}
-  \begin{itemize}
-    \item \textbf{Degree 1 underfits}: the line is too stiff; both errors are high (0.62 and 0.55).
-    \item \textbf{Degree 3 fits well}: fresh-data error 0.33, near the noise level 0.25 that no model can beat.
-    \item \textbf{Degree 9 overfits}: error 0.04 on the training points (below the noise level: it is bending to the noise)
-      but 4.66 on fresh points.
-  \end{itemize}
-  The 4.66 comes from the curve swinging far between and beyond the points, mostly near the ends,
-  where it reaches $-17$ near $x=-0.9$ (off the plotted scale).
-  \takeaway{overfitting means low training error with high fresh-data error, so training error alone cannot pick the model.}
+  \begin{columns}[c]
+    \column{0.73\textwidth}
+    \includegraphics[width=\linewidth,height=0.68\textheight,keepaspectratio]{polynomial-fit.png}
+    \column{0.24\textwidth}
+    \small Twelve noisy training points; 400 fresh points.
+    \begin{itemize}
+      \item $p=1$: underfit.
+      \item $p=3$: fresh RMSE $0.33$.
+      \item $p=9$: train $0.04$, fresh $4.66$.
+    \end{itemize}
+  \end{columns}
+  \takeaway{training error alone cannot choose model complexity.}
 \end{frame}
 
 \begin{frame}{Hold Out Data to Measure Fresh-Data Error}
@@ -243,20 +228,8 @@
   \end{tikzpicture}
 
   \vspace{0.3cm}
-  Set aside part of the data before training, shuffled at random. Think of practice problems (training),
-  a mock exam (validation) and the final exam (test).
-  \takeaway{each split has one job, and the model never trains on the data used to judge it.}
-\end{frame}
-
-\begin{frame}{Why Two Held-Out Sets?}
-  \begin{itemize}
-    \item We use the validation score to choose among models (the degree, the settings).
-    \item Choosing the best of many tries partly picks luck, so the winner's validation score is a little too good.
-    \item The test set is looked at once, after all choices are made, so its score is an honest estimate.
-    \item Repeated decisions based on the test set turn it into validation data.
-    \item Grouped or time-ordered samples need a split that respects the grouping or the order.
-  \end{itemize}
-  \takeaway{validation data are for choosing, test data are for reporting, and mixing the two makes the report optimistic.}
+  Validation selects models; its best score may be optimistic. Report once on untouched test data. Preserve groups and time order when splitting such data.
+  \takeaway{training fits, validation selects, and test estimates final performance.}
 \end{frame}
 
 \begin{frame}{Cross-Validation: Problem and Idea}
@@ -349,10 +322,6 @@
 \end{frame}
 
 % ---------------------------------------------------------------- C. Linear regression
-
-\begin{frame}{Recap}
-  We learned why training error misleads and how splits, cross-validation and leak-free preprocessing give an honest score. Next: the simplest model, fitted in closed form.
-\end{frame}
 
 \section{Linear Regression}
 \sectiondivider{Linear Regression}
@@ -529,10 +498,6 @@
 \end{frame}
 
 % ---------------------------------------------------------------- D. Classification
-
-\begin{frame}{Recap}
-  We learned to fit a line by least squares, solve it with the normal equations and compare it with a baseline. Next: predicting categories with probabilities.
-\end{frame}
 
 \section{Logistic Regression and Classification Metrics}
 \sectiondivider{Logistic Regression and Classification Metrics}
@@ -731,10 +696,6 @@
 
 % ---------------------------------------------------------------- F. Inputs
 
-\begin{frame}{Recap}
-  We learned logistic regression, its cross-entropy loss, and how thresholds and metrics judge a classifier. Next: preparing the inputs.
-\end{frame}
-
 \section{Preparing the Data: Normalization}
 \sectiondivider{Preparing the Data: Normalization}
 
@@ -769,14 +730,21 @@
 \end{frame}
 
 \begin{frame}{Why Scaling Helps}
-  \begin{itemize}
-    \item The model class is unchanged: a linear model on the original features can be rewritten
-      as a linear model on the scaled ones, with different weights.
-    \item Weights become comparable: a weight of $2$ now means the same size of effect for every feature.
-    \item Gradient descent behaves better: elongated loss valleys become rounder, so one step size works in all directions
-      (the optimization lecture explains the zig-zag).
-  \end{itemize}
-  \takeaway{scaling does not change what the model can represent, it makes the model easier to fit.}
+  \centering
+  \begin{tikzpicture}[scale=0.86]
+    \node at (-2.8,2.0) {original feature units};
+    \draw[courseblue,very thick] (-2.8,0) ellipse (2.25 and 0.34);
+    \draw[courseblue,thick] (-2.8,0) ellipse (1.45 and 0.22);
+    \draw[-{Latex[length=3mm]},very thick,courseorange] (-0.15,0)--(1.25,0)
+      node[midway,above] {$x'_j=(x_j-\mu_j)/\sigma_j$};
+    \node at (3.5,2.0) {scaled feature units};
+    \draw[coursegreen,very thick] (3.5,0) ellipse (1.3 and 1.1);
+    \draw[coursegreen,thick] (3.5,0) ellipse (0.75 and 0.63);
+    \fill[courseorange] (-2.8,0) circle (2pt);
+    \fill[courseorange] (3.5,0) circle (2pt);
+  \end{tikzpicture}
+  \raggedright
+  \takeaway{changing feature units can round an elongated loss valley and make gradient steps easier to tune; the linear model still represents the same predictions with adjusted weights.}
 \end{frame}
 
 \begin{frame}{Real Data Need Cleaning Before Scaling}
@@ -786,26 +754,6 @@
     \item \textbf{Missing values:} fill them using training statistics only, and record which entries were missing.
   \end{itemize}
   \takeaway{every cleaning rule, like every scaling statistic, is fitted on the training split and then applied unchanged to the rest.}
-\end{frame}
-
-\begin{frame}{Recap}
-  We learned to scale and clean features with training statistics only. Next lecture: how a loss without a closed form is minimized.
-\end{frame}
-
-\begin{frame}{Next: How Do Parameters Learn?}
-  \centering
-  \begin{tikzpicture}[
-    node distance=0.8cm,
-    box/.style={draw, rounded corners, minimum width=3.2cm, minimum height=0.9cm, align=center, very thick},
-    flow/.style={-{Latex[length=3mm]}, very thick, courseblue}
-  ]
-    \node[box,fill=courselightblue] (objective) {objective\\$L(\boldsymbol{\theta})$};
-    \node[box,fill=white,below=of objective] (gradient) {gradient\\$\nabla_{\boldsymbol{\theta}}L$};
-    \node[box,fill=courselightorange,below=of gradient] (optimizer) {optimizer\\GD $\rightarrow$ Adam};
-    \draw[flow] (objective) -- (gradient);
-    \draw[flow] (gradient) -- (optimizer);
-  \end{tikzpicture}
-  \takeaway{least squares has a closed form, but logistic regression and later models do not, so the next lecture shows how to minimize a loss step by step.}
 \end{frame}
 
 % ---------------------------------------------------------------- Appendix

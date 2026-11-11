@@ -29,14 +29,7 @@
   cell/.style={draw,minimum size=0.58cm,inner sep=0pt}
 }
 
-\newcommand{\recap}[2]{%
-  \begin{frame}{Recap: #1}
-    \vfill
-    \centering
-    {\color{courseblue}\large\bfseries #2\par}
-    \vfill
-  \end{frame}%
-}
+
 
 \begin{document}
 
@@ -44,11 +37,7 @@
   \makepresentationtitle
 \end{frame}
 
-\begin{frame}{Roadmap}
-  We start from why dense layers fail on images, then build the convolution layer, see what sharing gives us, learn to control feature-map size, and finish with whole architectures.
-  \medskip
-  \tableofcontents
-\end{frame}
+
 
 % ---------------------------------------------------------------- motivation
 
@@ -104,7 +93,21 @@
   It needs far fewer weights and uses the neighborhood structure.
 \end{frame}
 
-\recap{Why Convolution}{Images call for neurons that look at small neighborhoods; next, the kernel that does this.}
+\begin{frame}{Counting Parameters}
+  A convolution layer has one kernel of size $k_h\times k_w\times C_{\mathrm{in}}$ per output channel, plus one bias per output channel:
+  \[
+    k_hk_wC_{\mathrm{in}}C_{\mathrm{out}}+C_{\mathrm{out}} .
+  \]
+  Example: $3\times3$ kernels, $C_{\mathrm{in}}=3$, $C_{\mathrm{out}}=16$:
+  \[
+    3\cdot3\cdot3\cdot16+16=448 \text{ parameters.}
+  \]
+  A dense layer mapping a $32\times32\times3$ image to $32\times32\times16$ outputs needs
+  $3072\cdot16384\approx50$ million weights.
+
+  A convolution layer does a similar job with about a hundred thousand times fewer parameters.
+\end{frame}
+
 
 % ---------------------------------------------------------------- kernel
 
@@ -163,17 +166,23 @@
   Multiply each cell by its weight and add: $(3-0)+(2-0)+(3-0)=8$.
 \end{frame}
 
-\begin{frame}{What the Number Means}
-  This kernel computes \emph{left column minus right column}.
-  \begin{itemize}
-    \item Bright on the left, dark on the right (a vertical edge): a large positive output, as in the example.
-    \item A uniform patch: the columns cancel and the output is near zero.
-  \end{itemize}
-  \vspace{0.1cm}
-  \textbf{Convention.} Deep-learning libraries (and these slides) compute this sum without flipping the kernel, which is technically cross-correlation but is called convolution.
-  True convolution flips the kernel first; the two differ only by relabeling the kernel weights.
+\begin{frame}{A Kernel Maps a Patch to a Response}
+  \centering
+  \begin{tikzpicture}[node distance=0.7cm]
+    \node[box,fill=courselightorange] (k) {$\mathbf w=\begin{bmatrix}1&0&-1\\1&0&-1\\1&0&-1\end{bmatrix}$};
+    \node[box,fill=courselightblue,right=of k] (edge) {$\begin{bmatrix}3&1&0\\2&1&0\\3&0&0\end{bmatrix}$};
+    \node[box,fill=coursegreen!18,right=of edge] (r) {$8$: edge response};
+    \draw[flow] (edge)--(r);
+    \node[box,fill=courselightblue,below=of edge] (flat) {$\begin{bmatrix}2&2&2\\2&2&2\\2&2&2\end{bmatrix}$};
+    \node[box,right=of flat] (zero) {$0$: columns cancel};
+    \draw[flow] (flat)--(zero);
+    \draw[flow] (k)--node[above,font=\small]{apply}(edge);
+    \draw[flow] (k.south)|-(flat.west);
+  \end{tikzpicture}
 
-  The output is large where the window matches the kernel's pattern, and training chooses the pattern.
+  \raggedright\small Left column minus right column detects this edge orientation.
+  Libraries use cross-correlation (no kernel flip), conventionally called convolution;
+  flipping only relabels the learned weights.
 \end{frame}
 
 \begin{frame}{Sliding the Kernel Builds a Feature Map}
@@ -222,7 +231,6 @@
   Each channel of the output is one learned feature, such as ``vertical edge'' or ``green blob''.
 \end{frame}
 
-\recap{The Convolution Operation}{A kernel slid over the input gives a feature map, and many kernels give many channels; next, why sharing one kernel is so powerful.}
 
 % ---------------------------------------------------------------- sharing
 
@@ -249,20 +257,7 @@
   A pattern learned in one corner is recognized everywhere, and the number of weights does not depend on the image size.
 \end{frame}
 
-\begin{frame}{Counting Parameters}
-  A convolution layer has one kernel of size $k_h\times k_w\times C_{\mathrm{in}}$ per output channel, plus one bias per output channel:
-  \[
-    k_hk_wC_{\mathrm{in}}C_{\mathrm{out}}+C_{\mathrm{out}} .
-  \]
-  Example: $3\times3$ kernels, $C_{\mathrm{in}}=3$, $C_{\mathrm{out}}=16$:
-  \[
-    3\cdot3\cdot3\cdot16+16=448 \text{ parameters.}
-  \]
-  A dense layer mapping a $32\times32\times3$ image to $32\times32\times16$ outputs needs
-  $3072\cdot16384\approx50$ million weights.
 
-  A convolution layer does a similar job with about a hundred thousand times fewer parameters.
-\end{frame}
 
 \begin{frame}{Shifting the Input Shifts the Feature Map}
   \centering
@@ -339,7 +334,6 @@
   Depth combines small local views into wide context: three $3\times3$ layers see $3\times3$, then $5\times5$, then $7\times7$ pixels.
 \end{frame}
 
-\recap{Sharing and Equivariance}{Shared kernels mean few parameters, shifted inputs give shifted features, and depth widens the view; next, how to control the size of feature maps.}
 
 % ---------------------------------------------------------------- stride/padding
 
@@ -442,7 +436,6 @@
   A strided convolution can downsample too, so pooling is one design choice among several.
 \end{frame}
 
-\recap{Stride, Padding, and Pooling}{Stride, padding and pooling set the size of each feature map; next, how these pieces form complete networks.}
 
 % ---------------------------------------------------------------- architecture
 
@@ -541,15 +534,7 @@
   Use a CNN because locality and translation structure match the task, not merely because the input can be stored as an array.
 \end{frame}
 
-\begin{frame}{Summary: CNNs Encode a Spatial Assumption}
-  \begin{itemize}
-    \item Local windows exploit nearby structure; a kernel is a small learnable pattern detector.
-    \item One shared kernel is slid over the input, giving a feature map and very few parameters.
-    \item Channels hold different learned features; stride, padding and pooling set the resolution.
-    \item Stacked layers see wider context, and the same network can classify or produce spatial outputs.
-  \end{itemize}
-  The assumption is that useful patterns are local and look the same wherever they occur.
-\end{frame}
+
 
 \appendix
 

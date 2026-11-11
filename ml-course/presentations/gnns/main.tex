@@ -47,12 +47,7 @@
 \begin{document}
 \begin{frame}[plain]\makepresentationtitle\end{frame}
 
-\begin{frame}{Roadmap}
-  Some data is a network of things and relations, not a table or an image.
-  \medskip
-  \tableofcontents
-  \takeaway{So: first what a graph is, then why labels must not matter, then message passing, the three classic layers, building full models, and limits.}
-\end{frame}
+
 
 \section{Graphs and Their Data}
 \sectiondivider{Graphs and Their Data}
@@ -61,13 +56,15 @@
   Images live on a regular grid and sequences on a line. Many engineering objects do not:
   structures, meshes, molecules, road networks, social networks.
   \begin{center}
-  \begin{tikzpicture}[scale=0.95]
+  \begin{tikzpicture}[scale=0.8,transform shape]
     \examplegraph[fill=courselightorange]{$1$}{$2$}{$3$}{$4$}{$5$}
-    \node[right=1.0cm of c,align=left] {variable degree\\no regular grid\\relations matter};
+    \node[left=0.2cm of a,align=right,font=\small] {node target\\traffic at 1};
+    \node[above=0.4cm of b,font=\small] {edge target: relation $(2,3)$};
+    \draw[focus] (b)--(c);
+    \node[right=0.6cm of c,align=left,font=\small] {graph target\\structural response};
   \end{tikzpicture}
   \end{center}
-  Nodes represent entities and edges represent relations.
-  \takeaway{So a graph is the natural container when the number of neighbors varies and the structure itself carries information.}
+  \takeaway{Variable neighborhoods and meaningful relations call for a graph.}
 \end{frame}
 
 \begin{frame}{Graph Data: Nodes, Edges, Features}
@@ -100,25 +97,9 @@
   \takeaway{So $\mathbf A$ is the graph written as a table, and each row lists one node's neighbors.}
 \end{frame}
 
-\begin{frame}{Predictions Can Live at Three Levels}
-  \begin{center}
-  \begin{tikzpicture}[node distance=0.65cm]
-    \node[box,fill=courselightblue] (node) {node\\traffic at one road};
-    \node[box,fill=courselightorange,right=of node] (edgepred) {edge\\missing relation};
-    \node[box,fill=coursegreen!18,right=of edgepred] (graph) {graph\\structural response};
-    \draw[flow] (node)--(edgepred)--(graph);
-  \end{tikzpicture}
-  \end{center}
-  The model first produces a state vector $\mathbf h_v^{(L)}$ for each node (after $L$ layers, defined below).
-  A small head $g_V$ turns one node's state into a node prediction, $g_E$ combines two node states (and the edge feature)
-  into an edge prediction, and $g_G$ turns one pooled vector into a graph prediction.
-  \takeaway{So the same node states can answer node, edge, or whole-graph questions; only the final head changes.}
-\end{frame}
 
-\begin{frame}{Recap: Graph Data}
-  A graph is nodes plus edges, with features at three levels, and it can be stored as a feature table $\mathbf X$ and an adjacency matrix $\mathbf A$.
-  Next: the key requirement that the numbering of nodes must not change the answer.
-\end{frame}
+
+
 
 \section{Node Labels Must Not Matter}
 \sectiondivider{Node Labels Must Not Matter}
@@ -170,10 +151,7 @@
   \takeaway{So graph predictions must be built from symmetric operations such as sums, means and maxima.}
 \end{frame}
 
-\begin{frame}{Recap: Symmetry}
-  Node outputs must be equivariant and graph outputs invariant to renumbering the nodes.
-  Next: message passing, a way of building layers that has this property automatically.
-\end{frame}
+
 
 \section{Message Passing}
 \sectiondivider{Message Passing}
@@ -193,63 +171,58 @@
   \takeaway{So a node's new state is computed from its own state and from what its neighbors send.}
 \end{frame}
 
-\begin{frame}{Message Passing Repeats Three Operations}
-  In layer $k$ each node $v$ has a state vector $\mathbf h_v^{(k)}$ (the superscript counts layers):
-  \begin{enumerate}
-    \item \textbf{Message} $M$: for each neighbor $u$, compute $\mathbf m_{uv}=M(\mathbf h_u,\mathbf h_v,\mathbf e_{uv})$, what $u$ sends to $v$ along the edge.
-    \item \textbf{Aggregate} $\operatorname{AGG}$: combine all incoming messages into one vector $\mathbf m_v$ (sum, mean or max).
-    \item \textbf{Update} $U$: new state $\mathbf h_v^{(k+1)}=U(\mathbf h_v^{(k)},\mathbf m_v)$.
-  \end{enumerate}
-  $M$ and $U$ are small learned networks, shared by all nodes.
-  \takeaway{So one layer is: send messages, combine them, update the state.}
-\end{frame}
+
 
 \begin{frame}{Worked Example: One Layer on the Five-Node Graph}
-  Start with one number per node, $\mathbf h^{(0)}=(3,\,1,\,-1,\,2,\,-3)$.
-  Choose $M$ = send the value unchanged, $\operatorname{AGG}$ = sum,
-  $U$ = (own value $+$ sum) divided by the number of values counted.
+  $\mathbf h^{(0)}=(3,1,-1,2,-3)$: send neighbor values, sum, then average with self.
   \begin{center}
-  \begin{tikzpicture}[scale=0.75]
+  \begin{tikzpicture}[scale=0.62,transform shape]
     \examplegraph[fill=courselightorange]{$3$}{$1$}{$-1$}{$2$}{$-3$}
-    \node at (7.5,0) {$\Rightarrow$};
-    \begin{scope}[xshift=9.5cm]
+    \node at (6.5,0) {$\Rightarrow$};
+    \begin{scope}[xshift=8cm]
       \examplegraph[fill=courselightorange]{$2$}{$1.25$}{$-0.25$}{$0.4$}{$-0.67$}
     \end{scope}
   \end{tikzpicture}
   \end{center}
-  Node 1: neighbors $2,4$ send $1$ and $2$; sum $3$; update $(3+3)/3=2$.
-  \takeaway{So after one layer each node's value already mixes in its neighbors' values.}
+  \begin{columns}[T]
+    \begin{column}{0.29\textwidth}\centering\small
+      \textbf{Message}\\[2mm]
+      $m_{21}=1,\;m_{41}=2$
+    \end{column}
+    \begin{column}{0.35\textwidth}\centering\small
+      \textbf{Aggregate}\\[2mm]
+      $m_1=1+2=2+1=3$
+    \end{column}
+    \begin{column}{0.32\textwidth}\centering\small
+      \textbf{Update}\\[2mm]
+      $h_1^{(1)}=(3+3)/3=2$
+    \end{column}
+  \end{columns}
+  \medskip
+  {\small
+  \[
+    m_{uv}=M(\mathbf h_u,\mathbf h_v,\mathbf e_{uv}),\qquad
+    \mathbf h_v^{(k+1)}=U\!\left(\mathbf h_v^{(k)},
+       \operatorname{AGG}_{u\in\mathcal N(v)}m_{uv}\right).
+  \]
+  Shared $M,U$; sum, mean or max aggregation ignores neighbor order.}
 \end{frame}
 
-\begin{frame}{Aggregation Must Ignore Neighbor Order}
-  Neighbors are an unordered set, so $\operatorname{AGG}$ must give the same answer in any order.
-  Neighbor values $1,3,5$ in any order give:
-  \[
-    \text{sum}=9,\qquad \text{mean}=3,\qquad \text{max}=5.
-  \]
-  \begin{center}
-  \begin{tikzpicture}[scale=0.85]
-    \node[vertex,fill=courselightorange] (v) at (5,0) {$v$};
-    \foreach \i/\ang in {1/150,2/210,3/30,4/-30}{
-      \node[vertex] (n\i) at ($(v)+(\ang:2.1cm)$) {$u_{\i}$};
-      \draw[flow] (n\i)--(v);
-    }
-  \end{tikzpicture}
-  \end{center}
-  Concatenating neighbors in the order they happen to be stored would break the relabeling symmetry.
-  \takeaway{So sums, means and maxima are safe aggregators because they cannot see the numbering.}
-\end{frame}
+
 
 \begin{frame}{One Message-Passing Layer Is Permutation Equivariant}
-  Let $\pi$ be a renumbering of the nodes (node $v$ becomes node $\pi(v)$). The statement:
-  applying a layer and then renumbering gives the same result as renumbering and then applying the layer.
+  Renumber nodes with a permutation matrix $\mathbf P$. A layer $F$ satisfies
+  \[
+    \boxed{F(\mathbf P\mathbf H,\mathbf P\mathbf A\mathbf P^{\mathsf T})
+      =\mathbf P F(\mathbf H,\mathbf A).}
+  \]
   \begin{itemize}
-    \item Why: messages depend only on features, never on node numbers.
-    \item Aggregation ignores neighbor order, so the renumbered neighborhood gives the same aggregate.
-    \item Stacking several such layers keeps the property.
+    \item Shared messages use features, not node numbers.
+    \item Sum, mean or max ignores neighbor order.
+    \item Compatible equivariant layers compose.
   \end{itemize}
-  The short proof is in the appendix; the geometric deep-learning lecture proves equivariance in general.
-  \takeaway{So message passing is equivariant by construction, with no extra training needed to learn it.}
+  Edge features, when present, must be relabeled with their endpoints.
+  \takeaway{Relabel before or after the layer: the node outputs agree. Proof: appendix.}
 \end{frame}
 
 \begin{frame}{Depth Expands the Receptive Field by Graph Hops}
@@ -273,22 +246,26 @@
   \takeaway{So depth sets how far information travels: one hop per layer.}
 \end{frame}
 
-\begin{frame}{Recap: Message Passing}
-  Message passing builds a node's new state from its neighbors with a shared message, a symmetric aggregation and an update; it is equivariant and reaches one hop further per layer.
-  Next: three concrete choices of these operations, GCN, GraphSAGE and GAT.
-\end{frame}
+
 
 \section{Three Classic Layers: GCN, GraphSAGE, GAT}
 \sectiondivider{Three Classic Layers: GCN, GraphSAGE, GAT}
 
 \begin{frame}{GCN Idea: Average Neighbors, Corrected for Degree\framecite{kipf2017}}
   A plain sum over neighbors gives hub nodes (many neighbors) much larger values than leaves.
-  The graph convolutional network (GCN) fixes this with a degree-aware average:
-  \begin{itemize}
+  The graph convolutional network (GCN) uses a degree-normalized sum:
+  \begin{itemize}\small
     \item add a \emph{self-loop} so the node keeps its own state: $\widetilde{\mathcal N}(v)=\mathcal N(v)\cup\{v\}$;
     \item let $\widetilde d_v=|\widetilde{\mathcal N}(v)|$ be the node's degree counting the self-loop;
     \item weight each incoming state by $1/\sqrt{\widetilde d_v\widetilde d_u}$, small when either end has many neighbors.
   \end{itemize}
+  \begin{center}
+  \begin{tikzpicture}[scale=0.58,transform shape]
+    \examplegraph[fill=courselightorange]{$1:3$}{$2:4$}{$3:4$}{$4:5$}{$5:3$}
+    \node[right=0.6cm of c,align=left,font=\small] {node: degree with self-loop\\$2\to1$: $1/\sqrt{3\cdot4}$\\$4\to1$: $1/\sqrt{3\cdot5}$};
+    \draw[flow] (b)--(a); \draw[flow] (d)--(a);
+  \end{tikzpicture}
+  \end{center}
   \takeaway{So busy nodes do not dominate: each contribution is scaled down by how many neighbors both ends have.}
 \end{frame}
 
@@ -361,10 +338,7 @@
   \takeaway{So the three layers differ only in how they weight and combine neighbors; the message-passing skeleton is the same.}
 \end{frame}
 
-\begin{frame}{Recap: Classic Layers}
-  GCN weights neighbors by degree, GraphSAGE averages them and keeps the node's own state separate, and GAT learns the weights.
-  Next: the extra ingredients of a full model: edge features, global context, readout, batching and graph construction.
-\end{frame}
+
 
 \section{Building Graph Models}
 \sectiondivider{Building Graph Models}
@@ -473,10 +447,7 @@
   \takeaway{So a GNN cannot recover relations that the graph construction removed; design the graph deliberately.}
 \end{frame}
 
-\begin{frame}{Recap: Building Models}
-  A full model adds edge features, optional global context, an invariant readout, batching of disconnected graphs and a deliberate graph construction.
-  Next: what repeated message passing cannot do.
-\end{frame}
+
 
 \section{Limits of Message Passing}
 \sectiondivider{Limits of Message Passing}
@@ -496,7 +467,7 @@
 \begin{frame}{Oversmoothing: The Computed Result}
   \begin{center}
   \begin{tikzpicture}
-    \begin{axis}[width=0.9\textwidth,height=5.2cm,xlabel={averaging steps $k$},ylabel={node value},
+    \begin{axis}[width=0.82\textwidth,height=5.2cm,xlabel={averaging steps $k$},ylabel={node value},
       xmin=0,xmax=10,legend style={font=\scriptsize,at={(1.02,0.5)},anchor=west},
       tick label style={font=\scriptsize},label style={font=\small},grid=major,grid style={gray!20}]
       \addplot[very thick,color=courseblue] table[x=k,y=n1] {assets/generated/oversmoothing.dat};
@@ -512,31 +483,38 @@
     \end{axis}
   \end{tikzpicture}
   \end{center}
-  Spread (max minus min): $6.0$ at $k=0$, $0.34$ at $k=4$, $0.005$ at $k=10$.
+  {\small Spread (max minus min): $6.0$ at $k=0$, $0.34$ at $k=4$, $0.005$ at $k=10$.}
   \takeaway{So with averaging alone all nodes converge to nearly the same value; deep stacks risk losing the differences between nodes.}
 \end{frame}
 
 \begin{frame}{Two More Limits}
-  \begin{itemize}
-    \item \textbf{Oversquashing}: information from many distant nodes must be squeezed through fixed-size vectors and few edges, so far-away signals get lost.
-    \item \textbf{Expressiveness (Weisfeiler--Lehman)\framecite{xu2019}}: standard message passing cannot tell apart some different graphs that look locally identical.
-  \end{itemize}
-  Residual connections, shallow models, virtual nodes and richer features can reduce these effects; details are in the appendix.
-  \takeaway{So message passing is powerful but not unlimited: depth helps reach, but it also smooths and squashes information.}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{Oversquashing}
+      \[
+        \text{many signals}
+        \longrightarrow \mathbf h_v\in\mathbb R^d
+      \]
+      Fixed-width states and few connecting edges form a bottleneck.
+
+      Virtual nodes or better connectivity can shorten paths.
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Expressiveness}\framecite{xu2019}
+      \[
+        \begin{gathered}G\not\cong H\quad\text{can still yield}\\
+        f(G)=f(H).\end{gathered}
+      \]
+      With matching initial features, graphs indistinguishable to the
+      1-Weisfeiler--Lehman test remain indistinguishable to standard message passing.
+
+      Richer features or more expressive layers may help.
+    \end{column}
+  \end{columns}
+  \takeaway{More depth increases reach; it does not remove bottlenecks or guarantee distinguishability.}
 \end{frame}
 
-\begin{frame}{Graph Learning Balances Symmetry, Locality, and Capacity}
-  \begin{itemize}
-    \item Shared message passing is equivariant to node relabeling.
-    \item Symmetric aggregation respects unordered neighborhoods.
-    \item Depth controls graph-hop receptive fields.
-    \item GCN, GraphSAGE, and GAT choose different aggregation weights.
-    \item Invariant readout produces graph-level predictions.
-    \item Oversmoothing, oversquashing, and 1-WL limit standard models.
-    \item Graph construction and geometric features encode essential assumptions.
-  \end{itemize}
-  \takeaway{So graph neural networks respect the symmetry of graphs by design; the work lies in choosing the graph, the features and the depth. The appendix holds the proofs.}
-\end{frame}
+
 
 \appendix
 \sectiondivider{Appendix: optional depth}

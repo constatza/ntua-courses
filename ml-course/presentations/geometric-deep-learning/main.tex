@@ -22,12 +22,7 @@
 \begin{document}
 \begin{frame}[plain]\makepresentationtitle\end{frame}
 
-\begin{frame}{Roadmap}
-  Different data have different structure, and a good model should respect it.
-  \medskip
-  \tableofcontents
-  \takeaway{So: first name the transformations, then the two ways a model can respect them, then see where they occur.}
-\end{frame}
+
 
 % ============================================================ 1
 \section{Symmetry and Transformations}
@@ -89,45 +84,39 @@
   \takeaway{So: $T_u$ moves the pattern without changing its values.}
 \end{frame}
 
-\begin{frame}{Recap: Symmetry and Transformations}
-  We learned that symmetries are changes that should not alter what we care about, and that groups give
-  them a precise name. Next: the two ways a model can respect a symmetry, invariance and equivariance.
-\end{frame}
+
 
 % ============================================================ 2
 \section{Invariance and Equivariance}
 \sectiondivider{Invariance and Equivariance}
 
-\begin{frame}{Invariance: The Output Ignores the Transformation}
-  \[
-    \boxed{f(g\cdot x)=f(x)\qquad\text{for every }g\in G.}
-  \]
+\begin{frame}{Two Output Behaviors under the Same Input Transformation}
   \centering
-  \begin{tikzpicture}[node distance=0.8cm,
-    box/.style={draw,rounded corners,minimum width=2.1cm,minimum height=0.85cm,very thick},
-    flow/.style={-{Latex[length=2.5mm]},very thick,courseblue}]
-    \node[box,fill=courselightblue] (x) {$x$};
-    \node[box,below=of x] (gx) {$g\cdot x$};
-    \node[box,right=of x] (fx) {$f(x)$};
-    \node[box,right=of gx] (fgx) {$f(g\cdot x)$};
-    \draw[flow] (x)--node[above]{$f$}(fx); \draw[flow] (gx)--node[below]{$f$}(fgx);
-    \draw[flow] (x)--node[left]{$g$}(gx); \draw[coursegreen,very thick] (fx)--node[right]{$=$}(fgx);
+  \begin{tikzpicture}[scale=0.85,transform shape,
+    box/.style={draw,rounded corners,minimum width=1.4cm,minimum height=0.7cm},
+    flow/.style={-{Latex[length=2mm]},thick,courseblue}]
+    \foreach \offset/\kind/\out in {0/invariant/{f(x)},6/equivariant/{\rho_{\rm out}(g)f(x)}}{
+      \begin{scope}[xshift=\offset cm]
+      \node at (1.5,1) {\kind};
+      \node[box] (x) at (0,0) {$x$}; \node[box] (y) at (3,0) {$f(x)$};
+      \node[box] (gx) at (0,-1.7) {$\rho_{\rm in}(g)x$};
+      \node[box] (gy) at (3,-1.7) {$\out$};
+      \draw[flow] (x)--node[above]{$f$}(y); \draw[flow] (gx)--node[below]{$f$}(gy);
+      \draw[flow] (x)--node[left]{$g$}(gx);
+      \draw[flow] (y)--node[right,font=\small]{\kind}(gy);
+      \end{scope}
+    }
   \end{tikzpicture}
-
-  \raggedright\small Here $f$ is the model and $x$ its input. Example: the label ``cat'' does not change when the cat is translated.
-  \takeaway{So: invariance suits a single answer per input, such as a class label.}
-\end{frame}
-
-\begin{frame}{Equivariance: The Output Moves with the Input}
-  Sometimes the output should change \emph{in step} with the input. Write $\rho_{\mathrm{in}}(g)$ for
-  ``apply $g$ to an input'' and $\rho_{\mathrm{out}}(g)$ for ``apply $g$ to an output''. Then
   \[
-    \boxed{f(\rho_{\mathrm{in}}(g)\,x)=\rho_{\mathrm{out}}(g)\,f(x).}
+    \underbrace{f(\rho_{\rm in}(g)x)=f(x)}_{\text{class label stays fixed}}
+    \qquad
+    \underbrace{f(\rho_{\rm in}(g)x)=\rho_{\rm out}(g)f(x)}_{\text{segmentation mask moves}}.
   \]
-  Example: translate an image and its segmentation mask must translate with it.
-  Invariance is the special case where $\rho_{\mathrm{out}}(g)$ does nothing.
-  \takeaway{So: equivariance suits outputs that have their own position, such as a mask or one value per node.}
+  \raggedright $\rho_{\rm in},\rho_{\rm out}$ describe the transformation on input and output.
+  Invariance is equivariance with the identity action on outputs.
 \end{frame}
+
+
 
 \begin{frame}{The Target Decides: Invariant or Equivariant}
   \centering
@@ -145,27 +134,19 @@
   \takeaway{So: ask what the output should do when the input is transformed, then pick the matching property.}
 \end{frame}
 
-\begin{frame}{Equivariant Layers Stay Equivariant When Stacked}
-  If every layer is equivariant, so is the whole network: each layer passes the transformation along,
-  and the last layer still reports it correctly.
-  \medskip
-  \begin{center}
-    input $\xrightarrow{\ g\ }$ layer 1 $\xrightarrow{\ g\ }$ layer 2 $\xrightarrow{\ g\ }$ output
-  \end{center}
-  The two-line proof is in the appendix.
-  \takeaway{So: we can build deep networks that respect a symmetry by making each layer respect it.}
+\begin{frame}{Composition Preserves the Structural Assumption}
+  If $f_1,f_2$ respect the intermediate transformation $\rho_1(g)$, then
+  \[
+    (f_2\circ f_1)(\rho_0(g)x)
+    =f_2(\rho_1(g)f_1(x))
+    =\rho_2(g)(f_2\circ f_1)(x).
+  \]
+  Shared rules reduce parameters; symmetry rules out functions inconsistent with the task.
+  This can save data when the assumption is correct. Locality is a separate choice about which elements interact.
+  \takeaway{Build compatible layers, then compose them; a wrong symmetry still excludes useful answers.}
 \end{frame}
 
-\begin{frame}{Why Build Symmetry In?}
-  \begin{itemize}
-    \item \textbf{Locality:} nearby elements interact directly.
-    \item \textbf{Weight sharing:} the same local rule is reused at every location.
-    \item \textbf{Symmetry:} transformed inputs give predictably transformed outputs.
-  \end{itemize}
-  These choices cut the number of parameters and rule out many functions before seeing any data.
-  They help only if the excluded functions are implausible for the task.
-  \takeaway{So: structure is a bet that saves data when the bet is right and hurts when it is wrong.}
-\end{frame}
+
 
 \begin{frame}{A Wrong Symmetry Removes Useful Information}
   \begin{itemize}
@@ -177,10 +158,7 @@
   \takeaway{So: a symmetry is a modeling assumption to be checked, not a virtue in itself.}
 \end{frame}
 
-\begin{frame}{Recap: Invariance and Equivariance}
-  We learned that invariance keeps the output fixed, equivariance makes it follow the input,
-  and the target tells us which one we want. Next: where these symmetries occur, on grids, sets, graphs and sequences.
-\end{frame}
+
 
 % ============================================================ 3
 \section{Where Symmetries Occur}
@@ -298,11 +276,7 @@
   \takeaway{So: a recurrent model shares its rule over time but treats order as essential.}
 \end{frame}
 
-\begin{frame}{Recap: Where Symmetries Occur}
-  We learned that filters give translation equivariance on grids, sums give invariance on sets,
-  symmetric aggregation gives equivariance on graphs, and sequences keep order on purpose.
-  Next: how to choose, and how data augmentation teaches a symmetry when the architecture does not enforce it.
-\end{frame}
+
 
 % ============================================================ 4
 \section{Choosing an Architecture}
@@ -354,25 +328,22 @@
 \end{frame}
 
 \begin{frame}{Architecture Follows Domain, Symmetry, and Target}
-  \centering
-  \small
-  \begin{tabular}{lll}
+  \centering\small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{llp{0.32\textwidth}l}
     \toprule
-    \textbf{Model} & \textbf{Domain} & \textbf{Core structural bias}\\
+    Domain & Transformation & Target behavior & Architecture\\
     \midrule
-    CNN & grid & translation equivariance\\
-    RNN & sequence & time-shared causal transition\\
-    Transformer & tokens & equivariance before positions are added\\
-    GNN & graph & node-relabeling equivariance\\
+    grid & translation & moving feature map & CNN\\
+    sequence & advance time & causal state update & RNN\\
+    tokens & reorder tokens & \raggedright reorder outputs, before positions & Transformer\\
+    graph & relabel nodes & \raggedright node equivariance / graph invariance & GNN\\
     \bottomrule
   \end{tabular}
-  \takeaway{So: the next lectures apply this common language to each architecture in turn.}
+  \takeaway{Choose the domain, specify a valid transformation, then ask what the target must do.}
 \end{frame}
 
-\begin{frame}{Recap: Choosing an Architecture}
-  We learned that structure narrows the set of functions the model can express, that augmentation is the flexible
-  alternative, and that each architecture encodes one such structure. Next: the appendix has the proofs.
-\end{frame}
+
 
 % ============================================================ appendix
 \appendix

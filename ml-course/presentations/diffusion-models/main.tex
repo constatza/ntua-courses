@@ -25,30 +25,18 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.6cm,min
 \begin{document}
 \begin{frame}[plain]\makepresentationtitle\end{frame}
 
-\begin{frame}{Roadmap}
-  \tableofcontents
-  \vspace{0.3cm}
-
-  \textbf{So:} first add noise (easy), then learn to remove it, then generate, then see the wider picture.
-\end{frame}
-
 \section{Idea and Forward Process}
 \sectiondivider{Part 1: Idea and Forward Process}
 
 \begin{frame}{What a Generative Model Does}
-  Given many examples \(\mathbf x_0\) (images, measured fields, simulation outputs),
-  a generative model learns what \emph{typical} examples look like, so it can
+  \[\mathbf x_0^{(1)},\ldots,\mathbf x_0^{(n)}\sim p_{\mathrm{data}}
+    \quad\xrightarrow{\text{learn}}\quad
+    \mathbf x_{\mathrm{new}}\sim p_\theta\approx p_{\mathrm{data}}\]
   \begin{itemize}
-    \item produce \textbf{new} samples that were not in the data,
-    \item produce samples that match a request \(\mathbf c\) (a label, a text, a boundary condition),
-    \item give \textbf{several} plausible answers when one input has many valid outputs.
+    \item \textbf{Generate:} draw new images, fields or simulation outputs.
+    \item \textbf{Condition:} draw \(\mathbf x\sim p_\theta(\mathbf x\mid\mathbf c)\) for a label, prompt or boundary condition \(\mathbf c\).
+    \item \textbf{Represent ambiguity:} draw several plausible outputs for the same request.
   \end{itemize}
-  \vspace{0.2cm}
-  Here \(p_{\mathrm{data}}\) is the unknown distribution the examples come from; the model
-  learns to sample from it.
-
-  \medskip
-  \textbf{So:} instead of one prediction, we want to draw samples from a distribution.
 \end{frame}
 
 \begin{frame}{The Diffusion Idea: Destroy, Then Learn to Undo}
@@ -73,7 +61,9 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.6cm,min
 
 \begin{frame}{Forward Diffusion Gradually Destroys Structure}
   \centering
-  \includegraphics[width=0.95\textwidth]{diffusion_forward_chain_cat.png}
+  \includegraphics[width=0.95\textwidth,height=0.28\textheight,keepaspectratio]{diffusion_forward_chain_cat.png}
+  \[\mathbf x_t=\sqrt{\alpha_t}\mathbf x_{t-1}+\sqrt{\beta_t}\boldsymbol\epsilon_t,\quad\alpha_t=1-\beta_t\]
+  \[\mathbf x_t=\sqrt{\bar\alpha_t}\mathbf x_0+\sqrt{1-\bar\alpha_t}\boldsymbol\epsilon,\quad\bar\alpha_t=\prod_{s=1}^t\alpha_s\]
   \vspace{0.3cm}
   \begin{itemize}
     \item \textbf{Time convention in this deck:} \(t=0\) is clean data, \(t=T\) is pure noise
@@ -81,24 +71,6 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.6cm,min
     \item Neighboring steps look alike, so undoing one step is a small task.
   \end{itemize}
   \textbf{So:} by \(t=T\) the picture is gone and only random noise remains.
-\end{frame}
-
-\begin{frame}{One Noising Step}
-  Each step shrinks the current image slightly and adds a little fresh noise:
-  \[
-    \mathbf x_t=\sqrt{1-\beta_t}\,\mathbf x_{t-1}+\sqrt{\beta_t}\,\boldsymbol\epsilon,
-    \qquad \boldsymbol\epsilon\sim\mathcal N(\mathbf0,\mathbf I).
-  \]
-  \begin{itemize}
-    \item \(\boldsymbol\epsilon\): fresh random noise, one independent Gaussian number per pixel.
-    \item \(\beta_t\in(0,1)\): how much noise this step adds; small (here \(10^{-4}\) to \(0.02\)).
-    \item Shrinking by \(\sqrt{1-\beta_t}\) keeps the overall brightness range from blowing up.
-  \end{itemize}
-  \textbf{Example} (\(\beta=0.02\)): the image is scaled by \(\sqrt{0.98}\approx0.99\) and noise
-  of size \(\sqrt{0.02}\approx0.14\) is added.
-
-  \medskip
-  \textbf{So:} one step changes the image only a little; the damage comes from repeating it.
 \end{frame}
 
 \begin{frame}{The Schedule: How Much Signal Is Left?}
@@ -121,23 +93,6 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.6cm,min
   \textbf{So:} \(\bar\alpha_t\) falls from 1 to almost 0: early states are mostly signal, late states mostly noise.
 \end{frame}
 
-\begin{frame}{Any Noise Level Can Be Sampled in One Jump}
-  Adding Gaussian noise many times is the same as adding Gaussian noise once:
-  \[
-    \boxed{
-    \mathbf x_t=\sqrt{\bar\alpha_t}\,\mathbf x_0+\sigma_t\,\boldsymbol\epsilon},
-    \qquad \sigma_t=\sqrt{1-\bar\alpha_t}.
-  \]
-  \begin{itemize}
-    \item \(\sigma_t\): the noise \textbf{amount} (standard deviation) at step \(t\).
-    \item The two weights trade off: \(\bar\alpha_t\) falls while \(\sigma_t^2=1-\bar\alpha_t\) rises.
-  \end{itemize}
-  \textbf{Example} (\(t=350\), \(\bar\alpha=0.29\)): \(\mathbf x_{350}=0.53\,\mathbf x_0+0.85\,\boldsymbol\epsilon\).
-
-  \medskip
-  \textbf{So:} to train at noise level \(t\) we never simulate the earlier steps; we jump straight there.
-\end{frame}
-
 \begin{frame}{A Toy Example in Two Dimensions}
   \centering
   \includegraphics[width=0.98\textwidth]{diffusion_toy_forward.png}
@@ -149,124 +104,81 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.6cm,min
   \textbf{So:} noising melts three separate clusters into one round Gaussian blob.
 \end{frame}
 
-\begin{frame}{Recap of Part 1}
-  \begin{itemize}
-    \item Diffusion destroys data with small known noise steps, \(t=0\) (data) to \(t=T\) (noise).
-    \item The signal left is \(\bar\alpha_t\); any noise level can be sampled in one jump.
-  \end{itemize}
-  \textbf{Next:} what a network must learn to run the process backward.
-\end{frame}
-
 \section{Learning to Reverse}
 \sectiondivider{Part 2: Learning to Reverse the Noise}
 
 \begin{frame}{What Must Be Learned: Which Way Is ``Toward the Data''?}
-  Reverse the picture: from a point in the blob, which way is the data?
+  \[\boxed{\mathbf s_t(\mathbf x)=\nabla_{\mathbf x}\log p_t(\mathbf x)}\]
   \begin{itemize}
-    \item Near a cluster the answer is easy; in the blob it is ambiguous.
-    \item The answer depends on the noise level \(t\): early the clusters are sharp, late they are blurred.
-    \item A model for this must take \(t\) as an input as well as the point \(\mathbf x_t\).
+    \item \(p_t\): density of noisy samples at noise level \(t\).
+    \item \textbf{Score:} local direction of increasing noisy-data density.
+    \item Low noise: distinct clusters. High noise: blurred, ambiguous origins.
+    \item The network needs \textbf{both} position \(\mathbf x_t\) and noise level \(t\).
   \end{itemize}
-  The mathematical object that answers the question is the \textbf{score}:
-  \[
-    \mathbf s_t(\mathbf x)=\nabla_{\mathbf x}\log p_t(\mathbf x),
-  \]
-  where \(p_t\) is the density of the noisy states at level \(t\).
-
-  \textbf{So:} we need, at every point and every noise level, an arrow pointing toward more likely data.
 \end{frame}
 
 \begin{frame}{The Score Points Toward Higher Density}
-  \begin{itemize}
-    \item \(\nabla_{\mathbf x}\) is the gradient: the direction in which a function increases fastest.
-    \item \(\log p_t\) is large where noisy samples are likely.
-    \item So the score arrow points \emph{uphill in density}; its length is how steep the hill is.
-  \end{itemize}
-  \centering
-  \includegraphics[height=0.42\textheight]{score_field_gaussian_mixture.png}
-
-  \textbf{So:} following the arrows moves a point toward where samples at that noise level are likely.
-\end{frame}
-
-\begin{frame}{The Network Predicts the Noise That Was Added}
-  We do not know \(p_t\), so a neural network \(\boldsymbol\epsilon_\theta(\mathbf x_t,t)\) learns it indirectly:
-  it is shown the noisy point and the step, and must guess the noise \(\boldsymbol\epsilon\) that was mixed in.
-  \begin{itemize}
-    \item Noise points \emph{away} from the data; so predicted noise gives the way back.
-    \item In formulas (derivation in the appendix; \(\sigma_t\) is the noise amount):
-  \end{itemize}
-  \[
-    \text{score}\;\approx\;-\frac{\boldsymbol\epsilon_\theta(\mathbf x_t,t)}{\sigma_t}.
-  \]
-  \textbf{So:} learning to predict noise is the same job as learning the score, but with an easy training target.
+  \begin{columns}[c]
+  \begin{column}{0.53\textwidth}
+    \includegraphics[width=\linewidth]{score_field_gaussian_mixture.png}
+  \end{column}
+  \begin{column}{0.47\textwidth}
+    \[\mathbf s_t(\mathbf x)=\nabla_{\mathbf x}\log p_t(\mathbf x)\]
+    Score arrows point toward higher noisy-data density.
+    \[\mathbf s_t(\mathbf x)=-\frac{\mathbb E[\boldsymbol\epsilon\mid\mathbf x_t=\mathbf x]}{\sigma_t}\]
+    \[\mathbf s_t(\mathbf x)\approx-\frac{\boldsymbol\epsilon_\theta(\mathbf x,t)}{\sigma_t}\]
+    \(\sigma_t=\sqrt{1-\bar\alpha_t}\). Noise regression learns the score indirectly.
+  \end{column}
+  \end{columns}
 \end{frame}
 
 \begin{frame}{Training: One Step at a Time}
-  Repeat many times:
-  \begin{enumerate}
-    \item Pick a clean example \(\mathbf x_0\) from the training data.
-    \item Pick a random noise level \(t\in\{1,\ldots,T\}\).
-    \item Draw noise \(\boldsymbol\epsilon\sim\mathcal N(\mathbf0,\mathbf I)\) and form \(\mathbf x_t\) with the one-jump formula.
-    \item Give \((\mathbf x_t,t)\) to the network; it outputs a guess \(\boldsymbol\epsilon_\theta\).
-    \item Compare the guess with the true \(\boldsymbol\epsilon\) and update the weights by gradient descent.
-  \end{enumerate}
-  A time embedding (a vector encoding \(t\)) tells the network which noise level it sees.
-  Conditioning information \(\mathbf c\) can be given as extra input.
-
-  \medskip
-  \textbf{So:} the network is trained on pairs we can make ourselves, so no labels are needed.
-\end{frame}
-
-\begin{frame}{The Loss Is Plain Mean-Squared Error}
-  \[
-    \boxed{
-    L(\theta)=\mathbb E_{t,\mathbf x_0,\boldsymbol\epsilon}
-      \Big[w_t\,\big\|\boldsymbol\epsilon-\boldsymbol\epsilon_\theta(\mathbf x_t,t)\big\|^2\Big]}
-  \]
-  \begin{itemize}
-    \item \(\mathbb E\): the average over random draws of \(\mathbf x_0\), \(t\) and \(\boldsymbol\epsilon\).
-    \item \(w_t>0\): a weight saying how much each noise level counts.
-      The common ``simple'' choice is \(w_t=1\).
-    \item Other versions predict \(\mathbf x_0\), the score or a ``velocity'' instead of \(\boldsymbol\epsilon\).
-  \end{itemize}
-  \textbf{So:} training a diffusion model is ordinary regression: squared error between true and guessed noise.
+  \small
+  \begin{center}
+  \begin{tikzpicture}[node distance=0.55cm,box/.append style={font=\small,minimum width=2.1cm,text width=2.1cm}]
+    \node[box,fill=coursegreen!18] (draw) {1. Draw\\\(\mathbf x_0,t,\boldsymbol\epsilon\)};
+    \node[box,right=of draw,fill=courselightblue] (mix) {2. Mix\\\(\mathbf x_t=\sqrt{\bar\alpha_t}\mathbf x_0\)\\\(+\sigma_t\boldsymbol\epsilon\)};
+    \node[box,right=of mix] (net) {3. Predict\\\(\boldsymbol\epsilon_\theta(\mathbf x_t,t)\)};
+    \node[box,right=of net,fill=courselightorange] (loss) {4. Compare\\\(\|\boldsymbol\epsilon-\boldsymbol\epsilon_\theta\|^2\)};
+    \draw[flow] (draw)--(mix); \draw[flow] (mix)--(net); \draw[flow] (net)--(loss);
+  \end{tikzpicture}
+  \end{center}
+  Draw \(t\) uniformly from \(1,\ldots,T\), and \(\boldsymbol\epsilon\sim\mathcal N(\mathbf0,\mathbf I)\). One jump supplies any noise level without simulating earlier steps.
+  \[\boxed{L(\theta)=\mathbb E_{t,\mathbf x_0,\boldsymbol\epsilon}\|\boldsymbol\epsilon-\boldsymbol\epsilon_\theta(\mathbf x_t,t)\|^2}\]
+  A time embedding tells the network the noise level; backpropagation updates its weights. Optional conditioning \(\mathbf c\) enters the network too.
 \end{frame}
 
 \begin{frame}{What the Network Actually Learns: The Average Noise}
-  Many different clean images could produce the same noisy image.
+  \[\boxed{\boldsymbol\epsilon_\star(\mathbf x_t,t)
+    =\mathbb E[\boldsymbol\epsilon\mid\mathbf x_t,t]}\]
   \begin{itemize}
-    \item \textbf{Example:} data are \(+1\) or \(-1\) equally often; we observe \(x_t=0\).
-      The added noise could have been of either sign, so there is no single correct noise.
-    \item Squared error rewards the \emph{average} of the possible noises given what the network sees.
-    \item That average noise is exactly what the score needs (derived in the appendix).
+    \item Multiple clean examples can produce the same noisy observation.
+    \item Squared error selects their \textbf{conditional mean noise}.
   \end{itemize}
-  \textbf{So:} the network cannot know the one true noise; it learns the best average guess, and that is enough.
-\end{frame}
-
-\begin{frame}{Recap of Part 2}
-  \begin{itemize}
-    \item The score points toward likely data; predicting the added noise is equivalent.
-    \item Training is plain squared-error regression on noisy examples we create ourselves.
-  \end{itemize}
-  \textbf{Next:} use the trained network to generate new samples.
+  \textbf{Example:} equally likely \(x_0=\pm1\), observed \(x_t=0\):
+  \[\epsilon=\mp\frac{\sqrt{\bar\alpha_t}}{\sigma_t}
+    \quad\Longrightarrow\quad \mathbb E[\epsilon\mid x_t=0]=0.\]
+  The individual noise is ambiguous; its conditional average gives the score.
 \end{frame}
 
 \section{Sampling and Control}
 \sectiondivider{Part 3: Sampling and Control}
 
 \begin{frame}{Sampling: Start From Noise and Remove It Step by Step}
-  Start with \(\mathbf x_T\sim\mathcal N(\mathbf0,\mathbf I)\) (pure noise). For \(t=T,T-1,\ldots,1\):
-  \begin{enumerate}
-    \item Ask the network for the noise it thinks is in \(\mathbf x_t\).
-    \item Subtract a small multiple of that noise (the multiple depends on \(\beta_t\) and \(\sigma_t\)) and rescale slightly.
-    \item Add a little \emph{fresh} noise \(\sqrt{v_t}\,\mathbf z\), \(\mathbf z\sim\mathcal N(\mathbf0,\mathbf I)\).
-  \end{enumerate}
-  \(v_t\) is the variance of that fresh noise, fixed in advance (or learned). The result \(\mathbf x_0\) is a new sample.
-
-  \medskip
-  The exact update formula is in the appendix.
-
-  \textbf{So:} generating a sample is 1000 small denoising steps, each using one network evaluation.
+  \begin{center}
+  \begin{tikzpicture}[node distance=1.0cm]
+    \node[box,fill=courselightblue] (a) {noise\\\(\mathbf x_T\)};
+    \node[box,right=of a] (b) {\(\mathbf x_t\)};
+    \node[box,right=of b] (c) {\(\mathbf x_{t-1}\)};
+    \node[box,right=of c,fill=coursegreen!18] (d) {sample\\\(\mathbf x_0\)};
+    \draw[flow] (a)--node[above] {\(\cdots\)} (b);
+    \draw[flow] (b)--(c); \draw[flow] (c)--node[above] {\(\cdots\)} (d);
+  \end{tikzpicture}
+  \end{center}
+  Start from \(\mathbf x_T\sim\mathcal N(\mathbf0,\mathbf I)\). For \(t=T,\ldots,1\):
+  \[\boxed{\mathbf x_{t-1}=\frac1{\sqrt{\alpha_t}}\left(\mathbf x_t-\frac{\beta_t}{\sigma_t}\boldsymbol\epsilon_\theta(\mathbf x_t,t)\right)+\sqrt{v_t}\mathbf z}\]
+  \(\mathbf z\sim\mathcal N(\mathbf0,\mathbf I)\) for \(t>1\); set \(\mathbf z=\mathbf0\) at the final step. The variance \(v_t\) is fixed or learned; the toy example uses the posterior variance \(\widetilde\beta_t\).
+  Each step predicts noise, rescales the denoised state, and optionally adds fresh noise.
 \end{frame}
 
 \begin{frame}{A Real Sampler on the Toy Data}
@@ -281,13 +193,17 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.6cm,min
 \end{frame}
 
 \begin{frame}{DDPM and DDIM Are Different Samplers}
-  Both reuse the \emph{same} trained network but follow different paths.
-  \begin{itemize}
-    \item \textbf{DDPM} (denoising diffusion probabilistic model): adds fresh noise at every step, as above.
-    \item \textbf{DDIM} (denoising diffusion implicit model): a variant update with no fresh noise; the same starting noise always gives the same output.
-    \item DDIM-style updates tolerate larger steps, so fewer network calls.
-  \end{itemize}
-  \textbf{So:} the trained network does not fix the sampler; report which sampler and how many steps you used.
+  The same trained noise predictor supports different sampling rules.
+  \begin{center}
+  \begin{tabular}{p{2.0cm}p{3.6cm}p{3.6cm}}
+    & DDPM & DDIM (deterministic)\\\hline
+    Fresh noise & Yes, except final step & None (\(\eta_{\mathrm{DDIM}}=0\))\\
+    Same start & Different outputs & Same output\\
+    Time grid & Usually many steps & Often a reduced grid\\
+    Tradeoff & Stochastic denoising & Fewer calls can reduce quality\\
+  \end{tabular}
+  \end{center}
+  Report the sampler, time grid and network evaluations alongside sample quality. DDIM also has stochastic variants.
 \end{frame}
 
 \begin{frame}{Sampling Cost Is Counted in Network Evaluations}
@@ -326,28 +242,23 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.6cm,min
   \textbf{So:} \(s\) is a dial between variety (low) and obeying the request (high).
 \end{frame}
 
-\begin{frame}{Recap of Part 3}
-  \begin{itemize}
-    \item Sampling = start from noise and denoise step by step; samplers (DDPM, DDIM) differ.
-    \item Guidance scale \(s\) trades diversity for obeying the condition.
-  \end{itemize}
-  \textbf{Next:} continuous time, applications and how to evaluate.
-\end{frame}
-
 \section{Context and Evaluation}
 \sectiondivider{Part 4: Context and Evaluation}
 
 \begin{frame}{Continuous Time: Where the Flow-Matching Deck Takes Over}
-  Imagine the steps becoming infinitely many and tiny.
+  \begin{center}
+  \begin{tikzpicture}[node distance=0.9cm]
+    \node[box,fill=courselightblue] (f) {tiny noising steps\\forward SDE};
+    \node[box,right=of f] (r) {learned score\\reverse SDE};
+    \node[box,fill=coursegreen!18,below=of r] (o) {probability-flow ODE\\same time marginals};
+    \draw[flow] (f)--(r); \draw[flow] (r)--(o);
+  \end{tikzpicture}
+  \end{center}
   \begin{itemize}
-    \item The noising becomes a smooth random motion over time (a stochastic differential equation, SDE).
-    \item Its reverse needs the same score we learned above.
-    \item A deterministic version, with no random kicks but the same distributions at every time, also exists (an ordinary differential equation, ODE).
+    \item SDE paths include random kicks; ODE paths are deterministic given the start.
+    \item Matching marginals does not mean matching individual trajectories.
+    \item Continuous-time formulas: flow-matching appendix.
   \end{itemize}
-  The formulas live in the flow-matching deck (appendix), which owns the continuous-time view.
-
-  \medskip
-  \textbf{So:} DDPM and DDIM are two ways of stepping through the same continuous picture.
 \end{frame}
 
 \begin{frame}{Diffusion Applies Beyond Images}
@@ -374,16 +285,6 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.6cm,min
     \item Report sampling cost: network evaluations and sampler settings.
   \end{itemize}
   \textbf{So:} judge a generator on quality, diversity, correctness and cost, not on one picture.
-\end{frame}
-
-\begin{frame}{Summary}
-  \begin{itemize}
-    \item Forward: add noise in known small steps; any noise level has a closed form.
-    \item Train a network to predict the added noise; this is score estimation as regression.
-    \item Sample: start from pure noise and denoise step by step.
-    \item Guidance and sampler choices change the generated distribution.
-  \end{itemize}
-  \textbf{So:} diffusion learns to undo a corruption we control.
 \end{frame}
 
 \appendix
@@ -433,6 +334,7 @@ box/.style={draw,rounded corners,very thick,align=center,minimum width=1.6cm,min
 \end{frame}
 
 \begin{frame}{The DDPM Update Uses Predicted Noise}
+  \small
   Substituting \(\mathbf x_0\) from the one-jump formula, with \(\boldsymbol\epsilon\) replaced by \(\boldsymbol\epsilon_\theta\), gives
   \[
     \boxed{\boldsymbol\mu_\theta(\mathbf x_t,t)

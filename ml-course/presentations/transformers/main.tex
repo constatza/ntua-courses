@@ -37,12 +37,7 @@
 \end{frame}
 
 % ---------- Motivation ----------
-\begin{frame}{Roadmap}
-  We want a model that lets every token read from every other token.
-  \medskip
-  \tableofcontents
-  \takeaway{So: first the attention operation itself, then heads and word order, then the full block, then language models and limits.}
-\end{frame}
+
 
 \section{Attention as a Soft Lookup}
 \sectiondivider{Attention as a Soft Lookup}
@@ -115,20 +110,20 @@
 \end{frame}
 
 \begin{frame}{Three Roles: Query, Key, Value}
-  Each token plays three roles at once. Three learned weight matrices
-  $\mathbf W_Q,\mathbf W_K,\mathbf W_V$ produce them from the same $\mathbf x_t$:
-  \[
-    \mathbf Q=\mathbf X\mathbf W_Q,\qquad
-    \mathbf K=\mathbf X\mathbf W_K,\qquad
-    \mathbf V=\mathbf X\mathbf W_V .
-  \]
-  \begin{itemize}
-    \item \textbf{Query} $\mathbf q_i$: what token $i$ is looking for.
-    \item \textbf{Key} $\mathbf k_j$: what token $j$ advertises for matching.
-    \item \textbf{Value} $\mathbf v_j$: the information token $j$ hands over if it is chosen.
-  \end{itemize}
-  Queries and keys have $d_k$ numbers each, values have $d_v$ (sizes we choose).
-  \takeaway{So matching uses queries and keys, and the content that gets passed along is the values; all three are learned, not hand-labelled.}
+  \centering
+  \begin{tikzpicture}[node distance=1.0cm]
+    \node[token,fill=courselightblue] (x) {token rows $\mathbf X$};
+    \node[token,fill=courselightorange,right=2.0cm of x] (k) {$\mathbf K=\mathbf X\mathbf W_K$};
+    \node[token,fill=coursegreen!18,above=of k] (q) {$\mathbf Q=\mathbf X\mathbf W_Q$};
+    \node[token,fill=coursepurple!18,below=of k] (v) {$\mathbf V=\mathbf X\mathbf W_V$};
+    \draw[flow] (x)--(q); \draw[flow] (x)--(k); \draw[flow] (x)--(v);
+    \node[right=0.3cm of q,align=left] {queries: what to find};
+    \node[right=0.3cm of k,align=left] {keys: what matches};
+    \node[right=0.3cm of v,align=left] {values: content to pass};
+  \end{tikzpicture}
+
+  \raggedright Each projection is learned. Queries and keys have width $d_k$;
+  values have width $d_v$. Matching uses $Q,K$; mixing passes $V$.
 \end{frame}
 
 % ---------- Worked example in three steps ----------
@@ -188,7 +183,12 @@
 \end{frame}
 
 \begin{frame}{Scaled Dot-Product Attention: The Whole Formula}
-  The three steps in one line (all rows at once):
+  \[
+    S_{ij}=\frac{\mathbf q_i^{\mathsf T}\mathbf k_j}{\sqrt{d_k}},\qquad
+    A_{ij}=\frac{e^{S_{ij}}}{\sum_r e^{S_{ir}}},\qquad
+    \mathbf y_i=\sum_j A_{ij}\mathbf v_j.
+  \]
+  All rows at once:
   \[
     \boxed{
     \operatorname{Attn}(\mathbf Q,\mathbf K,\mathbf V)
@@ -241,9 +241,7 @@
   \takeaway{So the sequence length stays $T$: attention updates every token using all the others.}
 \end{frame}
 
-\begin{frame}{Recap: Attention}
-  Attention scores every pair of tokens, turns the scores into weights with softmax, and returns a weighted average of the values. Next: several heads in parallel, and how to tell the model the word order.
-\end{frame}
+
 
 % ---------- Multi-head ----------
 \section{Heads and Word Order}
@@ -291,48 +289,32 @@
     \foreach \i/\word in {1/dog,2/chases,3/cat}{
       \node[token,fill=courselightblue] (a\i) at (1.5*\i,0.7) {\word};
     }
-    \foreach \i/\word in {1/cat,2/dog,3/chases}{
+    \foreach \i/\word in {1/cat,2/chases,3/dog}{
       \node[token,fill=courselightorange] (b\i) at (6.2+1.5*\i,0.7) {\word};
+    }
+    \foreach \i in {1,2,3}{
+      \node[below=0.2cm of a\i,font=\small] {$+\mathbf p_{\i}$};
+      \node[below=0.2cm of b\i,font=\small] {$+\mathbf p_{\i}$};
     }
     \draw[maskflow] (a3.east) -- node[above,font=\small] {permute rows} (b1.west);
   \end{tikzpicture}
   \end{center}
 
-  The geometric deep-learning lecture proves this property.
+  Position vectors stay with slots, not words: $\widetilde{\mathbf x}_t=\mathbf x_t+\mathbf p_t$.
   \takeaway{So ``dog chases cat'' and ``cat chases dog'' look alike to attention unless we add order information.}
 \end{frame}
 
-\begin{frame}{Fix: Add a Position Vector to Each Token}
-  Add a vector $\mathbf p_t$ that depends only on the position $t$ before attention:
-  \[
-    \widetilde{\mathbf x}_t=\mathbf x_t+\mathbf p_t .
-  \]
-  \begin{center}
-  \begin{tikzpicture}[node distance=0.4cm]
-    \foreach \t/\word in {1/dog,2/chases,3/cat}{
-      \node[token,fill=courselightblue] (w\t) at (2.4*\t,0) {$\mathbf x_{\t}$\,(\word)};
-      \node[token,fill=courselightorange] (p\t) at (2.4*\t,-1.3) {$\mathbf p_{\t}$};
-      \node[token,fill=coursegreen!18] (s\t) at (2.4*\t,-2.6) {$\widetilde{\mathbf x}_{\t}$};
-      \draw[flow] (w\t) -- (p\t);
-      \draw[flow] (p\t) -- (s\t);
-    }
-  \end{tikzpicture}
-  \end{center}
-  \takeaway{So the same word at two different positions now enters attention as two different vectors.}
-\end{frame}
+
 
 \begin{frame}{Where Do the Position Vectors Come From?}
   \begin{itemize}
-    \item \textbf{Learned}: $\mathbf p_t$ are parameters trained like any weights. Flexible, but only defined up to the longest training length.
-    \item \textbf{Fixed sinusoids}: $\mathbf p_t$ is built from sines and cosines of different wavelengths, so each position gets a unique pattern with no parameters to learn (formula in the appendix).
+    \item \textbf{Learned}: a trained vector per position, up to the embedding table's length.
+    \item \textbf{Fixed}: sinusoidal vectors computed at any position (formula in the appendix).
   \end{itemize}
-  A fixed formula can be evaluated at any $t$, but that does not guarantee the model behaves well on lengths it never saw.
-  \takeaway{So either choice supplies order; neither guarantees good behaviour on much longer inputs than seen in training.}
+  Neither choice guarantees reliable extrapolation to longer sequences.
 \end{frame}
 
-\begin{frame}{Recap: Heads and Order}
-  Several heads give several attention patterns, and position vectors restore the word order that attention alone ignores. Next: how these pieces are assembled into a full transformer block.
-\end{frame}
+
 
 % ---------- Mask ----------
 \section{The Transformer Block}
@@ -525,9 +507,7 @@
   \takeaway{So in translation each target word retrieves the source words it needs; the same idea connects text with images.}
 \end{frame}
 
-\begin{frame}{Recap: The Block}
-  A block is masked or unmasked attention plus an MLP, wrapped with residual connections and layer normalization, and blocks are stacked. Next: how such a stack is trained and used as a language model, and where it fails.
-\end{frame}
+
 
 % ---------- Language modelling ----------
 \section{Language Models, Cost and Limits}
@@ -673,16 +653,7 @@
   \takeaway{So large capacity does not remove the need for validation: check the data, the objective, the context and the evaluation.}
 \end{frame}
 
-\begin{frame}{Summary: Content Interaction Plus Structure}
-  \begin{itemize}
-    \item Queries and keys decide who listens to whom; values carry the content.
-    \item Several heads learn several interaction patterns.
-    \item Position vectors and masks supply order and causality.
-    \item Residuals, LN and MLPs make blocks that can be stacked deeply.
-    \item Training is parallel; dense attention costs $T^2$.
-  \end{itemize}
-  \takeaway{So a transformer is a stack of attention-plus-MLP blocks that let every token read from the others. The appendix holds the derivations.}
-\end{frame}
+
 
 \appendix
 \sectiondivider{Appendix: optional depth}

@@ -25,30 +25,32 @@
 \begin{document}
 \begin{frame}[plain]\makepresentationtitle\end{frame}
 
-\begin{frame}{Roadmap}
-  \tableofcontents
-  \vspace{0.3cm}
-
-  \textbf{Note:} Parts 1 and 2 are two different tools for PDE problems and can be read independently.
-  Part 3 compares them.
-\end{frame}
-
 \section{PINNs: One Solution From the Equation}
 \sectiondivider{Part 1: PINNs\\[0.2cm]\normalsize Physics-informed neural networks solve \emph{one} PDE problem}
 
 \begin{frame}{A PDE Problem Is More Than an Equation}
-  We look for an unknown field \(u\) (temperature, displacement, \dots) over a region \(\Omega\) that satisfies
-  \begin{itemize}
-    \item the \textbf{equation} \(\mathcal N[u](\mathbf x)=f(\mathbf x)\) inside \(\Omega\);
-      \(\mathcal N\) combines derivatives of \(u\), \(f\) is a known source;
-    \item the \textbf{boundary condition} \(\mathcal B[u](\mathbf x)=g(\mathbf x)\) on the edge \(\partial\Omega\);
-      \(\mathcal B\) says what is imposed there (for example \(\mathcal B[u]=u\): the value is prescribed);
-    \item for time-dependent problems, an \textbf{initial condition} \(u(\mathbf x,0)=u_0(\mathbf x)\).
-  \end{itemize}
-  Geometry, coefficients, forcing and conditions together define one \emph{instance}.
+\small
+\begin{columns}[c]
+\column{0.48\textwidth}
+\begin{tikzpicture}[x=0.9cm,y=0.85cm,>=stealth]
+\fill[courselightblue] (0,0) rectangle (4,3);
+\draw[very thick,courseorange] (0,0)--(0,3) (4,0)--(4,3);
+\draw[very thick,coursegreen] (0,0)--(4,0);
+\draw[->] (0,0)--(4.5,0) node[right] {$x$};
+\draw[->] (0,0)--(0,3.6) node[above] {$t$};
+\node at (2,2.4) {PDE: $\mathcal N[u]=f$};
+\node[courseorange,rotate=90] at (-0.5,1.5) {boundary};
+\node[coursegreen] at (2,-0.5) {initial: $u(x,0)=u_0(x)$};
+\foreach \x/\y in {1/1,2.7/1.4,3.3/0.6} \fill[coursered] (\x,\y) circle (2pt);
+\node[coursered] at (2,1.8) {data: $(x_i,t_i,y_i)$};
+\end{tikzpicture}
+\column{0.48\textwidth}
+Interior: $\mathcal N[u]=f$.\\[0.5em]
+Boundary: $\mathcal B[u]=g$ on $\partial\Omega$.\\[0.5em]
+Initial values are needed for time-dependent problems; measurements are optional.
 
-  \medskip
-  \textbf{So:} a solution must satisfy the equation, the boundary and the start, all at once.
+Geometry, coefficients, forcing and conditions define one instance.
+\end{columns}
 \end{frame}
 
 \begin{frame}{The PINN Idea: Let a Network Be the Solution}
@@ -143,27 +145,24 @@
 \end{frame}
 
 \begin{frame}{Soft Constraints: Penalize Boundary Error}
-  \[
-    L(\theta)=\frac1{N_r}\sum_i r_\theta(x_i)^2+\lambda_b\big(u_\theta(0)^2+u_\theta(1)^2\big).
-  \]
-  \begin{itemize}
-    \item The network may output anything; boundary violations are only penalized.
-    \item A finite \(\lambda_b\) leaves some boundary error; a huge \(\lambda_b\) unbalances training.
-  \end{itemize}
-  \textbf{So:} soft constraints are simple but only approximately satisfied.
-\end{frame}
-
-\begin{frame}{Hard Constraints: Boundaries Satisfied by Construction}
-  Use the trial solution
-  \[
-    \boxed{u_\theta(x)=x(1-x)\,N_\theta(x)},
-  \]
-  where \(N_\theta\) is the neural network. At \(x=0\) and \(x=1\) the factor \(x(1-x)\) is zero, so \(u_\theta(0)=u_\theta(1)=0\) for every \(\theta\).
-  \begin{itemize}
-    \item Only the interior residual remains to be trained.
-    \item The factor must match the boundary conditions; for complicated geometry or mixed conditions this is hard.
-  \end{itemize}
-  \textbf{So:} we trade generality for exact boundary values.
+\small
+\begin{columns}[T]
+\column{0.48\textwidth}
+\textbf{Soft: penalize violations}
+\[
+ \begin{gathered}u_\theta=N_\theta(x),\\
+ L=L_{\mathrm{PDE}}+\lambda_bL_{\mathrm{BC}}.\end{gathered}
+\]
+$L_{\mathrm{BC}}=u_\theta(0)^2+u_\theta(1)^2$.
+Finite penalty permits boundary error; tuning $\lambda_b$ changes the balance.
+\column{0.48\textwidth}
+\textbf{Hard: enforce by construction}
+\[
+ \begin{gathered}u_\theta=x(1-x)N_\theta(x),\\ L=L_{\mathrm{PDE}}.\end{gathered}
+\]
+$u_\theta(0)=u_\theta(1)=0$ for every $\theta$.
+The construction must fit the geometry and prescribed conditions.
+\end{columns}
 \end{frame}
 
 \begin{frame}{Training a PINN on the Worked Problem}
@@ -173,19 +172,8 @@
   \raggedright
   \small Hard-constrained network with 2 hidden layers of 24 tanh units, 64 equally spaced collocation points, 5000 full-batch Adam steps, one random seed.
 
-  \textbf{So:} from an almost flat start, the network reaches the exact solution without any solution data.
-\end{frame}
-
-\begin{frame}{Reading the Training Curves}
-  \begin{itemize}
-    \item After 100 steps the curve is already close to \(\sin(\pi x)\); the relative error (distance to the exact solution) ends near \(10^{-5}\).
-    \item The residual loss and the true error fall together here, so the residual was a good training signal.
-    \item The spikes are the optimizer briefly jumping out of a good region (a large learning rate \(10^{-2}\)) and recovering.
-  \end{itemize}
-  Scope: one equation, one smooth solution, one seed, 64 collocation points.
-
-  \medskip
-  \textbf{So:} on an easy problem a PINN works, but this is one small case, not a general guarantee.
+  \textbf{Evidence:} relative error ends near \(10^{-5}\); residual and error fall together.\\
+  One smooth problem and one seed; optimizer spikes do not identify their own cause.
 \end{frame}
 
 \begin{frame}{Inverse Problems: Unknown Physical Parameters}
@@ -257,15 +245,6 @@
   \textbf{So:} a small training loss is not proof; test on new points and against a reference.
 \end{frame}
 
-\begin{frame}{Recap of Part 1}
-  \begin{itemize}
-    \item A PINN is a network for \emph{one} PDE instance, trained on the residual, boundary, start and data.
-    \item It worked on an easy example and degraded as the solution oscillated faster.
-    \item Always validate on new points.
-  \end{itemize}
-  \textbf{Next (Part 2):} a different tool, neural operators, that learn solutions for \emph{many} problem instances.
-\end{frame}
-
 \section{Neural Operators: A Whole Family of Solutions}
 \sectiondivider{Part 2: Neural Operators\\[0.2cm]\normalsize Learn the map from a problem \emph{to} its solution}
 
@@ -284,7 +263,7 @@
 \begin{frame}{A Neural Operator Maps a Function to a Function}
   A PDE \textbf{solution operator} \(\mathcal G\) takes an input function \(a\) and returns the solution \(u\):
   \[
-    \boxed{\mathcal G:\ a(\cdot)\ \longmapsto\ u(\cdot)}.
+    \boxed{a(\cdot)\ \xrightarrow{\ \mathcal G\ }\ u(\cdot)=\mathcal G(a)}.
   \]
   The input \(a\) can be
   \begin{itemize}
@@ -359,6 +338,8 @@
     \node[box,fill=courselightorange,right=of mix] (ifft) {inverse\\transform};
     \node[box,fill=coursegreen!18,right=of ifft] (out) {updated\\field};
     \draw[flow] (v)--(fft)--(mix)--(ifft)--(out);
+    \draw[flow] (v.south) -- ++(0,-0.9) -| node[pos=0.25,below] {local path $W_kv_k$} (out.south);
+    \node[above=0.1cm of out] {add, then $\sigma$};
   \end{tikzpicture}
 
   \raggedright
@@ -378,7 +359,11 @@
     \item The two paths are added and passed through a nonlinearity \(\sigma\).
     \item Lifting and projection layers convert between physical and hidden channels.
   \end{itemize}
-  The formula is in the appendix. Assumptions: a regular grid and periodic wave structure.
+  \[
+ v_{k+1}(x)=\sigma\!\left(\underbrace{W_kv_k(x)}_{\text{local}}+
+ \underbrace{\mathcal F^{-1}[R_k\mathcal F(v_k)](x)}_{\text{Fourier / global}}\right).
+\]
+Typically evaluated on a regular grid; periodic extension and boundary treatment matter.
 
   \medskip
   \textbf{So:} each layer combines a local update with a global wave update.
@@ -410,15 +395,6 @@
     \item geometry and boundary conditions, longer time horizons, a different resolution.
   \end{itemize}
   \textbf{So:} a physics-inspired architecture does not remove the need to test on shifted inputs.
-\end{frame}
-
-\begin{frame}{Recap of Part 2}
-  \begin{itemize}
-    \item A neural operator maps an input function to its solution and is trained on many instances.
-    \item DeepONet separates input and query; FNO mixes global waves and keeps few modes.
-    \item Trust is limited to inputs similar to the training distribution.
-  \end{itemize}
-  \textbf{Next (Part 3):} compare the two tools and set honest baselines.
 \end{frame}
 
 \section{Comparing and Using Them}
@@ -464,16 +440,6 @@
 
   \medskip
   \textbf{So:} a learned model earns its place only against a good classical solver.
-\end{frame}
-
-\begin{frame}{Summary}
-  \begin{itemize}
-    \item PINN: one instance, trained on residual, boundary and data; validate on new points.
-    \item Our toy run solved \(k=1\) to \(10^{-5}\) but degraded for faster oscillations.
-    \item Neural operators (DeepONet, FNO) learn the solution map and amortize repeated solves.
-    \item Optimization, discretization, validation and distribution shift remain central.
-  \end{itemize}
-  \textbf{So:} physics supplies structure, not immunity.
 \end{frame}
 
 \appendix
