@@ -2,7 +2,7 @@
 
 One repository holds the courses (`ml-course/`, `stochastic-course/`), the shared tooling (`tools/`) and the `ntuabeamer` class (`beamer-ntua/`). Each course has its own `AGENTS.md`, `README.md` and `ROADMAP.md`; follow the guidelines of the course you are working in.
 
-- Build and verify with `tools/build-course [course]`; every target must report `ok`. Run `prek run --all-files` before committing.
+- Build and verify with `tools/build-course [course]`; every target must report `ok`. Run `prek run --all-files` before committing. Local TeX Live lags CI: run `tools/ci-docker [course]` (the pinned CI image, committed state) before pushing TeX changes and before tagging.
 - `beamer-ntua/` is a one-way copy of its public repository. Never edit it here and never `git subtree push`; fix the class in its own repository and `git subtree pull`.
 - Tooling changes in `tools/` affect every course; keep `tests/tools-smoke.sh` passing.
 - Releases are per-course tags: `<course>/vX.Y.Z`.

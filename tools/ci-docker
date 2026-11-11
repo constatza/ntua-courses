@@ -1,0 +1,27 @@
+#!/bin/sh
+# Run tools/ci inside the TeX Live image CI uses, on a clean clone of HEAD.
+#
+#   tools/ci-docker                 build every course
+#   tools/ci-docker ml-course       build the named course(s)
+#
+# Why: a distro TeX Live is a snapshot and lags the pinned image (a Greek sheet built locally but
+# failed in CI on a newer hyperref). The image comes from .github/workflows/ci.yml, the single
+# source of truth. The clone starts with an empty .build/, so stale auxiliary files cannot hide a
+# failure, and your working tree is untouched. Only committed changes are tested.
+set -eu
+
+root=$(git rev-parse --show-toplevel)
+command -v docker >/dev/null 2>&1 || { echo "error: docker not found" >&2; exit 1; }
+
+image=$(sed -n 's/^ *container: *\([^ ]*\).*/\1/p' "$root/.github/workflows/ci.yml")
+[ -n "$image" ] || { echo "error: no container image found in .github/workflows/ci.yml" >&2; exit 1; }
+
+work=$(mktemp -d "${TMPDIR:-/tmp}/ci-docker.XXXXXX")
+trap 'rm -rf "$work"' EXIT
+# --no-hardlinks: $TMPDIR is often on another filesystem than the repository
+git clone -q --no-hardlinks "$root" "$work/repo"
+
+# Same user as the host so the clone stays removable; git needs safe.directory for the mount.
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
+  -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/work \
+  -v "$work/repo:/work" -w /work "$image" tools/ci "$@"

@@ -42,6 +42,15 @@ repos:
         language: script
         pass_filenames: false
         files: /(presentations|notes|exercises)/[^/]+/main(-[^/]+)?\.tex$
+      - id: ci-docker
+        name: build in the pinned TeX Live image (as CI does)
+        # pre-push only: needs Docker, and CI already builds in that image. Without a running
+        # Docker the hook warns and lets the push through (CI is the backstop) instead of blocking it.
+        entry: sh -c 'docker info >/dev/null 2>&1 || { echo "docker unavailable, ci-docker skipped; CI will build"; exit 0; }; exec tools/ci-docker'
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+        files: (\.(tex|cls|sty|bib)$|^tools/|^beamer-ntua/)
       - id: no-built-artifacts
         name: no built PDFs or build directories
         entry: built artifacts must not be committed (tools/build-course writes them to .build/ and dist/)

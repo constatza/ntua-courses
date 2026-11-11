@@ -32,7 +32,7 @@ Always build through `tools/build-course`, which writes to `.build/`; a bare `la
 A translation (or other variant) of a deck, note or exercise sheet is a sibling `main-<variant>.tex` next to `main.tex`, for example `main-greek.tex`. `tools/build-course` builds it as `<kind>_<slug>_<variant>.pdf` and releases publish it like any other PDF; answers are not translated. `tools/check-variants` (also a pre-commit hook and part of the build) fails when a variant's questions, sections, labels or links no longer match `main.tex`, so edit both files in the same commit.
 
 ## Checks
-`prek install -t pre-commit -t commit-msg` once per clone ([prek](https://github.com/j178/prek) runs the standard `.pre-commit-config.yaml`). Third-party hooks (ruff, shellcheck, actionlint, conventional commits) are remote; the course checks (layout, no built PDFs, no AI attribution) are local scripts. CI runs the same hooks plus the build.
+`prek install -t pre-commit -t commit-msg -t pre-push` once per clone ([prek](https://github.com/j178/prek) runs the standard `.pre-commit-config.yaml`). Third-party hooks (ruff, shellcheck, actionlint, conventional commits) are remote; the course checks (layout, no built PDFs, no AI attribution) are local scripts. CI runs the same hooks plus the build.
 
 ## Releases
 Content is versioned per course with path-prefixed tags: `git tag ml-course/v1.2.0 && git push origin ml-course/v1.2.0`. CI builds only that course and publishes its PDFs as a release (answer PDFs are withheld unless `RELEASE_ANSWERS=1`). `tools/release-course` is safe to re-run after a failure: a stale draft is replaced, an already-published tag is refused. Readers get the PDFs from each course's README, which links to this repository's releases page. The earlier per-repo `v0.1.0-alpha.1` releases were removed with the old repositories; copies are kept in `_archive/old-releases/`.
@@ -45,7 +45,9 @@ git subtree pull --prefix=beamer-ntua git@github.com:constatza/beamer-ntua.git m
 Never `git subtree push`. Make class fixes in the class repository and pull them here.
 
 ## TeX Live
-CI builds inside `texlive/texlive:latest@sha256:…` (full TeX Live 2026, pinned by digest in `.github/workflows/ci.yml`), so the build needs no network and cannot change under you. To move to a newer TeX Live: `docker pull texlive/texlive:latest`, copy the digest from `docker inspect`, update `ci.yml`, and run `tools/ci` in that image.
+CI builds inside `texlive/texlive:latest@sha256:…` (full TeX Live 2026, pinned by digest in `.github/workflows/ci.yml`), so the build needs no network and cannot change under you. To move to a newer TeX Live: `docker pull texlive/texlive:latest`, copy the digest from `docker inspect`, update `ci.yml`, and run `tools/ci-docker` to check it.
+
+A distro TeX Live is a snapshot and can lag that image, so a build can pass locally and fail in CI (a Greek sheet did, on a newer hyperref). `tools/ci-docker [course]` runs `tools/ci` in the pinned image on a clean clone of `HEAD`; the pre-push hook runs it whenever TeX sources or tools changed. Only committed changes are tested.
 
 ## Adding a course
 Copy an existing course directory, rename it, adjust its `README.md`, `AGENTS.md`, `ROADMAP.md` and `TOPICS.toml`. `tools/courses` discovers it automatically (any top-level directory with `presentations/`, `notes/` or `exercises/`), and the `<course>/v*` tag convention works without editing CI.
