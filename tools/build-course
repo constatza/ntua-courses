@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build the decks, notes and exercise sheets of one or more courses into <course>/dist/.
+# Build the decks, notes and exercise sheets of one or more courses into <repo>/pdfs/<course>/.
 #
 #   tools/build-course [course-dir...]     default: every top-level directory that has a
 #                                          presentations/, notes/ or exercises/ directory
@@ -11,11 +11,12 @@
 #
 # Guarantees, so a failed or skipped build can never ship an old PDF:
 #   - each target's previous .build/<stem>.pdf is deleted before it is rebuilt
-#   - <course>/dist/ only exists after every target of that course built; it is moved into place last
-#   - dist/MANIFEST lists exactly the PDFs built, named <kind>_<slug>[_answers].pdf
+#   - pdfs/<course>/ only exists after every target of that course built; it is moved into place last
+#   - pdfs/<course>/MANIFEST lists exactly the PDFs built, named <kind>_<slug>[_answers].pdf
 #   - a LaTeX log tail is printed for every failing target
 #   - tools/check-course-layout and tools/check-variants must pass
-#   - after a successful build the PDFs are also copied to <repo>/pdfs/<course>/ (gitignored)
+# One PDF per target: the built PDF is moved (not copied) out of .build/, which keeps only aux
+# files and logs, and stray editor by-products next to a source (built without -outdir) are deleted.
 # The class is found through TEXINPUTS inside this repository; nothing is installed globally.
 set -u
 
@@ -26,13 +27,16 @@ TEXINPUTS="$framework//:${TEXINPUTS:-}"
 export TEXINPUTS
 
 LOG_TAIL_LINES=40
+# by-products an editor leaves next to <stem>.tex when it builds without -outdir
+STRAY_EXTS='pdf aux log fls fdb_latexmk out synctex.gz nav snm toc vrb'
 
 build_one() { # <course-dir>; run from the repo root
   course=$1
   (
     cd "$course" || exit 1
-    rm -rf dist dist.tmp
-    mkdir dist.tmp
+    out="$root/pdfs/$course"
+    rm -rf "$out" "$out.tmp"
+    mkdir -p "$out.tmp"
     rc=0
     built=0
     for t in presentations/*/main.tex notes/*/main.tex exercises/*/main.tex exercises/*/answers.tex \
@@ -54,6 +58,7 @@ build_one() { # <course-dir>; run from the repo root
 
       mkdir -p "$d/.build"
       rm -f "$d/.build/$stem.pdf"
+      for ext in $STRAY_EXTS; do rm -f "$d/$stem.$ext"; done
 
       # `-pdf` would override a target's own engine (e.g. lualatex); that is set in its .latexmkrc
       if grep -q 'pdf_mode' "$d/.latexmkrc" 2>/dev/null; then flag=; else flag=-pdf; fi
@@ -61,7 +66,7 @@ build_one() { # <course-dir>; run from the repo root
       if (cd "$d" && latexmk $flag -interaction=nonstopmode -halt-on-error \
             -outdir=.build -auxdir=.build "$stem.tex" >.build/latexmk.out 2>&1) \
           && [ -f "$d/.build/$stem.pdf" ]; then
-        cp "$d/.build/$stem.pdf" "dist.tmp/$name.pdf"
+        mv "$d/.build/$stem.pdf" "$out.tmp/$name.pdf"
         echo "ok   $course/$d/$stem.tex"
         built=$((built + 1))
       else
@@ -79,16 +84,13 @@ build_one() { # <course-dir>; run from the repo root
     "$root/tools/check-variants" . || rc=1
 
     if [ "$rc" -ne 0 ]; then
-      rm -rf dist.tmp
+      rm -rf "$out.tmp"
       exit 1
     fi
-    (cd dist.tmp && ls -1 -- *.pdf >../dist.manifest)
-    mv dist.manifest dist.tmp/MANIFEST
-    (latex --version 2>/dev/null | head -n 1) >dist.tmp/TEXLIVE || true
-    mv dist.tmp dist
-    # Mirror into <repo>/pdfs/<course>/ so every course's PDFs sit in one local folder (gitignored).
-    rm -rf "$root/pdfs/$course" && mkdir -p "$root/pdfs/$course" && cp dist/*.pdf "$root/pdfs/$course/"
-    echo "$course/dist ready: $built PDFs"
+    (cd "$out.tmp" && ls -1 -- *.pdf >MANIFEST)
+    (latex --version 2>/dev/null | head -n 1) >"$out.tmp/TEXLIVE" || true
+    mv "$out.tmp" "$out"
+    echo "pdfs/$course ready: $built PDFs"
   )
 }
 

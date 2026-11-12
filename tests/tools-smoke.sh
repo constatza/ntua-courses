@@ -27,21 +27,23 @@ printf '[topics.t]\nowner = "presentations/a"\nexercises = ["exercises/e"]\n' >c
 git add -A && git -c user.name=t -c user.email=t@t commit -qm init
 git tag c/v1 && git push -q origin main c/v1
 
-# 1. good build lists exactly the built PDFs
+# 1. good build lists exactly the built PDFs, removes editor strays and keeps one copy per target
+: >c/presentations/a/main.pdf && : >c/presentations/a/main.aux
 tools/build-course c >/dev/null || fail "good build failed"
 want="exercise_e.pdf
 exercise_e_answers.pdf
 exercise_e_greek.pdf
 presentation_a.pdf
 presentation_a_greek.pdf"
-[ "$(sort c/dist/MANIFEST)" = "$(echo "$want" | sort)" ] || fail "manifest: $(cat c/dist/MANIFEST)"
+[ "$(sort pdfs/c/MANIFEST)" = "$(echo "$want" | sort)" ] || fail "manifest: $(cat pdfs/c/MANIFEST)"
+[ -s pdfs/c/TEXLIVE ] || fail "TeX Live version not recorded in pdfs/c/"
+[ ! -e c/presentations/a/main.pdf ] && [ ! -e c/presentations/a/main.aux ] || fail "editor strays survived a build"
+[ ! -e c/presentations/a/.build/main.pdf ] || fail "PDF left in .build/ besides pdfs/c/"
 
-[ -s c/dist/TEXLIVE ] || fail "TeX Live version not recorded in dist/"
-
-# 2. a broken source leaves no dist/ and no stale .build PDF
+# 2. a broken source leaves no pdfs/c/ and no stale .build PDF
 printf '\\documentclass{article}\\begin{document}\\undefinedcommand\\end{document}\n' >c/presentations/a/main.tex
 tools/build-course c >/dev/null && fail "broken build reported success"
-[ ! -e c/dist ] || fail "dist/ survived a failed build"
+[ ! -e pdfs/c ] || fail "pdfs/c/ survived a failed build"
 [ ! -e c/presentations/a/.build/main.pdf ] || fail "stale PDF survived a failed build"
 tex ok >c/presentations/a/main.tex
 

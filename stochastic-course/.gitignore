@@ -19,5 +19,3 @@ presentations/*/main*.pdf
 notes/*/main*.pdf
 exercises/*/main*.pdf
 exercises/*/answers.pdf
-dist/
-dist.tmp/

@@ -20,5 +20,3 @@ notes/*/main*.pdf
 exercises/*/main*.pdf
 exercises/*/answers.pdf
 tools/*.pdf
-dist/
-dist.tmp/

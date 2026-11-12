@@ -15,18 +15,18 @@ All NTUA courses, their build tooling and CI in one repository. Each course is a
 Requires TeX Live with `latexmk` (and `lualatex` for the `sampling` deck) and [`uv`](https://docs.astral.sh/uv/) for the Python demos. Nothing is installed globally; the class is found through `TEXINPUTS` inside this repository.
 ```sh
 git clone <this-repo> ntua-courses && cd ntua-courses
-tools/build-course                  # every course; PDFs end up in <course>/dist/ and pdfs/<course>/
+tools/build-course                  # every course; PDFs end up in pdfs/<course>/
 tools/build-course ml-course        # one course
 ```
-A failed target leaves no `dist/` and no stale PDF behind, and prints the tail of its LaTeX log.
+A failed target leaves no `pdfs/<course>/` and no stale PDF behind, and prints the tail of its LaTeX log.
 
 ## Just one course
 `git sparse-checkout` gives a single-course view (it is a convenience, not an access boundary): `git clone --filter=blob:none --sparse <this-repo> && cd ntua-courses && git sparse-checkout set ml-course tools beamer-ntua`.
 
 ## What is tracked
 Tracked: sources (`*.tex`, `src/*.py`, `TOPICS.toml`), hand-made figures under `assets/` and generated ones under `assets/generated/` (PNGs, `results.tex`, `summary.json`; the scripts that make them are tracked too), and the few figure PDFs a note includes.
-Ignored (see each course's `.gitignore`): `.build/` and `dist/`, LaTeX by-products (`*.aux`, `*.log`, `*.fls`, `*.synctex.gz`, ...), built `main*.pdf` / `answers.pdf`, `__pycache__/`, `*.gif`, and the untracked `_archive/`.
-Always build through `tools/build-course`, which writes to `.build/`; a bare `latexmk` without `-outdir=.build` leaves PDFs next to the sources.
+Ignored (see each course's `.gitignore`): `.build/` and `pdfs/`, LaTeX by-products (`*.aux`, `*.log`, `*.fls`, `*.synctex.gz`, ...), built `main*.pdf` / `answers.pdf`, `__pycache__/`, `*.gif`, and the untracked `_archive/`.
+Always build through `tools/build-course`, which writes to `.build/`; it moves each PDF to `pdfs/<course>/` (one copy per source) and deletes by-products a bare `latexmk` left next to the sources. `.vscode/settings.json` points LaTeX Workshop at `.build/` too.
 
 ## Variants
 A translation (or other variant) of a deck, note or exercise sheet is a sibling `main-<variant>.tex` next to `main.tex`, for example `main-greek.tex`. `tools/build-course` builds it as `<kind>_<slug>_<variant>.pdf` and releases publish it like any other PDF; answers are not translated. `tools/check-variants` (also a pre-commit hook and part of the build) fails when a variant's questions, sections, labels or links no longer match `main.tex`, so edit both files in the same commit.
