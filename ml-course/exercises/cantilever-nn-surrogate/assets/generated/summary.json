@@ -6,7 +6,7 @@
     "validation": 600,
     "test": 600
   },
-  "no_skill_validation_mse": 0.00048675505172848907,
+  "no_skill_validation_mse": 0.005932382300637965,
   "sample_moments": {
     "P (N)": {
       "mean": 9995.442011364983,
@@ -19,204 +19,190 @@
       "p95": 35327706551.51793
     },
     "L (m)": {
-      "mean": 3.004153967468683,
-      "std": 0.34700942577363136,
-      "p95": 3.53659637558982
+      "mean": 3.0138465582289435,
+      "std": 1.1566980859121043,
+      "p95": 4.788654585299399
     },
     "I (m\u2074)": {
-      "mean": 7.987671317113495e-05,
-      "std": 2.299429077838283e-05,
-      "p95": 0.00011615365622085856
+      "mean": 0.0001097226046350536,
+      "std": 5.173715425136138e-05,
+      "p95": 0.00019134572649693178
     },
     "deflection (m)": {
-      "mean": 0.04330801608645443,
-      "std": 0.021126522584574297,
-      "p95": 0.08611071330661811
+      "mean": 0.055439991701745225,
+      "std": 0.07257272493729598,
+      "p95": 0.197533891292906
     }
   },
   "baseline_checkpoint": {
     "epoch": 500,
-    "training_mse": 0.0004698742450197556,
-    "validation_mse": 0.0005035802317171923
+    "training_mse": 0.00013815756002571674,
+    "validation_mse": 0.00018032574100482475
   },
   "runs": [
     {
       "name": "baseline",
       "hidden_layers": [
-        4
+        8
       ],
-      "learning_rate": 0.0001,
+      "learning_rate": 0.001,
       "activation": "tanh",
       "solver": "adam",
-      "target_scaling": false,
-      "parameters": 25,
+      "parameters": 49,
       "completed_epochs": 1500,
-      "training_mse": 2.4076001756844347e-06,
-      "validation_mse": 2.9869975877323843e-06
+      "training_mse": 3.2361287207864524e-05,
+      "validation_mse": 3.5040924332920836e-05
     },
     {
-      "name": "lr 1e-5",
+      "name": "lr 1e-6",
       "hidden_layers": [
-        4
+        8
       ],
-      "learning_rate": 1e-05,
+      "learning_rate": 1e-06,
       "activation": "tanh",
       "solver": "adam",
-      "target_scaling": false,
-      "parameters": 25,
+      "parameters": 49,
       "completed_epochs": 1500,
-      "training_mse": 0.030581237853850484,
-      "validation_mse": 0.032835056375889335
+      "training_mse": 0.17654746841449517,
+      "validation_mse": 0.1923383211773267
     },
     {
-      "name": "lr 1e-1",
+      "name": "lr 1",
       "hidden_layers": [
-        4
+        8
       ],
-      "learning_rate": 0.1,
+      "learning_rate": 1.0,
       "activation": "tanh",
       "solver": "adam",
-      "target_scaling": false,
-      "parameters": 25,
+      "parameters": 49,
       "completed_epochs": 1500,
-      "training_mse": 0.0003380892550398234,
-      "validation_mse": 0.0003270872457215711
+      "training_mse": 0.017217584102122912,
+      "validation_mse": 0.016060496180261306
     },
     {
       "name": "raw inputs",
       "hidden_layers": [
-        4
+        8
       ],
-      "learning_rate": 0.0001,
+      "learning_rate": 0.001,
       "activation": "tanh",
       "solver": "adam",
-      "target_scaling": false,
-      "parameters": 25,
+      "parameters": 49,
       "completed_epochs": 1500,
-      "training_mse": 0.00043760499574945286,
-      "validation_mse": 0.0004882967995558096
+      "training_mse": 0.005199190722395815,
+      "validation_mse": 0.005934357050980696
     },
     {
       "name": "plain SGD",
       "hidden_layers": [
-        4
+        8
       ],
-      "learning_rate": 0.0001,
+      "learning_rate": 0.001,
       "activation": "tanh",
       "solver": "sgd",
-      "target_scaling": false,
-      "parameters": 25,
+      "parameters": 49,
       "completed_epochs": 1500,
-      "training_mse": 0.03203493457996588,
-      "validation_mse": 0.033580751231124
+      "training_mse": 0.003746680297235679,
+      "validation_mse": 0.004269824386979203
     },
     {
       "name": "S1",
       "hidden_layers": [
-        4
+        16
       ],
       "learning_rate": 0.001,
       "activation": "tanh",
       "solver": "adam",
-      "target_scaling": false,
-      "parameters": 25,
+      "parameters": 97,
       "completed_epochs": 1500,
-      "training_mse": 4.894115119593397e-07,
-      "validation_mse": 6.025781505294274e-07
+      "training_mse": 5.781197568770024e-05,
+      "validation_mse": 7.282210083624701e-05
     },
     {
       "name": "S2",
       "hidden_layers": [
-        4
+        16,
+        16
       ],
       "learning_rate": 0.001,
       "activation": "tanh",
       "solver": "adam",
-      "target_scaling": true,
-      "parameters": 25,
+      "parameters": 369,
       "completed_epochs": 1500,
-      "training_mse": 1.4938324185053014e-07,
-      "validation_mse": 1.8277035646929586e-07
+      "training_mse": 1.4097571437548939e-06,
+      "validation_mse": 3.4426669970319227e-06
     },
     {
       "name": "S3",
       "hidden_layers": [
-        8
+        16,
+        16,
+        16
       ],
       "learning_rate": 0.001,
       "activation": "tanh",
       "solver": "adam",
-      "target_scaling": true,
-      "parameters": 49,
+      "parameters": 641,
       "completed_epochs": 1500,
-      "training_mse": 1.9094074878524483e-08,
-      "validation_mse": 3.37767823266244e-08
+      "training_mse": 1.4656907940054094e-06,
+      "validation_mse": 2.710345259610794e-06
     },
     {
       "name": "S4",
       "hidden_layers": [
-        8
+        16,
+        16,
+        16
       ],
-      "learning_rate": 0.003,
+      "learning_rate": 0.001,
       "activation": "tanh",
       "solver": "adam",
-      "target_scaling": true,
-      "parameters": 49,
-      "completed_epochs": 1500,
-      "training_mse": 8.057786736879674e-09,
-      "validation_mse": 1.605981691793729e-08
+      "parameters": 641,
+      "completed_epochs": 5000,
+      "training_mse": 4.553511304439882e-08,
+      "validation_mse": 5.502411555556582e-08
     },
     {
       "name": "S5",
       "hidden_layers": [
-        8,
-        8
+        16,
+        16
       ],
-      "learning_rate": 0.003,
+      "learning_rate": 0.001,
       "activation": "tanh",
       "solver": "adam",
-      "target_scaling": true,
-      "parameters": 121,
-      "completed_epochs": 1500,
-      "training_mse": 1.2499117351123644e-08,
-      "validation_mse": 5.7142173876780965e-08
+      "parameters": 369,
+      "completed_epochs": 5000,
+      "training_mse": 2.0523649342395173e-07,
+      "validation_mse": 4.2846070011776554e-07
     },
     {
       "name": "S6",
       "hidden_layers": [
-        8
+        32,
+        32
       ],
-      "learning_rate": 0.003,
+      "learning_rate": 0.001,
       "activation": "relu",
       "solver": "adam",
-      "target_scaling": true,
-      "parameters": 49,
+      "parameters": 1249,
       "completed_epochs": 1500,
-      "training_mse": 6.398227202854093e-07,
-      "validation_mse": 8.104643012587954e-07
+      "training_mse": 1.5482217734700105e-06,
+      "validation_mse": 4.519859625225921e-06
     }
   ],
   "selected_run": "S4",
   "metrics": {
-    "test_mse": 2.868877783183666e-08,
-    "test_rmse": 0.00016937761904052337,
-    "test_r2": 0.9999339058917452,
-    "tail_rmse": 0.0006832058131746408,
-    "mc_analytical": {
-      "mean": 0.04339044356534756,
-      "std": 0.021464779820203637,
-      "p95": 0.08619469036751183
-    },
-    "mc_surrogate": {
-      "mean": 0.043385588746861915,
-      "std": 0.0214434966310805,
-      "p95": 0.08611279454778284
-    },
+    "test_mse": 3.076966852496045e-05,
+    "test_rmse": 0.005547041420880184,
+    "test_r2": 0.9936120449543521,
+    "tail_rmse": 0.01956205116901699,
+    "selected_test_mse": 6.372972947866167e-08,
     "response_max_absolute_error": {
-      "P (N)": 0.00011816763889045678,
-      "E (Pa)": 5.865275228707917e-05,
-      "L (m)": 5.352073495282217e-05,
-      "I (m\u2074)": 0.00015714908045179332
+      "P (N)": 0.0017580883624502518,
+      "E (Pa)": 0.0008716812541228747,
+      "L (m)": 0.006652447002169597,
+      "I (m\u2074)": 0.0057831863317982166
     }
   }
 }

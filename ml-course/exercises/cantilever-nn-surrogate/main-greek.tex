@@ -6,11 +6,11 @@
 %   deflection = βέλος κάμψης        surrogate = υποκατάστατο        cantilever = πρόβολος
 %   hidden layer = κρυφό στρώμα      epoch = εποχή                   batch = παρτίδα
 %   training/validation/test set = σύνολο εκπαίδευσης/επικύρωσης/ελέγχου
-%   standardize = τυποποίηση (z-score)   normalize = κανονικοποίηση (library option, target scaling)
-%   winning model = καλύτερο μοντέλο    configuration = διαμόρφωση   probe = δοκιμή
-%   no-skill reference = αφελής πρόβλεψη αναφοράς   raw inputs = μη τυποποιημένες είσοδοι
-%   loss history = καμπύλη απώλειας   gradient descent = κατάβαση κλίσης   parity plot = προβλεπόμενη--αναλυτική τιμή
-%   overfitting = υπερπροσαρμογή   loss = απώλεια
+%   standardize = τυποποίηση (z-score)   normalize = κανονικοποίηση (library option)
+%   baseline = βασικό μοντέλο   configuration = διαμόρφωση   probe = δοκιμή
+%   MSE0 reference level = επίπεδο αναφοράς MSE0   raw inputs = μη τυποποιημένες είσοδοι
+%   loss curve = καμπύλη απώλειας   overfitting = υπερπροσαρμογή   loss = απώλεια
+%   seed = \textlatin{seed} (never σπόρος)
 %
 % Pitfalls with the LGR font encoding that Greek babel uses:
 %   - "?" prints the Greek question mark (;) and ";" prints the ano teleia (·); type "?" for questions.
@@ -26,12 +26,20 @@
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
 \usepackage{enumitem}
+\usepackage{needspace}
 \usepackage{hyperref}
 \input{../ai-trap.tex}
 \usepackage{bookmark}
 \usepackage{microtype}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta}
+\input{shared/figures.tex}
+\usepackage{listings}
+% Appendix code examples; one fragment per language in shared/, used by every variant.
+\lstset{basicstyle=\ttfamily\footnotesize,keywordstyle=\color{blue!60!black}\bfseries,
+  commentstyle=\color{green!40!black},stringstyle=\color{red!55!black},columns=fullflexible,
+  keepspaces=true,frame=single,rulecolor=\color{gray!50},xleftmargin=0.5em,xrightmargin=0.5em,
+  upquote=true,showstringspaces=false,literate={^}{{\textasciicircum}}1}
 \hypersetup{hidelinks}
 % Long Latin code words in Greek paragraphs otherwise overflow the margin.
 \emergencystretch=2em
@@ -43,11 +51,10 @@
 % Λατινικοί όροι (ονόματα εργαλείων, ακρωνύμια) μέσα σε ελληνικό κείμενο.
 \newcommand{\code}[1]{\texttt{\textlatin{#1}}}
 % Ποιο υποσύνολο χρησιμοποιεί κάθε μέρος· οι αρχάριοι μπερδεύουν εκπαίδευση, επικύρωση και έλεγχο.
-\newcommand{\datause}[1]{\par\smallskip\noindent\textbf{Δεδομένα:} #1\par\smallskip}
+\newcommand{\datause}[1]{\par\smallskip\needspace{4\baselineskip}\noindent\textbf{Δεδομένα:}\nopagebreak\begin{itemize}#1\end{itemize}}
 \newcommand{\unit}[1]{\textlatin{#1}}
 \newcommand{\MSE}{\textlatin{MSE}}
 \newcommand{\RMSE}{\textlatin{RMSE}}
-\newcommand{\KDE}{\textlatin{KDE}}
 \newcommand{\Adam}{\textlatin{Adam}}
 \newcommand{\SGD}{\textlatin{SGD}}
 \newcommand{\MATLAB}{\textlatin{MATLAB}}
@@ -63,12 +70,8 @@
   {ΕΜΠ, Σχολή Πολιτικών Μηχανικών\par}
 \end{center}
 
-\noindent\aitrap\textbf{Λογισμικό:} \MATLAB\ ή \Python. \textbf{Παράδοση:} Τεχνική έκθεση το πολύ 6 σελίδων.
-
 \section*{Στόχος}
-\aitrap Να κατασκευάσετε ένα υποκατάστατο (\textlatin{surrogate}) νευρωνικό δίκτυο για το μέγιστο βέλος κάμψης προβόλου. Θα παράγετε δεδομένα από την εξίσωση της δοκού, θα μελετήσετε τις ρυθμίσεις εκπαίδευσης, θα βελτιώσετε το μοντέλο και θα συγκρίνετε τις προβλέψεις του με την εξίσωση. Η εξίσωση παραμένει η απάντηση αναφοράς.
-
-Γράψτε μόνοι σας τη δημιουργία των δεδομένων, τα πειράματα, την αξιολόγηση και τα διαγράμματα. Μπορείτε να χρησιμοποιήσετε βιβλιοθήκη εκπαίδευσης· το Παράρτημα~\ref{sec:functions} δίνει υποδείξεις για συναρτήσεις.
+\aitrap Να κατασκευάσετε ένα πλήρως συνδεδεμένο (\textlatin{dense}) νευρωνικό δίκτυο πρόσθιας τροφοδότησης (\textlatin{feed-forward}) που προβλέπει το μέγιστο βέλος κάμψης προβόλου. Θα παράγετε δεδομένα από την εξίσωση της δοκού, θα εκπαιδεύσετε και θα βελτιώσετε το δίκτυο και θα συγκρίνετε τις προβλέψεις του με την εξίσωση.
 
 \section*{Μοντέλο δοκού και τυχαίες είσοδοι}
 Για πρόβολο από γραμμικά ελαστικό υλικό με θεωρία \textlatin{Euler--Bernoulli} και κατακόρυφο συγκεντρωμένο φορτίο στο ελεύθερο άκρο του, θεωρήστε ότι το μέγεθος του μέγιστου βέλους κάμψης είναι
@@ -78,23 +81,8 @@
 
 \begin{figure}[htbp]
   \centering
-  \begin{tikzpicture}[x=0.9cm,y=0.9cm,>=Latex]
-    \fill[gray!15] (-0.35,-0.45) rectangle (0,0.45);
-    \draw[thick] (0,-0.45) -- (0,0.45);
-    \foreach \y in {-0.4,-0.2,0,0.2,0.4}
-      \draw[gray] (-0.35,\y-0.08) -- (0,\y+0.08);
-    \draw[line width=1.5pt] (0,0) -- (6,0);
-    \draw[blue!65!black,dashed,thick] (0,0) .. controls (2,0) and (4,-0.25) .. (6,-0.75);
-    \draw[->,very thick] (6,1.05) -- (6,0.12) node[midway,left] {$P$};
-    \draw[densely dotted] (6,0) -- (6.7,0);
-    \draw[densely dotted] (6,-0.75) -- (6.7,-0.75);
-    \draw[<->] (6.55,0) -- (6.55,-0.75) node[midway,right] {$\delta$};
-    \draw (0,-0.55) -- (0,-1.3);
-    \draw (6,-0.85) -- (6,-1.3);
-    \draw[<->] (0,-1.2) -- (6,-1.2) node[midway,fill=white,inner sep=2pt] {$L$};
-    \node[above] at (3,0.05) {$E,\ I$};
-  \end{tikzpicture}
-  \caption{Μοντέλο προβόλου. Η παραμορφωμένη μορφή (διακεκομμένη γραμμή) είναι υπερβολικά μεγεθυμένη· το $\delta$ είναι το μέγεθος της μετακίνησης του ελεύθερου άκρου.}
+  \cantileverdrawing
+  \caption{Μοντέλο προβόλου.}
 \end{figure}
 
 \begin{center}
@@ -104,192 +92,247 @@
 \midrule
 $P$ & $\mathcal N(10\,000,700^2)$ & \unit{N} \\
 $E$ & $\operatorname{Lognormal}(m,s^2)$ & \unit{Pa} \\
-$L$ & $\mathcal U(2.4,3.6)$ & \unit{m} \\
-$I$ & $\mathcal U(4\times10^{-5},1.2\times10^{-4})$ & \unit{m}$^4$ \\
+$L$ & $\mathcal U(1,5)$ & \unit{m} \\
+$I$ & $\mathcal U(2\times10^{-5},2\times10^{-4})$ & \unit{m}$^4$ \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-Εδώ το $\mathcal N(\mu,\sigma^2)$ χρησιμοποιεί διασπορά (όχι τυπική απόκλιση) και το $\mathcal U(a,b)$ είναι η ομοιόμορφη κατανομή στο $[a,b]$. Επιλέξτε τα $m,s$ ώστε το $\log E\sim\mathcal N(m,s^2)$ να δίνει \emph{φυσική} μέση τιμή $30\times10^9$ \unit{Pa} και τυπική απόκλιση $3\times10^9$ \unit{Pa}· βλ. Παράρτημα~\ref{sec:lognormal}.
+Εδώ το $\mathcal N(\mu,\sigma^2)$ χρησιμοποιεί διασπορά και το $\mathcal U(a,b)$ είναι η ομοιόμορφη κατανομή στο $[a,b]$. Επιλέξτε τα $m,s$ ώστε το $\log E\sim\mathcal N(m,s^2)$ να δίνει \emph{φυσική} μέση τιμή $30\times10^9$ \unit{Pa} και τυπική απόκλιση $3\times10^9$ \unit{Pa}· βλ. Παράρτημα~\ref{sec:lognormal}.
 
 \section*{Μέρος Α: Παραγωγή του συνόλου δεδομένων}
-\aitrap Παράγετε $N=3000$ ανεξάρτητες υλοποιήσεις. Η γραμμή $i$ του πίνακα εισόδων και το στοιχείο $i$ του διανύσματος στόχων περιγράφουν την ίδια δοκό:
-\[
-X=\begin{bmatrix}
-P_1&E_1&L_1&I_1\\[-2pt]
-\vdots&\vdots&\vdots&\vdots\\[-2pt]
-P_N&E_N&L_N&I_N
-\end{bmatrix}\in\mathbb R^{N\times4},\qquad
-y=\begin{bmatrix}
-P_1L_1^3/(3E_1I_1)\\[-2pt]
-\vdots\\[-2pt]
-P_NL_N^3/(3E_NI_N)
-\end{bmatrix}\in\mathbb R^{N\times1}.
-\]
-Σχεδιάστε σε ένα σχήμα τα ιστογράμματα των 4 εισόδων και του $\delta$ και καταγράψτε σε πίνακα τις μέσες τιμές και τις τυπικές αποκλίσεις τους.
-\datause{και τα $N$ δείγματα, πριν από οποιονδήποτε διαχωρισμό.}
+\begin{itemize}
+  \item \aitrap Παράγετε $N=3000$ ανεξάρτητα δείγματα, μία δοκό το καθένα.
+  \item Για κάθε δοκό, δειγματίστε τις μεταβλητές εισόδου $P,E,L,I$ και υπολογίστε το βέλος κάμψης της με την εξίσωση της δοκού.
+  \item Αποθηκεύστε τις εισόδους σε έναν πίνακα $X$, μία δοκό ανά γραμμή, και τα βέλη κάμψης σε ένα διάνυσμα $y$, ώστε $y_i=\delta_i$.
+  \item Στο εξής, $y$ είναι το αναλυτικό βέλος κάμψης και $\hat y$ η πρόβλεψη του δικτύου.
+\end{itemize}
+\datause{\item όλα τα $N$ δείγματα, πριν από οποιονδήποτε διαχωρισμό.}
 
-\question{Α1}{Πόσο κοντά είναι οι δειγματικές μέσες τιμές και τυπικές αποκλίσεις στις προδιαγραφόμενες τιμές και γιατί διαφέρουν?}
-\question{Α2}{\emph{Πριν από την εκπαίδευση}, προβλέψτε ποιες είσοδοι συνεισφέρουν περισσότερο στη μεταβλητότητα του βέλους κάμψης. Αιτιολογήστε την πρόβλεψή σας με την εξίσωση και το μέγεθος των μεταβολών των εισόδων. Θα την ελέγξετε στο Μέρος~ΣΤ.}
+\question{Α1}{Σχεδιάστε τα ιστογράμματα των μεταβλητών εισόδου ($X$) και του $y$.}
+\question{Α2}{Καταγράψτε σε πίνακα τις προδιαγραφόμενες και τις δειγματικές μέσες τιμές και τυπικές αποκλίσεις, για παράδειγμα:}
+\begin{center}
+\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Μέγεθος & Προδιαγρ.\ μέση τιμή & Δειγμ.\ μέση τιμή & Προδιαγρ.\ τυπ.\ απόκλιση & Δειγμ.\ τυπ.\ απόκλιση \\
+\midrule
+$P$ (\unit{N}) & \dots & \dots & \dots & \dots \\
+\dots & \dots & \dots & \dots & \dots \\
+\bottomrule
+\end{tabular}
+\end{center}
 
-\section*{Μέρος Β: Προετοιμασία του αρχικού μοντέλου}
-\aitrap Θα προσαρμόσετε το $\hat\delta=f_\theta(P,E,L,I)$ με την ακόλουθη αρχική ρύθμιση.
+\question{Α3}{Πόσο κοντά είναι οι δειγματικές μέσες τιμές και τυπικές αποκλίσεις στις προδιαγραφόμενες τιμές?}
+\question{Α4}{Γιατί δεν είναι ακριβώς ίσες?}
+\question{Α5}{\emph{Πριν από την εκπαίδευση}, ποιες είσοδοι περιμένετε να επηρεάζουν περισσότερο το βέλος κάμψης? Αιτιολογήστε με την εξίσωση· θα το ελέγξετε στο Μέρος~Ε.}
+
+\section*{Μέρος Β: Προετοιμασία του μοντέλου}
+\aitrap Προσαρμόστε το $\hat y=f_\theta(P,E,L,I)$ με την ακόλουθη αρχική ρύθμιση:
 
 \begin{center}
 \begin{tabular}{@{}p{0.36\linewidth}p{0.58\linewidth}@{}}
 \toprule
 Ρύθμιση & Τιμή \\
 \midrule
-Δίκτυο & 4 είσοδοι, 1 κρυφό στρώμα (\textlatin{hidden layer}) με 4 νευρώνες $\tanh$, 1 γραμμική έξοδος \\
+Δίκτυο & πλήρως συνδεδεμένο, πρόσθιας τροφοδότησης: μεταβλητές εισόδου $X$, 1 κρυφό στρώμα (\textlatin{hidden layer}) με 8 νευρώνες \textlatin{tanh}, 1 γραμμική έξοδος \\
 Βελτιστοποιητής (\textlatin{optimizer}) και συνάρτηση απώλειας & \Adam\ και μέσο τετραγωνικό σφάλμα (\textlatin{mean squared error}, \MSE) \\
-Ρυθμός μάθησης (\textlatin{learning rate}) & $10^{-4}$ \\
+Ρυθμός μάθησης (\textlatin{learning rate}) & $10^{-3}$ \\
 Διάρκεια εκπαίδευσης & 1500 εποχές (\textlatin{epochs}), χωρίς πρόωρο τερματισμό (\textlatin{early stopping}) \\
-Μέγεθος παρτίδας (\textlatin{batch size}) & Επιλέξτε μια εύλογη τιμή και κρατήστε την σταθερή \\
+Μέγεθος παρτίδας (\textlatin{batch size}) & 64 \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-Χωρίστε το σύνολο δεδομένων \emph{μία φορά}: 60\% εκπαίδευσης (\textlatin{training}), 20\% επικύρωσης (\textlatin{validation}), 20\% ελέγχου (\textlatin{test}). Κρατήστε τον ίδιο διαχωρισμό σε όλη την εργασία και αφήστε το \emph{σύνολο ελέγχου άθικτο} μέχρι το Μέρος~ΣΤ. Τυποποιήστε (\textlatin{standardize}) κάθε είσοδο με τη μέση τιμή και την τυπική απόκλιση του \emph{συνόλου εκπαίδευσης}· εφαρμόστε τις ίδιες τιμές στις εισόδους επικύρωσης και ελέγχου:
+\begin{itemize}
+  \item Χωρίστε το σύνολο δεδομένων ($X$, $y$) \emph{μία φορά}: 60\% εκπαίδευσης (\textlatin{training}· $X_{\rm train}$, $y_{\rm train}$), 20\% επικύρωσης (\textlatin{validation}· $X_{\rm val}$, $y_{\rm val}$), 20\% ελέγχου (\textlatin{test}· $X_{\rm test}$, $y_{\rm test}$).
+  \item Κρατήστε αυτόν τον διαχωρισμό σε όλη την εργασία· μη χρησιμοποιήσετε το σύνολο ελέγχου πριν από το Μέρος~Ε.
+  \item Τυποποιήστε (\textlatin{standardize}) κάθε είσοδο με τη μέση τιμή και την τυπική απόκλιση των \emph{εισόδων εκπαίδευσης} ($X_{\rm train}$) και εφαρμόστε τις ίδιες τιμές στα $X_{\rm val}$ και $X_{\rm test}$:
+\end{itemize}
 \[
   x'_j=\frac{x_j-\mu_{j,\mathrm{train}}}{\sigma_{j,\mathrm{train}}}.
 \]
-\datause{ο διαχωρισμός γίνεται εδώ. Οι μέσες τιμές και οι τυπικές αποκλίσεις της τυποποίησης, καθώς και το $\bar\delta_{\rm train}$ παρακάτω, υπολογίζονται \emph{μόνο από το σύνολο εκπαίδευσης}· το $\mathrm{MSE}_0$ υπολογίζεται στο \emph{σύνολο επικύρωσης}. Μην υπολογίζετε ποτέ κανένα στατιστικό από το σύνολο ελέγχου.}
-Το αρχικό δίκτυο απεικονίζει τις τυποποιημένες εισόδους στο προβλεπόμενο βέλος κάμψης:
+\datause{
+  \item τα στατιστικά υπολογίζονται \emph{μόνο από το σύνολο εκπαίδευσης} ($X_{\rm train}$, $y_{\rm train}$)·
+  \item μην υπολογίζετε ποτέ κανένα στατιστικό από το σύνολο ελέγχου ($X_{\rm test}$, $y_{\rm test}$).}
 \begin{center}
-\begin{tikzpicture}[x=1cm,y=1cm,>=Latex,every node/.style={font=\small}]
-  \foreach \name/\height in {P/0.9,E/0.3,L/-0.3,I/-0.9}
-    \coordinate (input-\name) at (0,\height);
-  \foreach \i in {1,...,4}
-    \coordinate (hidden-\i) at (3,{0.9-0.6*(\i-1)});
-  \coordinate (output) at (6,0);
-  \foreach \name in {P,E,L,I}
-    \foreach \i in {1,...,4}
-      \draw[gray!45,thin] (input-\name) -- (hidden-\i);
-  \foreach \i in {1,...,4}
-    \draw[gray!45,thin] (hidden-\i) -- (output);
-  \foreach \name in {P,E,L,I}
-    \node[draw,circle,fill=white,minimum size=0.5cm,inner sep=0pt] at (input-\name) {$\name'$};
-  \foreach \i in {1,...,4}
-    \node[draw,circle,fill=white,minimum size=0.25cm,inner sep=0pt] at (hidden-\i) {};
-  \node[draw,circle,fill=white,minimum size=0.7cm,inner sep=0pt] at (output) {$\hat\delta$};
-  \node[above] at (0,1.3) {4 είσοδοι};
-  \node[above] at (3,1.3) {4 νευρώνες $\tanh$};
-  \node[above] at (6,0.45) {1 γραμμική έξοδος};
-\end{tikzpicture}
+\networkdiagram{μεταβλητές εισόδου $X$}{8 νευρώνες \textlatin{tanh}}{1 γραμμική έξοδος}
 \end{center}
 
-\textbf{Αφελής πρόβλεψη αναφοράς} (\textlatin{no-skill baseline})\textbf{.} Ένα μοντέλο που προβλέπει πάντα τη μέση τιμή του βέλους κάμψης εκπαίδευσης $\bar\delta_{\rm train}$ δεν χρειάζεται καμία εκπαίδευση. Υπολογίστε το \MSE\ επικύρωσής του,
-\[
-  \mathrm{MSE}_0=\frac{1}{N_v}\sum_{i=1}^{N_v}\bigl(\delta_i-\bar\delta_{\rm train}\bigr)^2 .
-\]
-Ένα δίκτυο είναι χρήσιμο μόνο αν το \MSE\ του είναι αρκετά μικρότερο από το $\mathrm{MSE}_0$· χρησιμοποιήστε το $\mathrm{MSE}_0$ ως μέτρο σύγκρισης για κάθε \MSE\ που αναφέρετε.
+\question{Β1}{Τι είναι μια εποχή?}
+\question{Β2}{Τι είναι μια παρτίδα (\textlatin{batch})?}
+\question{Β3}{Το σύνολο εκπαίδευσης ($X_{\rm train}$, $y_{\rm train}$) περιέχει το 60\% των $N=3000$ δειγμάτων. Με μέγεθος παρτίδας (\textlatin{batch size}) 64, πόσες ενημερώσεις βαρών (βήματα) περιέχει 1 εποχή? Δείξτε τον υπολογισμό.}
+\question{Β4}{Ποια είναι τα σχήματα των πινάκων εισόδων και στόχων των 3 υποσυνόλων? Δώστε κάθε σχήμα ως γραμμές $\times$ στήλες.}
+\question{Β5}{Γιατί υπολογίζουμε τα στατιστικά της τυποποίησης, και προσαρμόζουμε τα βάρη, μόνο στο σύνολο εκπαίδευσης?}
+\question{Β6}{Γιατί χρειαζόμαστε μη γραμμικές συναρτήσεις ενεργοποίησης (\textlatin{activation functions})?}
+\question{Β7}{Τι θα μπορούσε να αναπαραστήσει το δίκτυο αν δεν είχε καθόλου συναρτήσεις ενεργοποίησης?}
+\question{Β8}{Ποια είναι η διαφορά μεταξύ μιας παραμέτρου του δικτύου και μιας υπερπαραμέτρου (\textlatin{hyperparameter})? Δώστε ένα παράδειγμα του καθενός από αυτό το δίκτυο.}
 
-\question{Β1}{Ποια είναι τα σχήματα των πινάκων εισόδων και στόχων για τα υποσύνολα εκπαίδευσης, επικύρωσης και ελέγχου και ποιο σχήμα πρέπει να έχει η έξοδος του δικτύου για μια παρτίδα $b$ γραμμών εισόδου? Δηλώστε το μέγεθος παρτίδας σας: πόσες παρτίδες αποτελούν 1 εποχή, συμπεριλαμβανομένης μιας μη πλήρους τελευταίας παρτίδας?}
-\question{Β2}{Γιατί χρειάζεται συνάρτηση ενεργοποίησης (\textlatin{activation function}) στο κρυφό στρώμα? Τι θα μπορούσε να αναπαραστήσει ένα δίκτυο που περιέχει μόνο αφινικά στρώματα (\textlatin{affine layers}), δηλαδή βάρη και πολώσεις (\textlatin{weights and biases}) χωρίς μη γραμμική ενεργοποίηση?}
-
-\section*{Μέρος Γ: Εκπαίδευση του μοντέλου αναφοράς}
-\aitrap Εκπαιδεύστε το μοντέλο του Μέρους~Β \emph{μία φορά} για 1500 εποχές, κρατώντας το $\delta$ σε μέτρα. Μετά από κάθε εποχή, καταγράψτε το \MSE\ εκπαίδευσης και επικύρωσης σε \unit{m}$^2$· το Παράρτημα~\ref{sec:functions} δείχνει πώς. Σχεδιάστε και τις δύο καμπύλες ως προς την εποχή με \emph{λογαριθμικό άξονα~$y$}, με το $\mathrm{MSE}_0$ ως οριζόντια γραμμή. Αναφέρετε το $\mathrm{MSE}_0$ και το \MSE\ εκπαίδευσης και επικύρωσης στην εποχή 500 και στην εποχή 1500, από τις ίδιες καμπύλες. Αυτή η εκτέλεση είναι το \textbf{μοντέλο αναφοράς} (\textlatin{baseline}) για κάθε σύγκριση που ακολουθεί.
-\datause{τα βάρη ενημερώνονται \emph{μόνο στο σύνολο εκπαίδευσης}. Μετά από κάθε εποχή, υπολογίστε το $\hat\delta$ για τις εισόδους εκπαίδευσης (\MSE\ εκπαίδευσης) και για τις εισόδους επικύρωσης (\MSE\ επικύρωσης)· το σύνολο επικύρωσης μόνο μετράει, δεν ενημερώνει ποτέ τα βάρη. Το σύνολο ελέγχου μένει άθικτο.}
-
-\question{Γ1}{Πώς συγκρίνονται το \MSE\ εκπαίδευσης και επικύρωσης του μοντέλου αναφοράς στην εποχή 1500 με το $\mathrm{MSE}_0$?}
-\question{Γ2}{Συγκρίνετε την εποχή 500 με την εποχή 1500: βοήθησε από μόνη της η μεγαλύτερη εκπαίδευση? Υποδηλώνουν οι καμπύλες κοντά στην εποχή 1500 ότι το μοντέλο θα μπορούσε να μάθει κι άλλο και τι δεν μπορούν να αποδείξουν?}
-\question{Γ3}{Ένα \MSE\ εκπαίδευσης που μειώνεται δεν δείχνει από μόνο του πόσο καλά προβλέπει το μοντέλο νέα δεδομένα. Μένουν κοντά οι καμπύλες εκπαίδευσης και επικύρωσης σε όλη τη διάρκεια? Τι θα σήμαινε αν το \MSE\ επικύρωσης άρχιζε να αυξάνεται ενώ το \MSE\ εκπαίδευσης συνέχιζε να μειώνεται? Και τι αν έμεναν και τα δύο υψηλά, κοντά στο $\mathrm{MSE}_0$?}
-
-\section*{Μέρος Δ: Ελεγχόμενες δοκιμές εκπαίδευσης}
-\aitrap Κάθε δοκιμή (\textlatin{probe}) αλλάζει \emph{μόνο την ονομαζόμενη ρύθμιση} του μοντέλου αναφοράς και κρατά τις 1500 εποχές και τον ίδιο διαχωρισμό. Παρουσιάστε τις 4 δοκιμές σε ένα σχήμα με 4 υποδιαγράμματα: καθένα δείχνει το \MSE\ εκπαίδευσης και επικύρωσης της δοκιμής με \emph{λογαριθμικό άξονα~$y$}, μαζί με την καμπύλη επικύρωσης του μοντέλου αναφοράς.
+\noindent\textbf{Επίπεδο αναφοράς $\mathrm{MSE}_0$.}
 \begin{itemize}
-  \item \textbf{Ρυθμός μάθησης:} εκπαιδεύστε με $10^{-5}$ και με $10^{-1}$ αντί για $10^{-4}$.
-  \item \textbf{Τυποποίηση εισόδων:} χρησιμοποιήστε τις αρχικές, μη τυποποιημένες εισόδους. Απενεργοποιήστε κάθε αυτόματη κανονικοποίηση εισόδων και κρατήστε το $\delta$ σε μέτρα.
-  \item \textbf{Βελτιστοποιητής:} αντικαταστήστε τον \Adam\ με απλό \SGD\ (\textlatin{stochastic gradient descent}) χωρίς ορμή (\textlatin{momentum}).
+  \item Προβλέψτε για κάθε δοκό τη μέση τιμή του βέλους κάμψης εκπαίδευσης $\bar y_{\rm train}$ (τη μέση τιμή του $y_{\rm train}$): μια αφελής πρόβλεψη χωρίς κόστος, που την κρατάμε ως αναφορά.
+  \item Το \MSE\ της στους $N_v$ στόχους επικύρωσης ($y_{\rm val}$) είναι
 \end{itemize}
-\datause{όπως στο Μέρος~Γ: εκπαίδευση στο σύνολο εκπαίδευσης, καταγραφή του \MSE\ εκπαίδευσης και επικύρωσης σε κάθε εποχή και σύγκριση των δοκιμών με το μοντέλο αναφοράς με βάση το \MSE\ \emph{επικύρωσης}. Το σύνολο ελέγχου μένει άθικτο.}
-
-\question{Δ1}{Συγκρίνετε τις εκτελέσεις με ρυθμό $10^{-5}$, $10^{-4}$ (αναφορά) και $10^{-1}$. Ποιος ρυθμός μαθαίνει υπερβολικά αργά και ποιος οδηγεί σε ασταθή εκπαίδευση? Πώς συγκρίνονται οι τελικές τιμές \MSE\ επικύρωσης με το $\mathrm{MSE}_0$? Εξηγήστε το γιατί με τις καμπύλες απώλειας και το μέγεθος κάθε ενημέρωσης.}
-\question{Δ2}{Συγκρίνετε την εκτέλεση με μη τυποποιημένες εισόδους με το μοντέλο αναφοράς και με το $\mathrm{MSE}_0$. Πώς εξηγούν οι πολύ διαφορετικές αριθμητικές κλίμακες των $P,E,L,I$ αυτό που παρατηρείτε?}
-\question{Δ3}{Πώς συγκρίνεται ο απλός \SGD\ με τον \Adam? Ποσοτικοποιήστε τη διαφορά στο \MSE\ επικύρωσης. Με βάση τη θεωρία του μαθήματος, ποιες ποσότητες παρακολουθούν οι 2 κινητοί μέσοι (\textlatin{running averages}) του \Adam\ και πώς εξηγεί αυτό το αποτέλεσμα του \SGD?}
-
-\section*{Μέρος Ε: Βελτίωση του υποκατάστατου μοντέλου}
-\aitrap Ξεκινώντας από το μοντέλο αναφοράς, δοκιμάστε \emph{το πολύ 6 διαμορφώσεις} (\textlatin{configurations}). Αλλάζετε μία ή δύο ρυθμίσεις κάθε φορά, ώστε τα αποτελέσματά σας να δείχνουν τι βοήθησε: πλάτος (νευρώνες ανά στρώμα) ή βάθος (για παράδειγμα, 2 ή 3 κρυφά στρώματα), συνάρτηση ενεργοποίησης, ρυθμό μάθησης, μέγεθος παρτίδας, αριθμό εποχών ή \emph{κανονικοποίηση του στόχου} (\textlatin{target normalization}) (το Παράρτημα~\ref{sec:target-scaling} εξηγεί πώς αναιρείται). Αναφέρετε το \MSE\ σε \unit{m}$^2$.
-
-Καταγράψτε κάθε διαμόρφωση σε έναν πίνακα: νευρώνες ανά κρυφό στρώμα, συνάρτηση ενεργοποίησης, ρυθμό μάθησης, εποχές, κλιμάκωση στόχου, πλήθος εκπαιδεύσιμων βαρών και πολώσεων, τελικό \MSE\ εκπαίδευσης και επικύρωσης και πόσες φορές μικρότερο είναι το \MSE\ επικύρωσης από εκείνο του μοντέλου αναφοράς. Επιλέξτε το καλύτερο μοντέλο με βάση το \emph{\MSE\ επικύρωσης}· μην κοιτάξετε το σύνολο ελέγχου. Σχεδιάστε το \MSE\ εκπαίδευσης και επικύρωσης του καλύτερου μοντέλου με \emph{λογαριθμικό άξονα~$y$}.
-\datause{εκπαιδεύστε κάθε διαμόρφωση στο σύνολο εκπαίδευσης και υπολογίστε την κανονικοποίηση του στόχου, αν τη χρησιμοποιήσετε, μόνο από τους στόχους εκπαίδευσης· συγκρίνετε τις διαμορφώσεις \emph{μόνο} με το \MSE\ επικύρωσης. Το σύνολο ελέγχου μένει άθικτο: αν επιλέγατε μοντέλο με βάση το \MSE\ ελέγχου, η αξιολόγηση του Μέρους~ΣΤ θα έχανε το νόημά της.}
-
-\question{Ε1}{Ποιες αλλαγές είχαν τη μεγαλύτερη σημασία? Στηρίξτε την απάντησή σας σε γραμμές του πίνακά σας. Το μοντέλο αναφοράς έχει 25 εκπαιδεύσιμα βάρη και πολώσεις: εξηγεί από μόνο του το πλήθος παραμέτρων του καλύτερου μοντέλου το αποτέλεσμά του?}
-\question{Ε2}{Διευρύνθηκε το χάσμα εκπαίδευσης--επικύρωσης του καλύτερου μοντέλου σε σύγκριση με εκείνο του μοντέλου αναφοράς (Γ3)? Εμφανίζει υπερπροσαρμογή (\textlatin{overfitting}) κάποια διαμόρφωση?}
-
-\section*{Μέρος ΣΤ: Αξιολόγηση του επιλεγμένου υποκατάστατου μοντέλου}
-\subsection*{Ακρίβεια στο σύνολο ελέγχου}
-\aitrap Αξιολογήστε το επιλεγμένο μοντέλο (το καλύτερο του Μέρους~Ε) \emph{μία φορά} στο άθικτο υποσύνολο ελέγχου. Αναφέρετε το \MSE\ ελέγχου σε \unit{m}$^2$, ώστε να συγκρίνεται με το \MSE\ εκπαίδευσης και επικύρωσης, καθώς και το \RMSE\ σε μέτρα και το $R^2$:
 \[
-\operatorname{RMSE}=\sqrt{\frac{1}{N_t}\sum_{i=1}^{N_t}(\delta_i-\hat\delta_i)^2},\qquad
-R^2=1-\frac{\sum_i(\delta_i-\hat\delta_i)^2}{\sum_i(\delta_i-\bar\delta_{\rm test})^2}.
+  \mathrm{MSE}_0=\frac{1}{N_v}\sum_{i=1}^{N_v}\bigl(y_i-\bar y_{\rm train}\bigr)^2 .
 \]
-\datause{το \emph{σύνολο ελέγχου}, για πρώτη και μοναδική φορά. Τυποποιήστε τις εισόδους ελέγχου με τα στατιστικά \emph{εκπαίδευσης} του Μέρους~Β (χωρίς να τα υπολογίσετε ξανά), υπολογίστε το $\hat\delta_i=f_\theta(x'_i)$ για κάθε γραμμή ελέγχου και συγκρίνετέ το με το αναλυτικό $\delta_i$ της ίδιας γραμμής. Αν εκπαιδεύσατε με κανονικοποιημένο στόχο, μετατρέψτε πρώτα το $\hat\delta_i$ σε μέτρα.}
-Σε ένα σχήμα με 2 υποδιαγράμματα, σχεδιάστε το προβλεπόμενο ως προς το αναλυτικό βέλος κάμψης (\textlatin{parity plot}), με διαγώνιο τέλειας πρόβλεψης, και το προσημασμένο σφάλμα (\textlatin{signed error}) $\hat\delta-\delta$ ως προς το \emph{αναλυτικό} βέλος κάμψης.
+\begin{itemize}
+  \item Υπολογίστε το $\mathrm{MSE}_0$ μία φορά και σχεδιάστε το ως οριζόντια γραμμή σε \emph{κάθε} διάγραμμα απώλειας.
+  \item Ένα χρήσιμο δίκτυο καταλήγει αρκετά κάτω από αυτή τη γραμμή.
+\end{itemize}
 
-\question{ΣΤ1}{Είναι το \MSE\ ελέγχου κοντά στο \MSE\ επικύρωσης του επιλεγμένου μοντέλου? Πού εμφανίζονται τα μεγαλύτερα σφάλματα και είναι το υποκατάστατο μοντέλο λιγότερο ακριβές για μεγάλα βέλη κάμψης? Χρησιμοποιήστε το διάγραμμα σφάλματος, όχι μόνο το συνολικό \RMSE.}
+\question{Β9}{Υπολογίστε και αναφέρετε το $\mathrm{MSE}_0$.}
 
-\subsection*{Καμπύλες φυσικής απόκρισης}
-Για κάθε είσοδο με τη σειρά, μεταβάλλετε αυτή την είσοδο κρατώντας τις υπόλοιπες στις ονομαστικές μέσες τιμές τους. Σαρώστε τα $L$ και $I$ σε ολόκληρα τα διαστήματά τους και τα $P$ και $E$ από $\mu-2\sigma$ έως $\mu+2\sigma$. Υπερθέστε τα αναλυτικά βέλη κάμψης και αυτά του δικτύου, ένα υποδιάγραμμα ανά είσοδο.
-\datause{συνθετικές είσοδοι σάρωσης, τυποποιημένες με τα στατιστικά εκπαίδευσης του Μέρους~Β πριν εισέλθουν στο δίκτυο.}
+\section*{Μέρος Γ: Εκπαίδευση του βασικού μοντέλου}
+\begin{itemize}
+  \item \aitrap Εκπαιδεύστε το μοντέλο του Μέρους~Β \emph{μία φορά} για 1500 εποχές, με το $y$ σε μέτρα.
+  \item Μετά από κάθε εποχή, καταγράψτε το \MSE\ εκπαίδευσης και επικύρωσης σε \unit{m}$^2$ (Παράρτημα~\ref{sec:functions}).
+  \item Αυτό το εκπαιδευμένο δίκτυο είναι το \textbf{βασικό μοντέλο} (\textlatin{baseline}) για όλες τις επόμενες συγκρίσεις.
+\end{itemize}
+\datause{
+  \item τα βάρη ενημερώνονται \emph{μόνο στο σύνολο εκπαίδευσης} ($X_{\rm train}$, $y_{\rm train}$)·
+  \item το σύνολο επικύρωσης ($X_{\rm val}$, $y_{\rm val}$) μόνο μετράει.}
 
-\question{ΣΤ2}{Ποιες σχέσεις εισόδου--απόκρισης αποδίδει καλά το δίκτυο και πού εμφανίζεται η μεγαλύτερη απόκλιση? Επιβεβαιώνουν οι καμπύλες την πρόβλεψή σας στο Α2?}
+\question{Γ1}{Σχεδιάστε το \MSE\ εκπαίδευσης και επικύρωσης ως προς την εποχή με \emph{λογαριθμικό άξονα~$y$}, μαζί με τη γραμμή $\mathrm{MSE}_0$.}
+\question{Γ2}{Πώς συγκρίνεται το τελικό \MSE\ επικύρωσης με το $\mathrm{MSE}_0$?}
+\question{Γ3}{Μείωσε η εκπαίδευση από την εποχή 500 έως την εποχή 1500 το \MSE?}
+\question{Γ4}{Δείχνουν οι καμπύλες ότι περισσότερες εποχές θα βοηθούσαν ακόμη?}
+\question{Γ5}{Μένουν κοντά οι καμπύλες εκπαίδευσης και επικύρωσης?}
+\question{Γ6}{Τι θα σήμαινε αν το \MSE\ επικύρωσης αυξανόταν ενώ το \MSE\ εκπαίδευσης συνέχιζε να μειώνεται?}
+\question{Γ7}{Τι θα σήμαινε αν και οι δύο καμπύλες έμεναν κοντά στο $\mathrm{MSE}_0$?}
 
-\section*{Μπόνους: διάδοση αβεβαιότητας με \textlatin{Monte Carlo} (προαιρετικό)}
-\aitrap Το μέρος αυτό είναι προαιρετικό και δίνει επιπλέον βαθμούς· παραλείψτε το αν δεν έχετε χρόνο ή χώρο.
-Παράγετε 10\,000 νέες, ανεξάρτητες εισόδους από τις ίδιες κατανομές. Αξιολογήστε το αναλυτικό μοντέλο και το επιλεγμένο δίκτυο. Συγκρίνετε τις 2 κατανομές εξόδου σε ένα διάγραμμα (υπερτιθέμενα ιστογράμματα πυκνότητας ή καμπύλες \KDE, εκτίμησης πυκνότητας με πυρήνα). Καταγράψτε σε πίνακα τη μέση τιμή, την τυπική απόκλιση και το 95ο εκατοστημόριο και των δύο εξόδων.
-\datause{μόνο οι 10\,000 νέες είσοδοι, όχι το σύνολο δεδομένων σας. Τυποποιήστε τις με τα στατιστικά εκπαίδευσης του Μέρους~Β και υπολογίστε το $\hat\delta$ με το επιλεγμένο δίκτυο και το $\delta$ με την εξίσωση της δοκού για τις \emph{ίδιες} εισόδους.}
+\section*{Μέρος Δ: Δοκιμές εκπαίδευσης}
+\begin{itemize}
+  \item \aitrap Κάθε δοκιμή (\textlatin{probe}) αλλάζει \emph{μόνο μία ρύθμιση} του βασικού μοντέλου και κρατά όλες τις άλλες, μαζί με τις 1500 εποχές.
+  \item Εκπαιδεύστε τις 4 δοκιμές του Πίνακα~\ref{tab:probes}· η ρύθμιση που αλλάζει είναι με έντονα γράμματα.
+\end{itemize}
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}llllll@{}}
+\toprule
+Εκτέλεση & Κρυφά στρώματα & Ενεργοποίηση & Ρυθμός μάθησης & Είσοδοι & Βελτιστοποιητής \\
+\midrule
+Βασικό & $[8]$ & \textlatin{tanh} & $10^{-3}$ & τυποποιημένες & \Adam \\
+Δοκιμή 1 & $[8]$ & \textlatin{tanh} & $\mathbf{10^{-6}}$ (πολύ μικρός) & τυποποιημένες & \Adam \\
+Δοκιμή 2 & $[8]$ & \textlatin{tanh} & $\mathbf{1}$ (πολύ μεγάλος) & τυποποιημένες & \Adam \\
+Δοκιμή 3 & $[8]$ & \textlatin{tanh} & $10^{-3}$ & \textbf{μη τυποποιημένες}\textsuperscript{α} & \Adam \\
+Δοκιμή 4 & $[8]$ & \textlatin{tanh} & $10^{-3}$ & τυποποιημένες & \textbf{απλός \SGD}\textsuperscript{β} \\
+\bottomrule
+\end{tabular}
 
-\question{Μπόνους}{Πόσο ακριβώς αναπαράγει το δίκτυο την κατανομή της εξόδου? Δώστε τουλάχιστον 2 αριθμητικές συγκρίσεις.}
+\smallskip
+\footnotesize\textsuperscript{α}Απενεργοποιήστε κάθε αυτόματη κανονικοποίηση εισόδων.\quad\textsuperscript{β}Χωρίς ορμή (\textlatin{momentum}).
+\caption{Δοκιμές εκπαίδευσης. Όλες οι εκτελέσεις έχουν 1500 εποχές και μέγεθος παρτίδας (\textlatin{batch size}) 64.}\label{tab:probes}
+\end{table}
+\datause{\item όπως στο Μέρος~Γ.}
 
-\section*{Παράδοση}
-Παραδώστε έκθεση \emph{το πολύ 6 σελίδων}. Απαντήστε σε κάθε ερώτηση με το πολύ 3 προτάσεις, χρησιμοποιώντας τους δικούς σας αριθμούς. Συμπεριλάβετε τα ακόλουθα σχήματα και πίνακες (τα σχήματα με πολλά υποδιαγράμματα είναι ευπρόσδεκτα):
-\begin{enumerate}
-  \item Μέρος Α: ιστογράμματα εισόδων και βέλους κάμψης και ο πίνακας μέσων τιμών και τυπικών αποκλίσεων.
-  \item Μέρος Γ: καμπύλες απώλειας του μοντέλου αναφοράς με το $\mathrm{MSE}_0$.
-  \item Μέρος Δ: τα 4 υποδιαγράμματα των δοκιμών.
-  \item Μέρος Ε: ο πίνακας διαμορφώσεων και οι καμπύλες απώλειας του καλύτερου μοντέλου.
-  \item Μέρος ΣΤ: τα υποδιαγράμματα προβλεπόμενης--αναλυτικής τιμής και προσημασμένου σφάλματος και οι 4 καμπύλες απόκρισης.
-  \item Μπόνους, αν το επιχειρήσετε: η σύγκριση \textlatin{Monte Carlo} και ο πίνακάς της.
-\end{enumerate}
-Επιγράψτε τους άξονες με μονάδες και συμπεριλάβετε υπομνήματα.
+\question{Δ1}{Για κάθε δοκιμή του Πίνακα~\ref{tab:probes}, σχεδιάστε το \MSE\ εκπαίδευσης και επικύρωσης με \emph{λογαριθμικό άξονα~$y$}, μαζί με το \MSE\ επικύρωσης του βασικού μοντέλου και τη γραμμή $\mathrm{MSE}_0$.}
+\question{Δ2}{Ποιος ρυθμός μάθησης μαθαίνει πολύ αργά και ποιος είναι ασταθής? Δείξτε το στις καμπύλες.}
+\question{Δ3}{Γιατί ένας πολύ μεγάλος ρυθμός μάθησης μπορεί να εμποδίσει την εκπαίδευση να σταθεροποιηθεί?}
+\question{Δ4}{Πώς συγκρίνεται η εκτέλεση με μη τυποποιημένες εισόδους με το βασικό μοντέλο?}
+\question{Δ5}{Γιατί βλάπτουν την εκπαίδευση είσοδοι σε πολύ διαφορετικές κλίμακες (π.χ.\ $E\approx10^{10}$ \unit{Pa} και $I\approx10^{-4}$ \unit{m}$^4$)?}
+\question{Δ6}{Πώς συγκρίνεται ο απλός \SGD\ με τον \Adam\ στα διαγράμματά σας?}
 
-\appendix
-\section{Υποδείξεις συναρτήσεων}\label{sec:functions}
-Τα παραδείγματα δείχνουν χρήσιμες συναρτήσεις, όχι υποχρεωτική βιβλιοθήκη ή δομή κώδικα. Μπορείτε να χρησιμοποιήσετε άλλα κατάλληλα εργαλεία.
+\section*{Μέρος Ε: Αξιολόγηση του βασικού μοντέλου}
+\subsection*{Ακρίβεια στο σύνολο ελέγχου}
+\aitrap Αξιολογήστε το βασικό μοντέλο (Μέρος~Γ) \emph{μία φορά} στο σύνολο ελέγχου.
+\datause{
+  \item το \emph{σύνολο ελέγχου} ($X_{\rm test}$, $y_{\rm test}$), για πρώτη και μοναδική φορά·
+  \item τυποποιημένο με τα στατιστικά του $X_{\rm train}$ από το Μέρος~Β.}
+
+\question{Ε1}{Αναφέρετε το \MSE\ ελέγχου (\unit{m}$^2$), το \RMSE\ (\unit{m}) και το $R^2$ στις $N_t$ δοκούς ελέγχου:}
+\[
+\operatorname{RMSE}=\sqrt{\frac{1}{N_t}\sum_{i=1}^{N_t}(y_i-\hat y_i)^2},\qquad
+R^2=1-\frac{\sum_i(y_i-\hat y_i)^2}{\sum_i(y_i-\bar y_{\rm test})^2}.
+\]
+\question{Ε2}{Σχεδιάστε το προβλεπόμενο βέλος κάμψης $\hat y$ ως προς το αναλυτικό $y$, με τη διαγώνιο $\hat y=y$.}
+\question{Ε3}{Σχεδιάστε το σφάλμα $\hat y-y$ ως προς το αναλυτικό βέλος κάμψης $y$.}
+
+\question{Ε4}{Γιατί το σύνολο ελέγχου πρέπει να μείνει αχρησιμοποίητο μέχρι αυτό το σημείο?}
+\question{Ε5}{Είναι το \MSE\ ελέγχου κοντά στο \MSE\ επικύρωσης?}
+\question{Ε6}{Πού εμφανίζονται τα μεγαλύτερα σφάλματα ελέγχου?}
+
+\subsection*{Καμπύλες απόκρισης}
+Μεταβάλλετε μία είσοδο κάθε φορά και κρατήστε τις υπόλοιπες στις μέσες τιμές τους. Σαρώστε τα $L$ και $I$ σε ολόκληρα τα διαστήματά τους και τα $P$ και $E$ από $\mu-2\sigma$ έως $\mu+2\sigma$.
+\datause{\item οι είσοδοι σάρωσης, τυποποιημένες με τα στατιστικά του $X_{\rm train}$ από το Μέρος~Β.}
+
+\question{Ε7}{Για κάθε είσοδο, σχεδιάστε το αναλυτικό βέλος κάμψης και αυτό του δικτύου ως προς αυτή την είσοδο.}
+
+\question{Ε8}{Για ποια είσοδο ακολουθεί το δίκτυο λιγότερο καλά την εξίσωση?}
+\question{Ε9}{Επιβεβαιώνουν οι καμπύλες την πρόβλεψή σας στο Α5?}
+
+\section*{Μπόνους: Βελτίωση του δικτύου (προαιρετικό)}
+\begin{itemize}
+  \item \aitrap Προαιρετικό, για επιπλέον βαθμούς.
+  \item Ξεκινώντας από το βασικό μοντέλο, δοκιμάστε \emph{το πολύ 6 διαμορφώσεις}:
+  \begin{itemize}
+    \item αλλάζετε μία ή δύο ρυθμίσεις κάθε φορά, ώστε να φαίνεται τι βοήθησε·
+    \item δοκιμάστε αυτά τα εύρη:
+  \end{itemize}
+\end{itemize}
 \begin{center}
 \small
 \begin{tabular}{@{}lll@{}}
 \toprule
-Εργασία & \MATLAB & \Python\ (\textlatin{NumPy / scikit-learn}) \\
+Ρύθμιση & Βασικό & Δοκιμάστε \\
 \midrule
-Δειγματοληψία εισόδων & \doc{https://www.mathworks.com/help/matlab/ref/double.randn.html}{randn}, \doc{https://www.mathworks.com/help/stats/lognrnd.html}{lognrnd}, \doc{https://www.mathworks.com/help/matlab/ref/double.rand.html}{rand} & \doc{https://numpy.org/doc/stable/reference/random/generated/numpy.random.Generator.normal.html}{normal}, \doc{https://numpy.org/doc/stable/reference/random/generated/numpy.random.Generator.lognormal.html}{lognormal}, \doc{https://numpy.org/doc/stable/reference/random/generated/numpy.random.Generator.uniform.html}{uniform} \\
-Σπόρος και διαχωρισμός & \doc{https://www.mathworks.com/help/matlab/ref/rng.html}{rng}, \doc{https://www.mathworks.com/help/matlab/ref/double.randperm.html}{randperm} & \doc{https://numpy.org/doc/stable/reference/random/generator.html}{default\_rng}, \doc{https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html}{train\_test\_split} \\
-Κλιμάκωση εισόδων & \doc{https://www.mathworks.com/help/matlab/ref/double.mean.html}{mean}, \doc{https://www.mathworks.com/help/matlab/ref/double.std.html}{std} & \doc{https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.StandardScaler.html}{StandardScaler} \\
-Ορισμός και εκπαίδευση \textlatin{NN} & \doc{https://www.mathworks.com/help/deeplearning/ref/nnet.cnn.layer.featureinputlayer.html}{featureInputLayer}, \doc{https://www.mathworks.com/help/deeplearning/ref/trainnet.html}{trainnet} & \doc{https://scikit-learn.org/stable/modules/generated/sklearn.neural_network.MLPRegressor.html}{MLPRegressor.partial\_fit} \\
-Πρόβλεψη και μέτρηση & \doc{https://www.mathworks.com/help/deeplearning/ref/minibatchpredict.html}{minibatchpredict}, \doc{https://www.mathworks.com/help/matlab/ref/double.mean.html}{mean} & \doc{https://scikit-learn.org/stable/modules/generated/sklearn.neural_network.MLPRegressor.html}{predict}, \doc{https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html}{mean\_squared\_error} \\
-Διαγράμματα & \doc{https://www.mathworks.com/help/matlab/ref/plot.html}{plot}, \doc{https://www.mathworks.com/help/matlab/ref/scatter.html}{scatter}, \doc{https://www.mathworks.com/help/matlab/ref/matlab.graphics.chart.primitive.histogram.html}{histogram} & \doc{https://matplotlib.org/stable/api/pyplot_summary.html}{matplotlib.pyplot} \\
+Κρυφά στρώματα & $[8]$ & 2--4 στρώματα των 16--256 νευρώνων \\
+Ενεργοποίηση & \textlatin{tanh} & \textlatin{tanh} ή \textlatin{ReLU} \\
+Ρυθμός μάθησης & $10^{-3}$ & $3\times10^{-4}$ έως $3\times10^{-3}$ \\
+Εποχές & 1500 & 3000--5000 \\
+Επιστρεφόμενο δίκτυο & τελευταία εποχή & \textbf{εποχή με το καλύτερο \MSE\ επικύρωσης} \\
 \bottomrule
 \end{tabular}
 \end{center}
+\begin{itemize}
+  \item \textbf{Κρατήστε το δίκτυο με το καλύτερο \MSE\ επικύρωσης}, όχι το τελευταίο:
+  \begin{itemize}
+    \item γιατί: όταν η απώλεια γίνει μικρή, ο \Adam\ με σταθερό ρυθμό μάθησης την κάνει να ταλαντεύεται, οπότε η τελευταία εποχή μπορεί να πέσει σε αιχμή·
+    \item \MATLAB: \code{OutputNetwork="best-validation"} στο \code{trainingOptions}·
+    \item \Python\ (\textlatin{Keras}): \code{callbacks=[keep\_best]} στο \code{model.fit} (Παράρτημα~\ref{sec:functions}).
+  \end{itemize}
+\end{itemize}
+\datause{
+  \item σύνολο εκπαίδευσης ($X_{\rm train}$, $y_{\rm train}$) για την εκπαίδευση·
+  \item σύνολο επικύρωσης ($X_{\rm val}$, $y_{\rm val}$) για τη σύγκριση·
+  \item σύνολο ελέγχου ($X_{\rm test}$, $y_{\rm test}$) μόνο για την τελική εκτέλεση.}
 
-\noindent\textbf{\MATLAB:} Το \doc{https://www.mathworks.com/help/deeplearning/ref/trainingoptions.html}{trainingOptions("adam",...)} ορίζει τον ρυθμό μάθησης, το μέγεθος παρτίδας και το \code{MaxEpochs}· το \code{trainingOptions("sgdm",Momentum=0,...)} δίνει απλό \SGD. Ορίστε ρητά την κανονικοποίηση του \doc{https://www.mathworks.com/help/deeplearning/ref/nnet.cnn.layer.featureinputlayer.html}{featureInputLayer}. Δώστε δεδομένα επικύρωσης στο \doc{https://www.mathworks.com/help/deeplearning/ref/trainnet.html}{trainnet} και ορίστε το \code{ValidationFrequency} ίσο με το πλήθος παρτίδων ανά εποχή, ώστε να παίρνετε 1 τιμή επικύρωσης ανά εποχή· η επιλογή \code{OutputNetwork="last-iteration"} κάνει το επιστρεφόμενο μοντέλο να ταιριάζει με το τελικό αποτέλεσμα της εκπαίδευσης. Οι επιστρεφόμενες πληροφορίες εκπαίδευσης περιέχουν και τις δύο καμπύλες απώλειας.
+\question{Μπόνους~1}{Καταγράψτε σε πίνακα τις ρυθμίσεις και το τελικό \MSE\ κάθε εκτέλεσης, με τα πλάτη των κρυφών στρωμάτων ως λίστα (χωρίς είσοδο και έξοδο). Προσθέστε στήλη για κάθε άλλη ρύθμιση που μεταβάλατε. Για παράδειγμα:}
+\begin{center}
+\small
+\begin{tabular}{@{}llllllr@{}}
+\toprule
+Εκτέλεση & \shortstack[l]{Κρυφά\\στρώματα} & Ενεργοποίηση & \shortstack[l]{Ρυθμός\\μάθησης} & Εποχές & \shortstack[r]{\MSE\ εκπαίδευσης\\(\unit{m}$^2$)} & \shortstack[r]{\MSE\ επικύρωσης\\(\unit{m}$^2$)} \\
+\midrule
+Βασικό & $[8]$ & \textlatin{tanh} & $10^{-3}$ & 1500 & \dots & \dots \\
+1 & $[16]$ & \textlatin{tanh} & $10^{-3}$ & 1500 & \dots & \dots \\
+2 & $[10, 20, 10]$ & \textlatin{tanh} & $10^{-3}$ & 3000 & \dots & \dots \\
+\bottomrule
+\end{tabular}
+\end{center}
+\question{Μπόνους~2}{Επιλέξτε την εκτέλεση με το μικρότερο \emph{\MSE\ επικύρωσης} και σχεδιάστε τις καμπύλες απώλειάς της με τη γραμμή $\mathrm{MSE}_0$.}
+\question{Μπόνους~3}{Αξιολογήστε αυτή την εκτέλεση \emph{μία φορά} στο σύνολο ελέγχου. Πώς συγκρίνεται το \MSE\ ελέγχου της με εκείνο του βασικού μοντέλου (Ε1)?}
 
-\noindent\textbf{\Python:} Μην ορίζετε τη διάρκεια εκπαίδευσης με το \code{MLPRegressor.fit}: σταματά μόλις η απώλεια εκπαίδευσης βελτιώνεται λιγότερο από \code{tol} για \code{n\_iter\_no\_change} εποχές, ακόμη και με \code{early\_stopping=False}, οπότε 500 και 1500 εποχές μπορεί να δώσουν το ίδιο μοντέλο. Καλέστε αντί γι' αυτό το \code{partial\_fit} μία φορά ανά εποχή και καταγράψτε μόνοι σας και τις δύο τιμές \MSE:
-\begin{otherlanguage}{english}
-\begin{verbatim}
-model = MLPRegressor(hidden_layer_sizes=(4,), activation="tanh",
-                     solver="adam", learning_rate_init=1e-4,
-                     batch_size=64, random_state=0)
-train_mse, val_mse = [], []
-for epoch in range(1500):
-    model.partial_fit(X_train, y_train)   # one pass over the training set
-    train_mse.append(mean_squared_error(y_train, model.predict(X_train)))
-    val_mse.append(mean_squared_error(y_val, model.predict(X_val)))
-\end{verbatim}
-\end{otherlanguage}
-Για απλό \SGD\ χρησιμοποιήστε \code{solver="sgd"} με \code{momentum=0}· το \code{hidden\_layer\_sizes=(8,8)} δίνει 2 κρυφά στρώματα.
+\question{Μπόνους~4}{Ποια αλλαγή βοήθησε περισσότερο? Αναφερθείτε σε μια γραμμή του πίνακά σας.}
+\question{Μπόνους~5}{Αποδίδει πάντα καλύτερα ένα μεγαλύτερο δίκτυο?}
+\question{Μπόνους~6}{Εμφανίζει υπερπροσαρμογή (\textlatin{overfitting}) κάποια διαμόρφωση και πώς το καταλαβαίνετε?}
 
+\section*{Παράδοση}
+\begin{itemize}
+  \item \aitrap \textbf{Κώδικας:} γράψτε μόνοι σας τον κώδικα, τα πειράματα και τα διαγράμματα, σε όποια γλώσσα θέλετε· μπορείτε να χρησιμοποιήσετε βιβλιοθήκη εκπαίδευσης. Το Παράρτημα~\ref{sec:functions} δίνει παραδείγματα σε \MATLAB\ και \Python.
+  \item \textbf{Έκθεση:} το πολύ 6 σελίδες.
+  \begin{itemize}
+    \item Απαντήστε σε κάθε ερώτηση με 1--2 προτάσεις, όχι με παραγράφους, χρησιμοποιώντας τους δικούς σας αριθμούς.
+    \item Να είστε λιτοί: αφήστε ένα σχήμα ή έναν πίνακα να δείξει το αποτέλεσμα και παραπέμψτε σε αυτό.
+    \item Αξιολογήστε κάθε σχήμα: γράψτε σε μία πρόταση τι δείχνει.
+    \item Αριθμήστε κάθε σχήμα και πίνακα με το αντίστοιχο ερώτημα, π.χ.\ «Σχήμα Γ1».
+    \item Επιγράψτε τους άξονες και συμπεριλάβετε υπομνήματα.
+  \end{itemize}
+\end{itemize}
+
+\vspace{3\baselineskip}
+\appendix
 \section{Παράμετροι της λογαριθμοκανονικής κατανομής}\label{sec:lognormal}
 Πολλές συναρτήσεις δειγματοληψίας δέχονται τη μέση τιμή $m$ και την τυπική απόκλιση $s$ της υποκείμενης κανονικής μεταβλητής, $\log E\sim\mathcal N(m,s^2)$. Για απαιτούμενη φυσική μέση τιμή $\mu_E$ και τυπική απόκλιση $\sigma_E$, χρησιμοποιήστε
 \[
@@ -297,10 +340,37 @@ s=\sqrt{\log\!\left(1+\frac{\sigma_E^2}{\mu_E^2}\right)},\qquad
 m=\log\mu_E-\frac{s^2}{2}.
 \]
 
-\section{Προαιρετική κανονικοποίηση του στόχου}\label{sec:target-scaling}
-Αν εκπαιδεύσετε με κανονικοποιημένο βέλος κάμψης $z=(\delta-\mu_{y,\rm train})/\sigma_{y,\rm train}$, υπολογίστε και τα δύο στατιστικά \emph{μόνο από τους στόχους εκπαίδευσης}. Αναιρέστε τον μετασχηματισμό σε κάθε πρόβλεψη:
-\[
-  \hat\delta=\mu_{y,\rm train}+\sigma_{y,\rm train}\hat z.
-\]
-Χρησιμοποιήστε το $\hat\delta$ σε μέτρα για το \MSE\ επικύρωσης και ελέγχου, τα διαγράμματα και τις συγκρίσεις \textlatin{Monte Carlo}· το \MSE\ ως προς το $z$ έχει διαφορετικές μονάδες.
+\section{Υποδείξεις συναρτήσεων και παραδείγματα κώδικα}\label{sec:functions}
+Τα παραδείγματα δείχνουν χρήσιμες συναρτήσεις, όχι υποχρεωτική βιβλιοθήκη ή δομή κώδικα. Μπορείτε να χρησιμοποιήσετε άλλα κατάλληλα εργαλεία.
+\begin{center}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+Εργασία & \MATLAB & \Python\ (\textlatin{NumPy / Keras}) \\
+\midrule
+Δειγματοληψία εισόδων & \doc{https://www.mathworks.com/help/matlab/ref/double.randn.html}{randn}, \doc{https://www.mathworks.com/help/stats/lognrnd.html}{lognrnd}, \doc{https://www.mathworks.com/help/matlab/ref/double.rand.html}{rand} & \doc{https://numpy.org/doc/stable/reference/random/generated/numpy.random.Generator.normal.html}{normal}, \doc{https://numpy.org/doc/stable/reference/random/generated/numpy.random.Generator.lognormal.html}{lognormal}, \doc{https://numpy.org/doc/stable/reference/random/generated/numpy.random.Generator.uniform.html}{uniform} \\
+\textlatin{Seed} και διαχωρισμός & \doc{https://www.mathworks.com/help/matlab/ref/rng.html}{rng}, \doc{https://www.mathworks.com/help/matlab/ref/double.randperm.html}{randperm} & \doc{https://numpy.org/doc/stable/reference/random/generator.html}{default\_rng}, \doc{https://numpy.org/doc/stable/reference/random/generated/numpy.random.Generator.permutation.html}{permutation} \\
+Κλιμάκωση εισόδων & \doc{https://www.mathworks.com/help/matlab/ref/double.mean.html}{mean}, \doc{https://www.mathworks.com/help/matlab/ref/double.std.html}{std} & \doc{https://numpy.org/doc/stable/reference/generated/numpy.mean.html}{mean}, \doc{https://numpy.org/doc/stable/reference/generated/numpy.std.html}{std} \\
+Ορισμός και εκπαίδευση \textlatin{NN} & \doc{https://www.mathworks.com/help/deeplearning/ref/nnet.cnn.layer.featureinputlayer.html}{featureInputLayer}, \doc{https://www.mathworks.com/help/deeplearning/ref/trainnet.html}{trainnet} & \doc{https://keras.io/api/models/sequential/}{Sequential}, \doc{https://keras.io/api/layers/core_layers/dense/}{Dense}, \doc{https://keras.io/api/models/model_training_apis/}{Model.fit} \\
+Πρόβλεψη και μέτρηση & \doc{https://www.mathworks.com/help/deeplearning/ref/minibatchpredict.html}{minibatchpredict}, \doc{https://www.mathworks.com/help/matlab/ref/double.mean.html}{mean} & \doc{https://keras.io/api/models/model_training_apis/}{Model.predict}, \doc{https://numpy.org/doc/stable/reference/generated/numpy.mean.html}{mean} \\
+Διαγράμματα & \doc{https://www.mathworks.com/help/matlab/ref/plot.html}{plot}, \doc{https://www.mathworks.com/help/matlab/ref/scatter.html}{scatter}, \doc{https://www.mathworks.com/help/matlab/ref/matlab.graphics.chart.primitive.histogram.html}{histogram} & \doc{https://matplotlib.org/stable/api/pyplot_summary.html}{matplotlib.pyplot} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Τα παρακάτω τμήματα κώδικα δείχνουν τα σημεία όπου γίνονται εύκολα λάθη: ένα μπλοκ ρυθμίσεων στην αρχή του προγράμματος, την τυποποίηση με στατιστικά εκπαίδευσης, τον ορισμό του δικτύου και την εκπαίδευση ανά εποχή. Τα υπόλοιπα γράψτε τα μόνοι σας.
+
+\subsection{\MATLAB}
+Εκπαίδευση με το \doc{https://www.mathworks.com/help/deeplearning/ref/trainnet.html}{trainnet}. Το \code{trainingOptions("sgdm",Momentum=0,...)} δίνει απλό \SGD.
+\begin{otherlanguage}{english}
+\lstinputlisting[language=Matlab]{shared/cantilever.m}
+\end{otherlanguage}
+
+\bigskip
+\subsection{\Python}
+Εκπαίδευση με το \doc{https://keras.io/getting_started/}{Keras} και \textlatin{backend} όπως το \textlatin{JAX} (\code{uv add keras jax}). Το \code{model.fit} εκπαιδεύει για ακριβώς \code{EPOCHS} εποχές και καταγράφει το \MSE\ εκπαίδευσης και επικύρωσης κάθε εποχής. Για απλό \SGD\ χρησιμοποιήστε \code{keras.optimizers.SGD(LEARNING\_RATE)}, που δεν έχει ορμή εξ ορισμού.
+\begin{otherlanguage}{english}
+\lstinputlisting[language=Python,firstline=2]{shared/cantilever.py}
+\end{otherlanguage}
+
 \end{document}

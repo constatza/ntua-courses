@@ -1,0 +1,41 @@
+% Language-neutral figures shared by main.tex and its variants; captions and labels stay in each variant.
+\newcommand{\cantileverdrawing}{%
+\begin{tikzpicture}[x=0.9cm,y=0.9cm,>=Latex]
+    \fill[gray!15] (-0.35,-0.45) rectangle (0,0.45);
+    \draw[thick] (0,-0.45) -- (0,0.45);
+    \foreach \y in {-0.4,-0.2,0,0.2,0.4}
+      \draw[gray] (-0.35,\y-0.08) -- (0,\y+0.08);
+    \draw[line width=1.5pt] (0,0) -- (6,0);
+    \draw[blue!65!black,dashed,thick] (0,0) .. controls (2,0) and (4,-0.25) .. (6,-0.75);
+    \draw[->,very thick] (6,1.05) -- (6,0.12) node[midway,left] {$P$};
+    \draw[densely dotted] (6,0) -- (6.7,0);
+    \draw[densely dotted] (6,-0.75) -- (6.7,-0.75);
+    \draw[<->] (6.55,0) -- (6.55,-0.75) node[midway,right] {$\delta$};
+    \draw (0,-0.55) -- (0,-1.3);
+    \draw (6,-0.85) -- (6,-1.3);
+    \draw[<->] (0,-1.2) -- (6,-1.2) node[midway,fill=white,inner sep=2pt] {$L$};
+    \node[above] at (3,0.05) {$E,\ I$};
+  \end{tikzpicture}}
+
+% #1 input label, #2 hidden-layer label, #3 output label, in the variant's language.
+\newcommand{\networkdiagram}[3]{%
+\begin{tikzpicture}[x=1cm,y=1cm,>=Latex,every node/.style={font=\small}]
+  \foreach \name/\height in {P/0.9,E/0.3,L/-0.3,I/-0.9}
+    \coordinate (input-\name) at (0,\height);
+  \foreach \i in {1,...,8}
+    \coordinate (hidden-\i) at (3,{1.4-0.4*(\i-1)});
+  \coordinate (output) at (6,0);
+  \foreach \name in {P,E,L,I}
+    \foreach \i in {1,...,8}
+      \draw[gray!45,thin] (input-\name) -- (hidden-\i);
+  \foreach \i in {1,...,8}
+    \draw[gray!45,thin] (hidden-\i) -- (output);
+  \foreach \name in {P,E,L,I}
+    \node[draw,circle,fill=white,minimum size=0.5cm,inner sep=0pt] at (input-\name) {$\name'$};
+  \foreach \i in {1,...,8}
+    \node[draw,circle,fill=white,minimum size=0.25cm,inner sep=0pt] at (hidden-\i) {};
+  \node[draw,circle,fill=white,minimum size=0.7cm,inner sep=0pt] at (output) {$\hat y$};
+  \node[below] at (0,-1.25) {#1};
+  \node[above] at (3,1.65) {#2};
+  \node[above] at (6,0.45) {#3};
+\end{tikzpicture}}

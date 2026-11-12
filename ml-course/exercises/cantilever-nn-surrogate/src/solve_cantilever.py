@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor
@@ -22,72 +23,62 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
-from sklearn.neighbors import KernelDensity
 from sklearn.neural_network import MLPRegressor
 
 Array = NDArray[np.float64]
 Solver = Literal["adam", "sgd"]
 Activation = Literal["tanh", "relu"]
+# Which weights a run returns, named after MATLAB's trainingOptions OutputNetwork values.
+OutputNetwork = Literal["last-iteration", "best-validation"]
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "assets" / "generated"
 SEED = 20261104
 DATA_SIZE = 3000
-MC_SIZE = 10000
 EPOCHS = 1500
 # The sheet asks for the baseline MSE at this epoch, read from the same 1500-epoch history.
 CHECKPOINT_EPOCH = 500
 BATCH_SIZE = 64
-BASELINE_ARCHITECTURE = (4,)
-BASELINE_LEARNING_RATE = 1e-4
+BASELINE_ARCHITECTURE = (8,)
+BASELINE_LEARNING_RATE = 1e-3
 P_MEAN, P_STD = 10000.0, 700.0
 E_MEAN, E_STD = 30e9, 3e9
-L_LIMITS = (2.4, 3.6)
-I_LIMITS = (4e-5, 1.2e-4)
+# Wide ranges, so L^3 and the steep low-I end of 1/I make the response clearly nonlinear and
+# extra network capacity pays off in the bonus search.
+L_LIMITS = (1.0, 5.0)
+I_LIMITS = (2e-5, 2e-4)
 FEATURE_NAMES = ("P (N)", "E (Pa)", "L (m)", "I (m⁴)")
 
 
-@dataclass(frozen=True, slots=True)
-class TargetScaler:
-    """z = (delta - mean) / std; fitted on training targets only."""
-
-    mean: float
-    std: float
-
-    @classmethod
-    def fit(cls, y: Array) -> TargetScaler:
-        return cls(float(y.mean()), float(y.std()))
-
-    def forward(self, y: Array) -> Array:
-        return (y - self.mean) / self.std
-
-    def inverse(self, z: Array) -> Array:
-        return self.mean + self.std * z
+def uniform_moments(limits: tuple[float, float]) -> tuple[float, float]:
+    low, high = limits
+    return (low + high) / 2, (high - low) / np.sqrt(12)
 
 
-# Keeping the target in metres is the identity transform, so no run needs an Optional scaler.
-KEEP_METRES = TargetScaler(0.0, 1.0)
+# Mean and standard deviation the sheet specifies, in FEATURE_NAMES order (A2 compares them).
+SPECIFIED_MOMENTS = ((P_MEAN, P_STD), (E_MEAN, E_STD), uniform_moments(L_LIMITS), uniform_moments(I_LIMITS))
 
 
 @dataclass(frozen=True, slots=True)
 class Trial:
-    """One Part E configuration; everything not listed stays as in the baseline."""
+    """One bonus configuration; everything not listed stays as in the baseline."""
 
     hidden_layers: tuple[int, ...]
     learning_rate: float
     activation: Activation
-    scale_target: bool
+    epochs: int
 
 
-# At most 6 configurations, as the sheet allows, each changing one setting of the previous
-# row, so the table itself shows which change helped (rate, target scaling, width, rate,
-# depth, activation).
+# At most 6 configurations, as the sheet allows. S1-S4 change one setting of the previous row
+# (width, depth, depth, epochs); S5 isolates the epoch effect at depth 2 and S6 shows ReLU
+# overfitting. Longer training is what lets the deeper network pass 100x the baseline.
+LONG_EPOCHS = 5000
 SEARCH = (
-    Trial((4,), 1e-3, "tanh", False),
-    Trial((4,), 1e-3, "tanh", True),
-    Trial((8,), 1e-3, "tanh", True),
-    Trial((8,), 3e-3, "tanh", True),
-    Trial((8, 8), 3e-3, "tanh", True),
-    Trial((8,), 3e-3, "relu", True),
+    Trial((16,), 1e-3, "tanh", EPOCHS),
+    Trial((16, 16), 1e-3, "tanh", EPOCHS),
+    Trial((16, 16, 16), 1e-3, "tanh", EPOCHS),
+    Trial((16, 16, 16), 1e-3, "tanh", LONG_EPOCHS),
+    Trial((16, 16), 1e-3, "tanh", LONG_EPOCHS),
+    Trial((32, 32), 1e-3, "relu", EPOCHS),
 )
 
 
@@ -99,17 +90,21 @@ class RunResult:
     activation: Activation
     solver: Solver
     model: MLPRegressor
-    target_scaler: TargetScaler
     train_mse: tuple[float, ...]
     val_mse: tuple[float, ...]
-
-    def predict(self, features: Array) -> Array:
-        """Deflection in metres, whatever the training target scale was."""
-        return self.target_scaler.inverse(self.model.predict(features))
+    reported_epoch: int  # 1-based epoch whose weights `model` holds
 
     @property
-    def scales_target(self) -> bool:
-        return self.target_scaler != KEEP_METRES
+    def train_loss(self) -> float:
+        return self.train_mse[self.reported_epoch - 1]
+
+    @property
+    def val_loss(self) -> float:
+        return self.val_mse[self.reported_epoch - 1]
+
+    def predict(self, features: Array) -> Array:
+        """Deflection in metres."""
+        return self.model.predict(features)
 
     @property
     def parameter_count(self) -> int:
@@ -129,8 +124,7 @@ class Metrics:
     test_rmse: float
     test_r2: float
     tail_rmse: float
-    mc_analytical: Moments
-    mc_surrogate: Moments
+    selected_test_mse: float
     response_max_absolute_error: dict[str, float]
 
 
@@ -175,7 +169,8 @@ def run_experiment(
     data: SplitData,
     solver: Solver = "adam",
     activation: Activation = "tanh",
-    target_scaler: TargetScaler = KEEP_METRES,
+    epochs: int = EPOCHS,
+    output: OutputNetwork = "last-iteration",
 ) -> RunResult:
     model = MLPRegressor(
         hidden_layer_sizes=hidden_layers,
@@ -189,28 +184,32 @@ def run_experiment(
         early_stopping=False,
         shuffle=True,
     )
-    scaled_y_train = target_scaler.forward(data.y_train)
     train_history: list[float] = []
     val_history: list[float] = []
     # fit() would stop once the loss improves by less than tol, so the epoch budget is driven
     # by hand: one partial_fit call is one pass over the training set.
-    for _ in range(EPOCHS):
-        model.partial_fit(data.x_train, scaled_y_train)
-        # MSE is always measured on deflection in metres so runs stay comparable.
-        train_loss = mse(data.y_train, target_scaler.inverse(model.predict(data.x_train)))
-        val_loss = mse(data.y_val, target_scaler.inverse(model.predict(data.x_val)))
+    kept, kept_epoch = model, epochs
+    for epoch in range(1, epochs + 1):
+        model.partial_fit(data.x_train, data.y_train)
+        train_loss = mse(data.y_train, model.predict(data.x_train))
+        val_loss = mse(data.y_val, model.predict(data.x_val))
         if not np.isfinite(train_loss + val_loss):
             raise ValueError(f"Run {name} produced non-finite MSE")
         train_history.append(train_loss)
         val_history.append(val_loss)
-    return RunResult(name, hidden_layers, learning_rate, activation, solver, model, target_scaler, tuple(train_history), tuple(val_history))
+        # Adam with a fixed rate jitters once the loss is small, so the last epoch can land on a
+        # spike; best-validation keeps the weights of the lowest validation MSE instead.
+        if output == "best-validation" and val_loss <= min(val_history):
+            kept, kept_epoch = copy.deepcopy(model), epoch
+    if output == "last-iteration":
+        kept = model
+    return RunResult(name, hidden_layers, learning_rate, activation, solver, kept, tuple(train_history), tuple(val_history), kept_epoch)
 
 
 def fit_trial(job: tuple[str, Trial, SplitData]) -> RunResult:
     """Top-level so ProcessPoolExecutor can pickle it; every trial is seeded and deterministic."""
     name, trial, data = job
-    scaler = TargetScaler.fit(data.y_train) if trial.scale_target else KEEP_METRES
-    return run_experiment(name, trial.hidden_layers, trial.learning_rate, data, activation=trial.activation, target_scaler=scaler)
+    return run_experiment(name, trial.hidden_layers, trial.learning_rate, data, activation=trial.activation, epochs=trial.epochs, output="best-validation")
 
 
 def save_figure(fig: plt.Figure, name: str) -> None:
@@ -239,30 +238,37 @@ def draw_history(ax: plt.Axes, run: RunResult, title: str) -> None:
     ax.set(xlabel="epoch", ylabel="deflection MSE (m²)", yscale="log", title=title)
 
 
-def plot_baseline(run: RunResult, no_skill: float) -> None:
+def draw_reference(ax: plt.Axes, reference: float) -> None:
+    ax.axhline(reference, color="black", linestyle=":", label="MSE₀ (always predict the mean)")
+
+
+def plot_baseline(run: RunResult, reference: float) -> None:
     fig, ax = plt.subplots(figsize=(5.4, 3.2))
-    draw_history(ax, run, "Baseline: 4 tanh neurons, Adam, lr=1e-4")
-    ax.axhline(no_skill, color="black", linestyle=":", label="no-skill MSE₀")
+    draw_history(ax, run, "Baseline: 8 tanh neurons, Adam, lr=1e-3")
+    draw_reference(ax, reference)
     ax.axvline(CHECKPOINT_EPOCH, color="grey", linewidth=0.8)
     ax.legend()
     fig.tight_layout()
     save_figure(fig, "loss_baseline.png")
 
 
-def plot_probes(baseline: RunResult, probes: list[tuple[RunResult, str]]) -> None:
+def plot_probes(baseline: RunResult, probes: list[tuple[RunResult, str]], reference: float) -> None:
     fig, axes = plt.subplots(2, 2, figsize=(9, 6), sharey=True)
     epochs = np.arange(1, len(baseline.val_mse) + 1)
     for ax, (run, title) in zip(axes.flat, probes, strict=True):
         draw_history(ax, run, title)
         ax.plot(epochs, baseline.val_mse, color="grey", linestyle="--", label="baseline validation")
+        draw_reference(ax, reference)
         ax.legend(fontsize=7)
     fig.tight_layout()
     save_figure(fig, "loss_probes.png")
 
 
-def plot_selected(run: RunResult) -> None:
+def plot_selected(run: RunResult, reference: float) -> None:
     fig, ax = plt.subplots(figsize=(5.4, 3.2))
     draw_history(ax, run, f"Selected {run.name}: {describe(run)}")
+    ax.axvline(run.reported_epoch, color="grey", linewidth=0.8, label="kept epoch")
+    draw_reference(ax, reference)
     ax.legend()
     fig.tight_layout()
     save_figure(fig, "loss_selected.png")
@@ -280,23 +286,6 @@ def plot_test(actual: Array, predicted: Array) -> None:
     axes[1].set(xlabel="analytical deflection (m)", ylabel="prediction error (m)", title="Test signed errors")
     fig.tight_layout()
     save_figure(fig, "test_diagnostics.png")
-
-
-def plot_mc(actual: Array, predicted: Array) -> None:
-    pooled = np.concatenate((actual, predicted))
-    grid = np.linspace(float(pooled.min()), float(pooled.max()), 400)
-    bandwidth = float(pooled.std()) * len(actual) ** (-1 / 5)
-    fig, ax = plt.subplots(figsize=(6, 3.5))
-    for values, label, color, style in (
-        (actual, "analytical", "#1f77b4", "-"),
-        (predicted, "network", "#d62728", "--"),
-    ):
-        kde = KernelDensity(bandwidth=bandwidth).fit(values[:, None])
-        ax.plot(grid, np.exp(kde.score_samples(grid[:, None])), color=color, linestyle=style, linewidth=2, label=label)
-    ax.set(xlabel="deflection (m)", ylabel="density (1/m)", title="Fresh Monte Carlo response densities")
-    ax.legend()
-    fig.tight_layout()
-    save_figure(fig, "mc_distribution.png")
 
 
 def plot_responses(predict: Callable[[Array], Array], x_mean: Array) -> dict[str, float]:
@@ -333,16 +322,14 @@ def tex_number(value: float, digits: int = 3) -> str:
 
 def describe(run: RunResult) -> str:
     widths = "+".join(map(str, run.hidden_layers))
-    scaling = "z" if run.scales_target else "m"
-    return f"{widths} {run.activation}, lr={run.learning_rate:g}, target {scaling}"
+    return f"{widths} {run.activation}, lr={run.learning_rate:g}, {len(run.train_mse)} epochs (kept {run.reported_epoch})"
 
 
-def search_rows(runs: list[RunResult], baseline: RunResult) -> list[str]:
+def search_rows(runs: list[RunResult]) -> list[str]:
     return [
-        rf"{run.name} & {', '.join(map(str, run.hidden_layers))} & {run.activation} & "
-        rf"{tex_number(run.learning_rate, 0)} & {'standardized' if run.scales_target else 'metres'} & "
-        rf"{run.parameter_count} & {tex_number(run.train_mse[-1], 2)} & {tex_number(run.val_mse[-1], 2)} & "
-        rf"{baseline.val_mse[-1] / run.val_mse[-1]:.0f} \\"
+        rf"{run.name} & $[{', '.join(map(str, run.hidden_layers))}]$ & {run.activation} & "
+        rf"{tex_number(run.learning_rate, 0)} & {len(run.train_mse)} & "
+        rf"{tex_number(run.train_loss, 2)} & {tex_number(run.val_loss, 2)} \\"
         for run in runs
     ]
 
@@ -358,10 +345,13 @@ def write_results_tex(
     y: Array,
 ) -> None:
     sample_rows = [
-        rf"{symbol} & {tex_number(float(x[:, index].mean()))} & {tex_number(float(x[:, index].std()))} \\"
-        for index, symbol in enumerate((r"$P$ (N)", r"$E$ (Pa)", r"$L$ (m)", r"$I$ (m$^4$)"))
+        rf"{symbol} & {tex_number(spec_mean)} & {tex_number(float(x[:, index].mean()))} & {tex_number(spec_std)} & {tex_number(float(x[:, index].std()))} \\"
+        for index, (symbol, (spec_mean, spec_std)) in enumerate(
+            zip((r"$P$ (N)", r"$E$ (Pa)", r"$L$ (m)", r"$I$ (m$^4$)"), SPECIFIED_MOMENTS, strict=True)
+        )
     ]
-    sample_rows.append(rf"$\delta$ (m) & {tex_number(float(y.mean()))} & {tex_number(float(y.std()))} \\")
+    # The deflection has no specified distribution, only the one induced by the inputs.
+    sample_rows.append(rf"$y$ (m) & -- & {tex_number(float(y.mean()))} & -- & {tex_number(float(y.std()))} \\")
     checkpoint = CHECKPOINT_EPOCH - 1
     layer_word = "hidden layer" if len(selected.hidden_layers) == 1 else "hidden layers"
     architecture = f"{len(selected.hidden_layers)} {layer_word} of {' + '.join(map(str, selected.hidden_layers))}"
@@ -371,39 +361,35 @@ def write_results_tex(
             rf"\newcommand{{\NoSkillMSE}}{{{tex_number(no_skill)}}}",
             rf"\newcommand{{\CheckpointTrainMSE}}{{{tex_number(baseline.train_mse[checkpoint])}}}",
             rf"\newcommand{{\CheckpointValMSE}}{{{tex_number(baseline.val_mse[checkpoint])}}}",
-            rf"\newcommand{{\BaselineTrainMSE}}{{{tex_number(baseline.train_mse[-1])}}}",
-            rf"\newcommand{{\BaselineValMSE}}{{{tex_number(baseline.val_mse[-1])}}}",
-            rf"\newcommand{{\HigherRateValMSE}}{{{tex_number(probes['higher_rate'].val_mse[-1])}}}",
-            rf"\newcommand{{\TinyRateValMSE}}{{{tex_number(probes['tiny_rate'].val_mse[-1])}}}",
-            rf"\newcommand{{\RawInputsValMSE}}{{{tex_number(probes['raw_inputs'].val_mse[-1])}}}",
-            rf"\newcommand{{\SgdTrainMSE}}{{{tex_number(probes['sgd'].train_mse[-1])}}}",
-            rf"\newcommand{{\SgdValMSE}}{{{tex_number(probes['sgd'].val_mse[-1])}}}",
+            rf"\newcommand{{\BaselineTrainMSE}}{{{tex_number(baseline.train_loss)}}}",
+            rf"\newcommand{{\BaselineValMSE}}{{{tex_number(baseline.val_loss)}}}",
+            rf"\newcommand{{\HigherRateValMSE}}{{{tex_number(probes['higher_rate'].val_loss)}}}",
+            rf"\newcommand{{\TinyRateValMSE}}{{{tex_number(probes['tiny_rate'].val_loss)}}}",
+            rf"\newcommand{{\RawInputsValMSE}}{{{tex_number(probes['raw_inputs'].val_loss)}}}",
+            rf"\newcommand{{\SgdTrainMSE}}{{{tex_number(probes['sgd'].train_loss)}}}",
+            rf"\newcommand{{\SgdValMSE}}{{{tex_number(probes['sgd'].val_loss)}}}",
             rf"\newcommand{{\SelectedName}}{{{selected.name}}}",
-            rf"\newcommand{{\SelectedValMSE}}{{{tex_number(selected.val_mse[-1])}}}",
-            rf"\newcommand{{\SelectedTrainMSE}}{{{tex_number(selected.train_mse[-1])}}}",
+            rf"\newcommand{{\SelectedValMSE}}{{{tex_number(selected.val_loss)}}}",
+            rf"\newcommand{{\SelectedEpoch}}{{{selected.reported_epoch}}}",
+            rf"\newcommand{{\SelectedTrainMSE}}{{{tex_number(selected.train_loss)}}}",
             rf"\newcommand{{\SelectedArchitecture}}{{{architecture}}}",
             rf"\newcommand{{\SelectedActivation}}{{{selected.activation}}}",
             rf"\newcommand{{\SelectedRate}}{{{tex_number(selected.learning_rate, 0)}}}",
             rf"\newcommand{{\SelectedParams}}{{{selected.parameter_count}}}",
             rf"\newcommand{{\BaselineParams}}{{{baseline.parameter_count}}}",
             rf"\newcommand{{\SearchTrials}}{{{len(search)}}}",
-            rf"\newcommand{{\ImprovementRatio}}{{{baseline.val_mse[-1] / selected.val_mse[-1]:.0f}}}",
+            rf"\newcommand{{\ImprovementRatio}}{{{baseline.val_loss / selected.val_loss:.0f}}}",
             rf"\newcommand{{\MaxResponseError}}{{{tex_number(max(metrics.response_max_absolute_error.values()))}}}",
             rf"\newcommand{{\TestMSE}}{{{tex_number(metrics.test_mse)}}}",
             rf"\newcommand{{\TestRMSE}}{{{metrics.test_rmse:.7f}}}",
             rf"\newcommand{{\TestRtwo}}{{{metrics.test_r2:.4f}}}",
             rf"\newcommand{{\TailRMSE}}{{{metrics.tail_rmse:.7f}}}",
-            rf"\newcommand{{\AnalyticalMean}}{{{metrics.mc_analytical.mean:.7f}}}",
-            rf"\newcommand{{\SurrogateMean}}{{{metrics.mc_surrogate.mean:.7f}}}",
-            rf"\newcommand{{\AnalyticalStd}}{{{metrics.mc_analytical.std:.7f}}}",
-            rf"\newcommand{{\SurrogateStd}}{{{metrics.mc_surrogate.std:.7f}}}",
-            rf"\newcommand{{\AnalyticalPnn}}{{{metrics.mc_analytical.p95:.7f}}}",
-            rf"\newcommand{{\SurrogatePnn}}{{{metrics.mc_surrogate.p95:.7f}}}",
+            rf"\newcommand{{\SelectedTestMSE}}{{{tex_number(metrics.selected_test_mse)}}}",
             r"\newcommand{\SampleRows}{%",
             *sample_rows,
             "}",
             r"\newcommand{\SearchRows}{%",
-            *search_rows(search, baseline),
+            *search_rows(search),
             "}",
             "",
         ]
@@ -427,39 +413,40 @@ def main() -> None:
     x_model = scale_inputs(x, x_mean, x_std)
     standardized = SplitData(x_model[train_idx], y[train_idx], x_model[val_idx], y[val_idx])
     raw = SplitData(x[train_idx], y[train_idx], x[val_idx], y[val_idx])
-    # The yardstick a trained model must beat: always predict the mean training deflection.
+    # MSE0: the reference level of a model that always predicts the mean training deflection.
     no_skill = mse(y[val_idx], np.full(len(val_idx), y[train_idx].mean()))
 
     def train(name: str, rate: float, data: SplitData, solver: Solver = "adam") -> RunResult:
         run = run_experiment(name, BASELINE_ARCHITECTURE, rate, data, solver)
-        print(f"{name}: solver={solver} lr={rate:g} train={run.train_mse[-1]:.5g} val={run.val_mse[-1]:.5g}")
+        print(f"{name}: solver={solver} lr={rate:g} train={run.train_loss:.5g} val={run.val_loss:.5g}")
         return run
 
     baseline = train("baseline", BASELINE_LEARNING_RATE, standardized)
     plot_baseline(baseline, no_skill)
     probes = {
-        "tiny_rate": train("lr 1e-5", 1e-5, standardized),
-        "higher_rate": train("lr 1e-1", 1e-1, standardized),
+        "tiny_rate": train("lr 1e-6", 1e-6, standardized),
+        "higher_rate": train("lr 1", 1.0, standardized),
         "raw_inputs": train("raw inputs", BASELINE_LEARNING_RATE, raw),
         "sgd": train("plain SGD", BASELINE_LEARNING_RATE, standardized, "sgd"),
     }
     plot_probes(baseline, [
-        (probes["tiny_rate"], "Learning rate 1e-5"),
-        (probes["higher_rate"], "Learning rate 1e-1"),
+        (probes["tiny_rate"], "Learning rate 1e-6 (too low)"),
+        (probes["higher_rate"], "Learning rate 1 (too high)"),
         (probes["raw_inputs"], "Raw (unstandardized) inputs"),
-        (probes["sgd"], "Plain SGD, lr=1e-4"),
-    ])
+        (probes["sgd"], "Plain SGD, lr=1e-3"),
+    ], no_skill)
 
     jobs = [(f"S{number}", trial, standardized) for number, trial in enumerate(SEARCH, start=1)]
     with ProcessPoolExecutor() as pool:
         search = list(pool.map(fit_trial, jobs))
     for run in search:
-        print(f"{run.name}: {describe(run)} val={run.val_mse[-1]:.5g}")
-    selected = min((baseline, *search), key=lambda run: run.val_mse[-1])
-    plot_selected(selected)
+        print(f"{run.name}: {describe(run)} val={run.val_loss:.5g}")
+    # Bonus: the best Part E run by validation MSE; the main evaluation stays on the baseline.
+    selected = min(search, key=lambda run: run.val_loss)
+    plot_selected(selected, no_skill)
 
     def predict_deflection(points: Array) -> Array:
-        return selected.predict(scale_inputs(points, x_mean, x_std))
+        return baseline.predict(scale_inputs(points, x_mean, x_std))
 
     test_actual = y[test_idx]
     test_predicted = predict_deflection(x[test_idx])
@@ -470,16 +457,13 @@ def main() -> None:
     tail_rmse = float(np.sqrt(mse(test_actual[tail], test_predicted[tail])))
     plot_test(test_actual, test_predicted)
 
-    mc_inputs = sample_inputs(rng, MC_SIZE)
-    mc_actual = deflection(mc_inputs)
-    mc_predicted = predict_deflection(mc_inputs)
-    plot_mc(mc_actual, mc_predicted)
-    response_errors = plot_responses(predict_deflection, np.array([P_MEAN, E_MEAN, 3.0, 8e-5]))
+    selected_test_mse = mse(test_actual, selected.predict(scale_inputs(x[test_idx], x_mean, x_std)))
+    response_errors = plot_responses(predict_deflection, np.array([P_MEAN, E_MEAN, np.mean(L_LIMITS), np.mean(I_LIMITS)]))
 
     def moments(values: Array) -> Moments:
         return Moments(float(values.mean()), float(values.std()), float(np.quantile(values, 0.95)))
 
-    metrics = Metrics(test_mse, test_rmse, test_r2, tail_rmse, moments(mc_actual), moments(mc_predicted), response_errors)
+    metrics = Metrics(test_mse, test_rmse, test_r2, tail_rmse, selected_test_mse, response_errors)
     runs = [baseline, *probes.values(), *search]
     summary = {
         "seed": SEED,
@@ -490,8 +474,8 @@ def main() -> None:
         "baseline_checkpoint": {"epoch": CHECKPOINT_EPOCH, "training_mse": baseline.train_mse[CHECKPOINT_EPOCH - 1], "validation_mse": baseline.val_mse[CHECKPOINT_EPOCH - 1]},
         "runs": [
             {"name": run.name, "hidden_layers": list(run.hidden_layers), "learning_rate": run.learning_rate, "activation": run.activation, "solver": run.solver,
-             "target_scaling": run.scales_target, "parameters": run.parameter_count,
-             "completed_epochs": len(run.train_mse), "training_mse": run.train_mse[-1], "validation_mse": run.val_mse[-1]}
+             "parameters": run.parameter_count,
+             "completed_epochs": len(run.train_mse), "training_mse": run.train_loss, "validation_mse": run.val_loss}
             for run in runs
         ],
         "selected_run": selected.name,
@@ -499,7 +483,7 @@ def main() -> None:
     }
     (OUTPUT / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     write_results_tex(baseline, no_skill, probes, search, selected, metrics, x, y)
-    print(f"selected {selected.name}: test RMSE={test_rmse:.5f} m, R²={test_r2:.4f}")
+    print(f"baseline: test RMSE={test_rmse:.5f} m, R²={test_r2:.4f}; selected {selected.name}: test MSE={selected_test_mse:.4g}")
 
 
 if __name__ == "__main__":

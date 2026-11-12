@@ -1,46 +1,42 @@
-\newcommand{\NoSkillMSE}{$4.868\times10^{-4}$}
-\newcommand{\CheckpointTrainMSE}{$4.699\times10^{-4}$}
-\newcommand{\CheckpointValMSE}{$5.036\times10^{-4}$}
-\newcommand{\BaselineTrainMSE}{$2.408\times10^{-6}$}
-\newcommand{\BaselineValMSE}{$2.987\times10^{-6}$}
-\newcommand{\HigherRateValMSE}{$3.271\times10^{-4}$}
-\newcommand{\TinyRateValMSE}{$3.284\times10^{-2}$}
-\newcommand{\RawInputsValMSE}{$4.883\times10^{-4}$}
-\newcommand{\SgdTrainMSE}{$3.203\times10^{-2}$}
-\newcommand{\SgdValMSE}{$3.358\times10^{-2}$}
+\newcommand{\NoSkillMSE}{$5.932\times10^{-3}$}
+\newcommand{\CheckpointTrainMSE}{$1.382\times10^{-4}$}
+\newcommand{\CheckpointValMSE}{$1.803\times10^{-4}$}
+\newcommand{\BaselineTrainMSE}{$3.236\times10^{-5}$}
+\newcommand{\BaselineValMSE}{$3.504\times10^{-5}$}
+\newcommand{\HigherRateValMSE}{$1.606\times10^{-2}$}
+\newcommand{\TinyRateValMSE}{$1.923\times10^{-1}$}
+\newcommand{\RawInputsValMSE}{$5.934\times10^{-3}$}
+\newcommand{\SgdTrainMSE}{$3.747\times10^{-3}$}
+\newcommand{\SgdValMSE}{$4.270\times10^{-3}$}
 \newcommand{\SelectedName}{S4}
-\newcommand{\SelectedValMSE}{$1.606\times10^{-8}$}
-\newcommand{\SelectedTrainMSE}{$8.058\times10^{-9}$}
-\newcommand{\SelectedArchitecture}{1 hidden layer of 8}
+\newcommand{\SelectedValMSE}{$5.502\times10^{-8}$}
+\newcommand{\SelectedEpoch}{4985}
+\newcommand{\SelectedTrainMSE}{$4.554\times10^{-8}$}
+\newcommand{\SelectedArchitecture}{3 hidden layers of 16 + 16 + 16}
 \newcommand{\SelectedActivation}{tanh}
-\newcommand{\SelectedRate}{$3\times10^{-3}$}
-\newcommand{\SelectedParams}{49}
-\newcommand{\BaselineParams}{25}
+\newcommand{\SelectedRate}{$1\times10^{-3}$}
+\newcommand{\SelectedParams}{641}
+\newcommand{\BaselineParams}{49}
 \newcommand{\SearchTrials}{6}
-\newcommand{\ImprovementRatio}{186}
-\newcommand{\MaxResponseError}{$1.571\times10^{-4}$}
-\newcommand{\TestMSE}{$2.869\times10^{-8}$}
-\newcommand{\TestRMSE}{0.0001694}
-\newcommand{\TestRtwo}{0.9999}
-\newcommand{\TailRMSE}{0.0006832}
-\newcommand{\AnalyticalMean}{0.0433904}
-\newcommand{\SurrogateMean}{0.0433856}
-\newcommand{\AnalyticalStd}{0.0214648}
-\newcommand{\SurrogateStd}{0.0214435}
-\newcommand{\AnalyticalPnn}{0.0861947}
-\newcommand{\SurrogatePnn}{0.0861128}
+\newcommand{\ImprovementRatio}{637}
+\newcommand{\MaxResponseError}{$6.652\times10^{-3}$}
+\newcommand{\TestMSE}{$3.077\times10^{-5}$}
+\newcommand{\TestRMSE}{0.0055470}
+\newcommand{\TestRtwo}{0.9936}
+\newcommand{\TailRMSE}{0.0195621}
+\newcommand{\SelectedTestMSE}{$6.373\times10^{-8}$}
 \newcommand{\SampleRows}{%
-$P$ (N) & $9.995\times10^{3}$ & $7.069\times10^{2}$ \\
-$E$ (Pa) & $3.000\times10^{10}$ & $3.023\times10^{9}$ \\
-$L$ (m) & $3.004\times10^{0}$ & $3.470\times10^{-1}$ \\
-$I$ (m$^4$) & $7.988\times10^{-5}$ & $2.299\times10^{-5}$ \\
-$\delta$ (m) & $4.331\times10^{-2}$ & $2.113\times10^{-2}$ \\
+$P$ (N) & $1.000\times10^{4}$ & $9.995\times10^{3}$ & $7.000\times10^{2}$ & $7.069\times10^{2}$ \\
+$E$ (Pa) & $3.000\times10^{10}$ & $3.000\times10^{10}$ & $3.000\times10^{9}$ & $3.023\times10^{9}$ \\
+$L$ (m) & $3.000\times10^{0}$ & $3.014\times10^{0}$ & $1.155\times10^{0}$ & $1.157\times10^{0}$ \\
+$I$ (m$^4$) & $1.100\times10^{-4}$ & $1.097\times10^{-4}$ & $5.196\times10^{-5}$ & $5.174\times10^{-5}$ \\
+$y$ (m) & -- & $5.544\times10^{-2}$ & -- & $7.257\times10^{-2}$ \\
 }
 \newcommand{\SearchRows}{%
-S1 & 4 & tanh & $1\times10^{-3}$ & metres & 25 & $4.89\times10^{-7}$ & $6.03\times10^{-7}$ & 5 \\
-S2 & 4 & tanh & $1\times10^{-3}$ & standardized & 25 & $1.49\times10^{-7}$ & $1.83\times10^{-7}$ & 16 \\
-S3 & 8 & tanh & $1\times10^{-3}$ & standardized & 49 & $1.91\times10^{-8}$ & $3.38\times10^{-8}$ & 88 \\
-S4 & 8 & tanh & $3\times10^{-3}$ & standardized & 49 & $8.06\times10^{-9}$ & $1.61\times10^{-8}$ & 186 \\
-S5 & 8, 8 & tanh & $3\times10^{-3}$ & standardized & 121 & $1.25\times10^{-8}$ & $5.71\times10^{-8}$ & 52 \\
-S6 & 8 & relu & $3\times10^{-3}$ & standardized & 49 & $6.40\times10^{-7}$ & $8.10\times10^{-7}$ & 4 \\
+S1 & $[16]$ & tanh & $1\times10^{-3}$ & 1500 & $5.78\times10^{-5}$ & $7.28\times10^{-5}$ \\
+S2 & $[16, 16]$ & tanh & $1\times10^{-3}$ & 1500 & $1.41\times10^{-6}$ & $3.44\times10^{-6}$ \\
+S3 & $[16, 16, 16]$ & tanh & $1\times10^{-3}$ & 1500 & $1.47\times10^{-6}$ & $2.71\times10^{-6}$ \\
+S4 & $[16, 16, 16]$ & tanh & $1\times10^{-3}$ & 5000 & $4.55\times10^{-8}$ & $5.50\times10^{-8}$ \\
+S5 & $[16, 16]$ & tanh & $1\times10^{-3}$ & 5000 & $2.05\times10^{-7}$ & $4.28\times10^{-7}$ \\
+S6 & $[32, 32]$ & relu & $1\times10^{-3}$ & 1500 & $1.55\times10^{-6}$ & $4.52\times10^{-6}$ \\
 }

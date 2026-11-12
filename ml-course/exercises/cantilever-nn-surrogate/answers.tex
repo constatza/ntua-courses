@@ -23,18 +23,17 @@
   {NTUA School of Civil Engineering\par}
 \end{center}
 
-\noindent This is one reproducible Python example, not a unique numerical answer. Run the script in \texttt{src/} with \texttt{uv} to regenerate the figures, numerical values, and \texttt{summary.json}. The seed is 20261104. The split contains 1800 training, 600 validation, and 600 test observations. The baseline has 1 hidden layer of 4 tanh neurons, Adam at learning rate $10^{-4}$, batch size 64, and inputs standardized with training-set statistics; the target stays in metres for the baseline and the Part~D probes. Every run lasts 1500 epochs. The script calls \texttt{partial\_fit} once per epoch and records the full training- and validation-set MSE after each one. Our Part~E search uses \SearchTrials\ configurations, each changing 1 setting of the row above it, so the table itself isolates each effect.
+\noindent This is one reproducible Python example, not a unique numerical answer. Run the script in \texttt{src/} with \texttt{uv} to regenerate the figures, numerical values, and \texttt{summary.json}. The seed is 20261104. The split contains 1800 training, 600 validation, and 600 test observations. The baseline has 1 hidden layer of 8 tanh neurons, Adam at learning rate $10^{-3}$, batch size 64, and inputs standardized with training-set statistics; the target stays in metres for every run. Every run lasts 1500 epochs. The script calls \texttt{partial\_fit} once per epoch and records the full training- and validation-set MSE after each one. The Part~D learning-rate probes use $10^{-6}$ and $1$. Our bonus search uses \SearchTrials\ configurations.
 
-\section*{A. Dataset and mechanical expectations}
-The nominal prediction from the beam equation is
+\section*{A. Dataset}
+The nominal deflection is
 \[
-  \delta_0=\frac{10\,000(3)^3}{3(30\times10^9)(8\times10^{-5})}=0.0375\ \mathrm m.
+  \delta_0=\frac{10\,000(3)^3}{3(30\times10^9)(1.1\times10^{-4})}=0.0273\ \mathrm m.
 \]
-The sampled moments (population-style standard deviations) are:
 \begin{center}
-\begin{tabular}{@{}lrr@{}}
+\begin{tabular}{@{}lrrrr@{}}
 \toprule
-Quantity & Sample mean & Sample standard deviation \\
+Quantity & Specified mean & Sample mean & Specified std & Sample std \\
 \midrule
 \SampleRows
 \bottomrule
@@ -44,99 +43,107 @@ Quantity & Sample mean & Sample standard deviation \\
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth]{input_histograms.png}
-  \caption{The sampled inputs and analytical deflection. Counts use 30 bins per histogram.}
+  \caption{Sampled inputs and analytical deflection, 30 bins per histogram.}\label{fig:input_histograms}
 \end{figure}
 
-\answer{A1}{The moments are close to their targets but not identical, because 3000 independent samples still vary. The lognormal conversion matters for $E$: setting the underlying normal mean to $30\times10^9$ would be wrong.}
-\answer{A2}{For small relative perturbations, $d\delta/\delta\approx dP/P-dE/E+3dL/L-dI/I$. The approximate standard-deviation contributions are 7\% ($P$), 10\% ($E$), 35\% ($L$), and 29\% ($I$), so $L$ and $I$ should dominate, followed by $E$ and $P$. The wide ranges make this first-order estimate rough.}
+\answer{A1}{Figure~\ref{fig:input_histograms}.}
+\answer{A2}{Table above.}
+\answer{A3}{All sample moments are within a few percent of the specified values.}
+\answer{A4}{A finite sample of 3000 beams never reproduces the exact distribution; the moments fluctuate around the true values.}
+\answer{A5}{$L$ should dominate: it enters cubed and spans 1--5~m, so $L^3$ varies 125 times. $I$ comes next, since $1/I$ varies 10 times and is steepest at small $I$; $P$ and $E$ vary only about 7\% and 10\%.}
 
 \section*{B. Model setup}
-\noindent The no-skill reference, which always predicts the mean training deflection, has validation MSE $\mathrm{MSE}_0=$ \NoSkillMSE\ m$^2$, close to the sample variance of $\delta$.
 
-\answer{B1}{The training inputs and targets have shapes $1800\times4$ and $1800\times1$; validation and test each use $600\times4$ and $600\times1$. A batch of $b$ rows gives $b\times1$ predictions. With batch size 64, 1 epoch has $\lceil1800/64\rceil=29$ batches; the last one contains 8 observations.}
-\answer{B2}{A composition of affine layers is still affine, so without an activation the network can only represent a linear function of the inputs. The nonlinear tanh lets it approximate the reciprocal and cubic dependence in the beam equation over the given ranges.}
+
+\answer{B1}{An epoch is one full pass of the training set through the network.}
+\answer{B2}{A batch is a small group of training rows used for one weight update.}
+\answer{B3}{$1800/64=28.1$, so 1 epoch has 29 steps if the last, partial batch of 8 rows is kept (Keras, scikit-learn), or 28 steps if it is dropped (MATLAB \texttt{trainnet}).}
+\answer{B4}{Training: inputs $1800\times4$, targets $1800\times1$; validation and test: inputs $600\times4$, targets $600\times1$.}
+\answer{B5}{So that nothing learned depends on the validation or test data: they must stay unseen, or their MSE would no longer measure performance on new beams.}
+\answer{B6}{Nonlinear activations let the network bend its output, so it can approximate curved relations such as $L^3$ and $1/I$.}
+\answer{B7}{Only a linear function of the inputs: stacked linear layers collapse into a single linear layer.}
+\answer{B8}{Parameters are learned by training, e.g.\ the weights and biases of the 8 hidden neurons; hyperparameters are chosen before training, e.g.\ the learning rate $10^{-3}$, batch size 64 or the number of hidden neurons.}
+\answer{B9}{$\mathrm{MSE}_0=$ \NoSkillMSE\ m$^2$, close to the variance of $y$.}
 
 \section*{C. Baseline}
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=0.68\textwidth]{loss_baseline.png}
-  \caption{Baseline training and validation MSE on a logarithmic y-axis. The dotted line is $\mathrm{MSE}_0$; the vertical line marks epoch 500.}\label{fig:baseline-loss}
+  \caption{Baseline loss curves; the dotted line is $\mathrm{MSE}_0$ and the vertical line marks epoch 500.}\label{fig:loss_baseline}
 \end{figure}
 
-\answer{C1}{At epoch 1500 the baseline reaches training MSE \BaselineTrainMSE\ m$^2$ and validation MSE \BaselineValMSE\ m$^2$, more than 100 times below $\mathrm{MSE}_0$, so the network has learned far more than the mean.}
-\answer{C2}{At epoch 500 the MSE is \CheckpointTrainMSE\ (training) and \CheckpointValMSE\ (validation) m$^2$, essentially $\mathrm{MSE}_0$: after 500 epochs the network is no better than predicting the mean. Longer training alone therefore helps a lot. Near epoch 1500 both curves still decrease slowly after flattening around epoch 1000, which suggests a little more is possible, but the curves cannot show how much or whether validation MSE would eventually rise.}
-\answer{C3}{Training MSE only measures the fit to points the network has seen; validation MSE checks new points. Here the 2 curves overlap for the whole run and end about 1.2 times apart. Validation rising while training keeps falling would mean overfitting (memorizing training points); both staying high near $\mathrm{MSE}_0$, as until about epoch 500, means underfitting.}
+\answer{C1}{Figure~\ref{fig:loss_baseline}.}
+\answer{C2}{The final validation MSE, \BaselineValMSE\ m$^2$, is about 170 times below $\mathrm{MSE}_0$.}
+\answer{C3}{Yes: at epoch 500 the validation MSE was \CheckpointValMSE\ m$^2$, about 5 times higher than at epoch 1500.}
+\answer{C4}{A little: both curves still fall slowly near epoch 1500.}
+\answer{C5}{Yes: validation MSE stays only about 1.1 times above training MSE.}
+\answer{C6}{Overfitting: the network memorizes training points instead of learning the relation.}
+\answer{C7}{Underfitting: the network has learned nothing beyond the mean.}
 
-\section*{D. Controlled training probes}
+\section*{D. Training probes}
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=0.95\textwidth]{loss_probes.png}
-  \caption{The 4 probes, each with training and validation MSE on a logarithmic y-axis; the dashed curve is the baseline validation MSE.}\label{fig:probes}
+  \caption{The 4 probes with the baseline validation curve (dashed) and $\mathrm{MSE}_0$ (dotted).}\label{fig:loss_probes}
 \end{figure}
 
-\answer{D1}{At $10^{-5}$ the validation MSE is \TinyRateValMSE\ m$^2$, about 70 times \emph{above} $\mathrm{MSE}_0$ and still falling steadily: the updates are too small to make progress in 1500 epochs. At $10^{-1}$ it ends at \HigherRateValMSE\ m$^2$, only slightly below $\mathrm{MSE}_0$, with spikes of several orders of magnitude: the updates are too large to settle. The baseline $10^{-4}$ reaches \BaselineValMSE\ m$^2$, more than 100 times below $\mathrm{MSE}_0$; in all 3 runs training and validation move together, so the failures are failures to learn, not overfitting.}
-\answer{D2}{With raw SI inputs the validation MSE is \RawInputsValMSE\ m$^2$, about $\mathrm{MSE}_0$: the loss drops in the first few epochs and then stays flat, so the network learns only the mean. The inputs span roughly $10^{-4}$ ($I$) to $10^{10}$ ($E$); the large ones saturate the tanh neurons, whose gradients then vanish, and the small ones barely change the weighted sum, so the network cannot use them.}
-\answer{D3}{Plain SGD ends at validation MSE \SgdValMSE\ m$^2$, about $10^4$ times worse than Adam's \BaselineValMSE\ m$^2$ and still well above $\mathrm{MSE}_0$, with a slow, smooth decrease. Adam keeps running averages of the gradients (a momentum-like direction) and of the squared gradients, and divides by the square root of the latter, so each parameter moves by roughly the learning rate whatever its gradient size. SGD's step is the learning rate times the gradient; with the target in metres the gradients are small, so at $10^{-4}$ its steps are tiny.}
+\answer{D1}{Figure~\ref{fig:loss_probes}.}
+\answer{D2}{$10^{-6}$ is too slow: its curve barely falls and ends at \TinyRateValMSE\ m$^2$, far above $\mathrm{MSE}_0$. $1$ is unstable: its curve jumps up and down by orders of magnitude and never settles.}
+\answer{D3}{Each step overshoots the minimum, so the weights jump from one side of the valley to the other instead of descending into it.}
+\answer{D4}{The raw-input run stops at $\mathrm{MSE}_0$ (\RawInputsValMSE\ m$^2$) after a few epochs, while the baseline goes about 170 times lower.}
+\answer{D5}{Huge inputs such as $E$ saturate the tanh neurons and tiny ones such as $I$ barely change their output, so one learning rate cannot suit all weights.}
+\answer{D6}{SGD falls smoothly but slowly and ends at \SgdValMSE\ m$^2$, just below $\mathrm{MSE}_0$ and about 120 times above Adam.}
 
-\section*{E. Model improvement}
+\section*{E. Evaluation of the baseline}
+\noindent Baseline on the test set: MSE \TestMSE\ m$^2$, RMSE $\TestRMSE$ m, $R^2=\TestRtwo$. RMSE on the highest 5\% of test deflections: $\TailRMSE$ m.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.9\textwidth]{test_diagnostics.png}
+  \caption{Test parity and signed error of the baseline.}\label{fig:test_diagnostics}
+\end{figure}
+
+\answer{E1}{Values at the start of this section.}
+\answer{E2}{Figure~\ref{fig:test_diagnostics}, left.}
+\answer{E3}{Figure~\ref{fig:test_diagnostics}, right.}
+\answer{E4}{The test set must stay unseen during all choices; only then does it estimate the error on new beams honestly.}
+\answer{E5}{Yes: \TestMSE\ m$^2$ against \BaselineValMSE\ m$^2$ on validation, the same order of magnitude.}
+\answer{E6}{At the largest deflections, which are rare in the training data: the network underestimates them by up to about 6~cm. It also predicts slightly negative deflections, down to about $-8$~mm, for the stiffest beams.}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.85\textwidth]{response_curves.png}
+  \caption{Single-input response curves of the baseline, other inputs at their means.}\label{fig:response_curves}
+\end{figure}
+
+\answer{E7}{Figure~\ref{fig:response_curves}.}
+\answer{E8}{$L$: below about 1.5~m the network predicts negative deflections, and the largest disagreement is about \MaxResponseError\ m. The $I$ curve also wiggles at large $I$.}
+\answer{E9}{Yes: the $L$ and $I$ sweeps change the deflection by about 0.13~m, while $P$ and $E$ change it by about 0.01~m.}
+
+\section*{Bonus: Improvement}
 \begin{center}
 \small\setlength{\tabcolsep}{4pt}
-\begin{tabular}{@{}llllllllr@{}}
+\begin{tabular}{@{}lllllll@{}}
 \toprule
-Run & Widths & Activation & Rate & Target & Params & Train MSE (m$^2$) & Val.\ MSE (m$^2$) & Gain \\
+Run & Hidden layers & Activation & Rate & Epochs & Train MSE (m$^2$) & Val.\ MSE (m$^2$) \\
 \midrule
 \SearchRows
 \bottomrule
 \end{tabular}
 \end{center}
-\noindent All runs use Adam, batch size 64, and 1500 epochs. The baseline (4 tanh, rate $10^{-4}$, target in metres, \BaselineParams\ parameters) has validation MSE \BaselineValMSE\ m$^2$; ``Gain'' is how many times lower each run's validation MSE is. The winner \SelectedName\ gains about \ImprovementRatio\ times.
+\noindent S1--S4 each change 1 setting of the row above; S5 is S2 trained longer and S6 tests ReLU. All use Adam and batch size 64, and keep the weights of the epoch with the lowest validation MSE; the MSE columns are at that epoch. The baseline has validation MSE \BaselineValMSE\ m$^2$.
 
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=0.68\textwidth]{loss_selected.png}
-  \caption{Training and validation MSE of the selected model on a logarithmic y-axis.}\label{fig:selected-loss}
+  \caption{Loss curves of the selected run \SelectedName\ with $\mathrm{MSE}_0$; the vertical line marks the kept epoch \SelectedEpoch.}\label{fig:loss_selected}
 \end{figure}
 
-\answer{E1}{Reading the table row by row: raising the rate from $10^{-4}$ to $10^{-3}$ (S1) gains about 5 times, standardizing the target (S2) about 3 times, doubling the width to 8 (S3) about 5 times, and a rate of $3\times10^{-3}$ (S4) about 2 times. The parameter count alone does not explain the result: S5 has 121 parameters and is worse than S4 with 49, and S6 has the same 49 parameters as S4 but, with ReLU instead of tanh, is about 50 times worse.}
-\answer{E2}{Yes, slightly: the train--validation gap is about 1.2 times for the baseline, 2 times for the winner S4, and about 5 times for the deeper S5, the first sign of overfitting to watch. No run shows validation MSE rising while training MSE keeps falling, so none clearly overfits.}
-
-\section*{F. Held-out and engineering evaluation}
-\noindent The selected model has test MSE \TestMSE\ m$^2$, RMSE $\TestRMSE\ \mathrm m$, and $R^2=\TestRtwo$. For the highest 5\% of analytical test deflections (30 observations), RMSE is $\TailRMSE\ \mathrm m$.
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.9\textwidth]{test_diagnostics.png}
-  \caption{Held-out test parity and signed error against analytical deflection. The diagonal and zero line mark perfect prediction.}
-\end{figure}
-
-\answer{F1}{The test MSE, \TestMSE\ m$^2$, is about 1.8 times the validation MSE \SelectedValMSE\ m$^2$, the same order of magnitude; a much larger test MSE would suggest a lucky selection on the validation set. Almost all errors lie within about $\pm3\times10^{-4}$ m; the largest are underestimates at the highest deflections, about $-3.2\times10^{-3}$ m at $0.136$ m. The upper-tail RMSE is about 4 times the overall RMSE, so the surrogate is clearly less accurate for large deflections, which are rare in the training data.}
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.85\textwidth]{response_curves.png}
-  \caption{Single-input response curves, with the other inputs held at their nominal means.}
-\end{figure}
-
-\answer{F2}{The network tracks all 4 response curves closely; the largest maximum absolute discrepancy, about \MaxResponseError\ m, is on the $I$ sweep. The curves support A2: the $L$ and $I$ sweeps change the deflection most and $P$ least, although each curve's height also depends on the chosen sweep width.}
-
-\section*{Bonus: Monte Carlo propagation}
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.68\textwidth]{mc_distribution.png}
-  \caption{KDE curves for analytical and surrogate deflections on the same 10\,000 fresh Monte Carlo inputs, with a shared bandwidth.}
-\end{figure}
-
-\begin{center}
-\begin{tabular}{@{}lrrr@{}}
-\toprule
-Output & Mean (m) & Standard deviation (m) & 95th percentile (m) \\
-\midrule
-Analytical & \AnalyticalMean & \AnalyticalStd & \AnalyticalPnn \\
-Surrogate & \SurrogateMean & \SurrogateStd & \SurrogatePnn \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\answer{Bonus}{The means, standard deviations, and 95th percentiles agree closely on the same inputs; for example, the 95th percentiles are \AnalyticalPnn\ m and \SurrogatePnn\ m, and the means differ by about 0.01\%. The standard deviation and the 95th percentile are both about 0.1\% low, consistent with the underestimated large deflections in F1.}
+\answer{Bonus~1}{Table above.}
+\answer{Bonus~2}{\SelectedName\ has the lowest validation MSE; Figure~\ref{fig:loss_selected}.}
+\answer{Bonus~3}{Its test MSE is \SelectedTestMSE\ m$^2$, about 480 times lower than the baseline's \TestMSE\ m$^2$.}
+\answer{Bonus~4}{Longer training of the deep network helped most: 1500 to 5000 epochs for $[16,16,16]$ (S3 to S4) lowered the validation MSE about 50 times, to \ImprovementRatio\ times below the baseline. A second hidden layer (S1 to S2) gave another 20 times.}
+\answer{Bonus~5}{No: $[16]$ (S1) is twice as bad as the baseline $[8]$, and at 1500 epochs the 3-layer S3 is only slightly better than the 2-layer S2. Larger networks need more epochs to pay off.}
+\answer{Bonus~6}{No: no validation curve rises, and training and validation MSE stay within about 3 times (largest for S6, ReLU). Keeping the best-validation epoch also guards against it.}
 
 \end{document}
