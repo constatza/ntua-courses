@@ -17,6 +17,7 @@ cd "$1" || exit 1
 
 sig() { # <file>: the structure a variant must share with its base
   grep -o '\\question{' "$1" | wc -l
+  grep -o '\\aitrap' "$1" | wc -l
   grep -o '\\\(sub\)\{0,1\}section' "$1" | wc -l
   grep -o '\\\(label\|ref\|href\|doc\){[^}]*}' "$1"
 }

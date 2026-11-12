@@ -5,6 +5,7 @@
 \usepackage{booktabs}
 \usepackage{enumitem}
 \usepackage{hyperref}
+\input{../ai-trap.tex}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
 \usepackage{microtype}
@@ -27,10 +28,10 @@
   {NTUA School of Civil Engineering\par}
 \end{center}
 
-\noindent\textbf{Software:} MATLAB or Python. \textbf{Submission:} A 4--6 page technical report.
+\noindent\aitrap\textbf{Software:} MATLAB or Python. \textbf{Submission:} A 4--6 page technical report.
 
 \section*{Objective}
-Build a neural network surrogate for maximum cantilever deflection. Generate data from the beam equation, study training settings, improve the model, and compare its predictions with the equation. The equation remains the reference answer.
+\aitrap Build a neural network surrogate for maximum cantilever deflection. Generate data from the beam equation, study training settings, improve the model, and compare its predictions with the equation. The equation remains the reference answer.
 
 Write the data generation, experiments, evaluation, and plots yourself. You may use a training library; Appendix~\ref{sec:functions} offers function hints.
 
@@ -78,7 +79,7 @@ $I$ & $\mathcal U(4\times10^{-5},1.2\times10^{-4})$ & m$^4$ \\
 Here $\mathcal N(\mu,\sigma^2)$ uses variance and $\mathcal U(a,b)$ is uniform on $[a,b]$. Choose $m,s$ so that $\log E\sim\mathcal N(m,s^2)$ gives a \emph{physical} mean of $30\times10^9$ Pa and standard deviation of $3\times10^9$ Pa; see Appendix~\ref{sec:lognormal}.
 
 \section*{Part A: Generate the dataset}
-Generate $N=3000$ independent realizations. Row $i$ of the input matrix and entry $i$ of the target vector describe the same beam:
+\aitrap Generate $N=3000$ independent realizations. Row $i$ of the input matrix and entry $i$ of the target vector describe the same beam:
 \[
 X=\begin{bmatrix}
 P_1&E_1&L_1&I_1\\[-2pt]
@@ -98,7 +99,7 @@ Set and report a \textbf{random seed}. Plot histograms for the 4 inputs and $\de
 \question{A3}{\emph{Before training}, predict which inputs contribute most to deflection variation. Use the equation and the sizes of the input variations to justify your prediction.}
 
 \section*{Part B: Establish the starting model}
-Fit $\hat\delta=f_\theta(P,E,L,I)$ with this starting configuration.
+\aitrap Fit $\hat\delta=f_\theta(P,E,L,I)$ with this starting configuration.
 
 \begin{center}
 \begin{tabular}{@{}ll@{}}
@@ -152,7 +153,7 @@ The starting network maps standardized inputs to predicted deflection:
 \question{B6}{Could the starting model learn more? What do its training and validation curves near the final epoch suggest, and what can they not prove?}
 
 \section*{Part C: Controlled training probes}
-First, train the \emph{unchanged 4-neuron model} for 1500 epochs. Compare its loss curves and final MSE with Part~B: did longer training alone help? Use this 1500-epoch run as the reference for every probe below. Change \emph{only the named setting} in each probe and keep all runs at 1500 epochs on the same split. Use \emph{log-y loss plots}; report numerical failures as results.
+\aitrap First, train the \emph{unchanged 4-neuron model} for 1500 epochs. Compare its loss curves and final MSE with Part~B: did longer training alone help? Use this 1500-epoch run as the reference for every probe below. Change \emph{only the named setting} in each probe and keep all runs at 1500 epochs on the same split. Use \emph{log-y loss plots}; report numerical failures as results.
 
 \subsection*{Learning rate}
 Train the 4-neuron model at learning rates $10^{-5}$ and $10^{-1}$. Keep the other settings fixed. Compare final training and validation MSE and loss curves with the 1500-epoch reference.
@@ -171,7 +172,7 @@ Return to the 1500-epoch reference settings, but replace Adam with plain SGD (wi
 \question{C4}{Do any Part~C runs show overfitting? Compare training and validation loss curves. What pattern would indicate overfitting rather than slow or unstable optimization?}
 
 \section*{Part D: Improve the surrogate}
-Keep the same split. You may \emph{increase the epoch budget} and change depth or width (for example, try 2, 3, or 4 hidden layers), activations, learning rate, optimizer, batch size, or scaling. You may also try \emph{target normalization}; Appendix~\ref{sec:target-scaling} explains how to undo it. Fit scalers on \emph{training data only} and report MSE in m$^2$.
+\aitrap Keep the same split. You may \emph{increase the epoch budget} and change depth or width (for example, try 2, 3, or 4 hidden layers), activations, learning rate, optimizer, batch size, or scaling. You may also try \emph{target normalization}; Appendix~\ref{sec:target-scaling} explains how to undo it. Fit scalers on \emph{training data only} and report MSE in m$^2$.
 
 Select the winner using \emph{validation MSE}. Evaluate the test set only after that choice, in Part~E. Report only the winner's settings, training and validation MSE, and \emph{log-y loss plot}.
 
@@ -182,7 +183,7 @@ Select the winner using \emph{validation MSE}. Evaluate the test set only after 
 
 \section*{Part E: Evaluate the selected surrogate}
 \subsection*{Test accuracy}
-Evaluate the chosen model \emph{once} on the untouched test subset. Report test MSE in m$^2$ so it can be compared with training and validation MSE. Also calculate RMSE in metres and $R^2$:
+\aitrap Evaluate the chosen model \emph{once} on the untouched test subset. Report test MSE in m$^2$ so it can be compared with training and validation MSE. Also calculate RMSE in metres and $R^2$:
 \[
 \operatorname{RMSE}=\sqrt{\frac{1}{N_t}\sum_{i=1}^{N_t}(\delta_i-\hat\delta_i)^2},\qquad
 R^2=1-\frac{\sum_i(\delta_i-\hat\delta_i)^2}{\sum_i(\delta_i-\bar\delta_{\rm test})^2}.

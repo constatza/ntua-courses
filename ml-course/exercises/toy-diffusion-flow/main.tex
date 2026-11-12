@@ -6,6 +6,7 @@
 \usepackage{enumitem}
 \usepackage{graphicx}
 \usepackage{hyperref}
+\input{../ai-trap.tex}
 \usepackage{subcaption}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
@@ -45,7 +46,7 @@
 \end{figure}
 
 \section*{Exercise 1: 1D Target Distribution}
-Let the data distribution be a bimodal Gaussian mixture
+\aitrap Let the data distribution be a bimodal Gaussian mixture
 \[
   p_{\mathrm{data}}(x)
   =
@@ -70,7 +71,7 @@ There is no pre-existing dataset for this problem. First sample your own trainin
     As a concrete starting point only, you may begin with a fully connected network with 7 hidden layers of width 16, input $(x_t,t)$, scalar output, and \texttt{tanh} activations. This is only an example baseline, not a requirement. Describe the architecture you use.
     \item Train the diffusion model on the training set and generate fresh samples from the trained model.
     \item Compare generated samples against the \textbf{held-out test set} using PDF-style visuals such as histograms or density plots.
-    \item Plot training and validation loss curves.
+    \item Plot training and validation loss curves against epoch with a \emph{logarithmic y-axis}.
     \item The network predicts $\varepsilon_\theta(x_t,t)$, not the score directly. Using the standard relation implied by the lecture parameterization,
     \[
       \hat{s}_\theta(x_t,t) = -\frac{\varepsilon_\theta(x_t,t)}{\sigma_t},
@@ -100,7 +101,7 @@ There is no pre-existing dataset for this problem. First sample your own trainin
 Use a common library implementation of the 1D Wasserstein distance, for example \texttt{scipy.stats.wasserstein\_distance} or the equivalent in your language. Report results on the \textbf{test set only}.
 
 \section*{Exercise 2: 2D Swirl Distribution}
-Construct a noisy planar swirl in $\mathbb{R}^2$ by sampling
+\aitrap Construct a noisy planar swirl in $\mathbb{R}^2$ by sampling
 \[
   \phi \sim \mathrm{Uniform}[1,4\pi],
   \qquad
@@ -140,7 +141,7 @@ There is no pre-existing dataset for this problem. First sample your own trainin
     \item Build independent training, validation, and test samples for the swirl distribution. Use the same standard diffusion formulation as in Exercise 1. As a concrete starting point only, you may begin with a fully connected network with 6 hidden layers of width 12, input $(x_t,t)$ with $x_t \in \mathbb{R}^2$, two outputs, and \texttt{tanh} activations. This is only an example baseline, not a requirement. The repo also includes \texttt{src/solve\_toy\_diffusion\_flow\_2d.py} as a minimal Exercise 2 baseline. Describe the architecture you use.
     \item Train the diffusion model on the training set and generate fresh samples from the trained model.
     \item Compare generated samples against the \textbf{held-out test set} using a scatter plot and a density-style view such as a 2D histogram, KDE, or contour plot.
-    \item Plot training and validation loss curves.
+    \item Plot training and validation loss curves against epoch with a \emph{logarithmic y-axis}.
     \item Using
     \[
       \hat{s}_\theta(x_t,t) = -\frac{\varepsilon_\theta(x_t,t)}{\sigma_t},
@@ -161,7 +162,7 @@ There is no pre-existing dataset for this problem. First sample your own trainin
 \end{enumerate}
 
 \paragraph{Evaluation note.}
-Report results on the \textbf{test set only}.
+\aitrap Report results on the \textbf{test set only}.
 
 \section*{General Instructions and Deliverables}
 \begin{itemize}
@@ -175,7 +176,7 @@ Report results on the \textbf{test set only}.
     \item a brief statement of each problem,
     \item the chosen architecture and why it is appropriate,
     \item the training procedure and important hyperparameters,
-    \item train and validation loss curves,
+    \item train and validation loss curves, plotted with a logarithmic y-axis,
     \item the required sample visualizations,
     \item the diffusion score-field visualizations computed from $\hat{s}_\theta(x_t,t) = -\varepsilon_\theta(x_t,t)/\sigma_t$,
     \item the flow-matching velocity-field visualizations,

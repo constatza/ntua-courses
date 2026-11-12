@@ -61,6 +61,9 @@ mkdir -p c/exercises/p
 printf '\\question{A1}{x}\n' >c/exercises/p/main.tex
 printf 'no questions here\n' >c/exercises/p/main-greek.tex
 tools/check-variants c >/dev/null && fail "variant missing a question accepted"
+printf '\\question{A1}{x}\\aitrap\n' >c/exercises/p/main.tex
+printf '\\question{A1}{x}\n' >c/exercises/p/main-greek.tex
+tools/check-variants c >/dev/null && fail "variant missing an aitrap accepted"
 rm -rf c/exercises/p
 
 # 4. tools/ci --tag validation
