@@ -1,4 +1,24 @@
-\newcommand{\SelectedRun}{33}
+\newcommand{\NoSkillMSE}{$4.868\times10^{-4}$}
+\newcommand{\CheckpointTrainMSE}{$4.699\times10^{-4}$}
+\newcommand{\CheckpointValMSE}{$5.036\times10^{-4}$}
+\newcommand{\BaselineTrainMSE}{$2.408\times10^{-6}$}
+\newcommand{\BaselineValMSE}{$2.987\times10^{-6}$}
+\newcommand{\HigherRateValMSE}{$3.271\times10^{-4}$}
+\newcommand{\TinyRateValMSE}{$3.284\times10^{-2}$}
+\newcommand{\RawInputsValMSE}{$4.883\times10^{-4}$}
+\newcommand{\SgdTrainMSE}{$3.203\times10^{-2}$}
+\newcommand{\SgdValMSE}{$3.358\times10^{-2}$}
+\newcommand{\SelectedName}{S4}
+\newcommand{\SelectedValMSE}{$1.606\times10^{-8}$}
+\newcommand{\SelectedTrainMSE}{$8.058\times10^{-9}$}
+\newcommand{\SelectedArchitecture}{1 hidden layer of 8}
+\newcommand{\SelectedActivation}{tanh}
+\newcommand{\SelectedRate}{$3\times10^{-3}$}
+\newcommand{\SelectedParams}{49}
+\newcommand{\BaselineParams}{25}
+\newcommand{\SearchTrials}{6}
+\newcommand{\ImprovementRatio}{186}
+\newcommand{\MaxResponseError}{$1.571\times10^{-4}$}
 \newcommand{\TestMSE}{$2.869\times10^{-8}$}
 \newcommand{\TestRMSE}{0.0001694}
 \newcommand{\TestRtwo}{0.9999}
@@ -9,33 +29,18 @@
 \newcommand{\SurrogateStd}{0.0214435}
 \newcommand{\AnalyticalPnn}{0.0861947}
 \newcommand{\SurrogatePnn}{0.0861128}
-\newcommand{\BaselineTrainMSE}{$4.699\times10^{-4}$}
-\newcommand{\BaselineValMSE}{$5.036\times10^{-4}$}
-\newcommand{\ReferenceTrainMSE}{$2.408\times10^{-6}$}
-\newcommand{\ReferenceValMSE}{$2.987\times10^{-6}$}
-\newcommand{\HigherRateValMSE}{$3.271\times10^{-4}$}
-\newcommand{\TinyRateValMSE}{$3.284\times10^{-2}$}
-\newcommand{\SgdTrainMSE}{$3.203\times10^{-2}$}
-\newcommand{\SgdValMSE}{$3.358\times10^{-2}$}
-\newcommand{\RawInputsValMSE}{$4.883\times10^{-4}$}
-\newcommand{\SelectedValMSE}{$1.606\times10^{-8}$}
-\newcommand{\SelectedTrainMSE}{$8.058\times10^{-9}$}
-\newcommand{\SelectedArchitecture}{1 hidden layer of 8}
-\newcommand{\SelectedActivation}{tanh}
-\newcommand{\SelectedRate}{$3\times10^{-3}$}
-\newcommand{\SelectedParams}{49}
-\newcommand{\SelectedTargetScaling}{standardized using training-target statistics}
-\newcommand{\SearchTrials}{72}
-\newcommand{\SearchMaxWidth}{8}
-\newcommand{\BestFourNeuronValMSE}{$1.662\times10^{-7}$}
-\newcommand{\BestRawTargetValMSE}{$5.502\times10^{-8}$}
-\newcommand{\BestReluValMSE}{$2.019\times10^{-7}$}
-\newcommand{\ImprovementRatio}{186.0}
-\newcommand{\MaxResponseError}{$1.571\times10^{-4}$}
 \newcommand{\SampleRows}{%
 $P$ (N) & $9.995\times10^{3}$ & $7.069\times10^{2}$ \\
 $E$ (Pa) & $3.000\times10^{10}$ & $3.023\times10^{9}$ \\
 $L$ (m) & $3.004\times10^{0}$ & $3.470\times10^{-1}$ \\
 $I$ (m$^4$) & $7.988\times10^{-5}$ & $2.299\times10^{-5}$ \\
 $\delta$ (m) & $4.331\times10^{-2}$ & $2.113\times10^{-2}$ \\
+}
+\newcommand{\SearchRows}{%
+S1 & 4 & tanh & $1\times10^{-3}$ & metres & 25 & $4.89\times10^{-7}$ & $6.03\times10^{-7}$ & 5 \\
+S2 & 4 & tanh & $1\times10^{-3}$ & standardized & 25 & $1.49\times10^{-7}$ & $1.83\times10^{-7}$ & 16 \\
+S3 & 8 & tanh & $1\times10^{-3}$ & standardized & 49 & $1.91\times10^{-8}$ & $3.38\times10^{-8}$ & 88 \\
+S4 & 8 & tanh & $3\times10^{-3}$ & standardized & 49 & $8.06\times10^{-9}$ & $1.61\times10^{-8}$ & 186 \\
+S5 & 8, 8 & tanh & $3\times10^{-3}$ & standardized & 121 & $1.25\times10^{-8}$ & $5.71\times10^{-8}$ & 52 \\
+S6 & 8 & relu & $3\times10^{-3}$ & standardized & 49 & $6.40\times10^{-7}$ & $8.10\times10^{-7}$ & 4 \\
 }
