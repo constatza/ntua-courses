@@ -15,6 +15,7 @@
 #   - dist/MANIFEST lists exactly the PDFs built, named <kind>_<slug>[_answers].pdf
 #   - a LaTeX log tail is printed for every failing target
 #   - tools/check-course-layout and tools/check-variants must pass
+#   - after a successful build the PDFs are also copied to <repo>/pdfs/<course>/ (gitignored)
 # The class is found through TEXINPUTS inside this repository; nothing is installed globally.
 set -u
 
@@ -85,6 +86,8 @@ build_one() { # <course-dir>; run from the repo root
     mv dist.manifest dist.tmp/MANIFEST
     (latex --version 2>/dev/null | head -n 1) >dist.tmp/TEXLIVE || true
     mv dist.tmp dist
+    # Mirror into <repo>/pdfs/<course>/ so every course's PDFs sit in one local folder (gitignored).
+    rm -rf "$root/pdfs/$course" && mkdir -p "$root/pdfs/$course" && cp dist/*.pdf "$root/pdfs/$course/"
     echo "$course/dist ready: $built PDFs"
   )
 }

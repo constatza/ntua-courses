@@ -15,7 +15,7 @@ All NTUA courses, their build tooling and CI in one repository. Each course is a
 Requires TeX Live with `latexmk` (and `lualatex` for the `sampling` deck) and [`uv`](https://docs.astral.sh/uv/) for the Python demos. Nothing is installed globally; the class is found through `TEXINPUTS` inside this repository.
 ```sh
 git clone <this-repo> ntua-courses && cd ntua-courses
-tools/build-course                  # every course; PDFs end up in <course>/dist/
+tools/build-course                  # every course; PDFs end up in <course>/dist/ and pdfs/<course>/
 tools/build-course ml-course        # one course
 ```
 A failed target leaves no `dist/` and no stale PDF behind, and prints the tail of its LaTeX log.
